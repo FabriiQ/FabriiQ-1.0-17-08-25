@@ -81,6 +81,21 @@ export function FeeAssignmentDialog({
 }: FeeAssignmentDialogProps) {
   const [selectedStructure, setSelectedStructure] = useState<FeeStructure | null>(null);
 
+  // Debug logging for fee structures
+  console.log('FeeAssignmentDialog debug:', {
+    enrollmentId,
+    studentName,
+    className,
+    feeStructuresCount: feeStructures.length,
+    feeStructures: feeStructures.map(fs => ({
+      id: fs.id,
+      name: fs.name,
+      baseAmount: fs.baseAmount,
+      componentsCount: fs.components?.length || 0
+    })),
+    isLoading
+  });
+
   const form = useForm<FeeAssignmentFormData>({
     resolver: zodResolver(feeAssignmentSchema),
     defaultValues: {
@@ -127,16 +142,23 @@ export function FeeAssignmentDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {feeStructures.map((structure) => (
-                        <SelectItem key={structure.id} value={structure.id}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{structure.name}</span>
-                            <span className="text-sm text-muted-foreground">
-                              Rs. {structure.baseAmount.toLocaleString()}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
+                      {feeStructures.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-muted-foreground">
+                          <p>No fee structures available</p>
+                          <p className="text-xs mt-1">Please create fee structures for this program first</p>
+                        </div>
+                      ) : (
+                        feeStructures.map((structure) => (
+                          <SelectItem key={structure.id} value={structure.id}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{structure.name}</span>
+                              <span className="text-sm text-muted-foreground">
+                                Rs. {structure.baseAmount.toLocaleString()}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />

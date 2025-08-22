@@ -95,6 +95,14 @@ export function EnrollmentFeeForm({
     },
   });
 
+  // Debug logging for fee structures
+  console.log('EnrollmentFeeForm debug:', {
+    enrollmentId,
+    feeStructuresCount: feeStructures.length,
+    feeStructures: feeStructures.map(fs => ({ id: fs.id, name: fs.name, baseAmount: fs.baseAmount })),
+    discountTypesCount: discountTypes.length
+  });
+
   const handleSubmit = (values: EnrollmentFeeFormValues) => {
     onSubmit(values);
   };
@@ -173,11 +181,17 @@ export function EnrollmentFeeForm({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {feeStructures.map((feeStructure) => (
-                        <SelectItem key={feeStructure.id} value={feeStructure.id}>
-                          {feeStructure.name} (${feeStructure.baseAmount.toFixed(2)})
-                        </SelectItem>
-                      ))}
+                      {feeStructures.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground">
+                          No fee structures available for this program
+                        </div>
+                      ) : (
+                        feeStructures.map((feeStructure) => (
+                          <SelectItem key={feeStructure.id} value={feeStructure.id}>
+                            {feeStructure.name} (Rs. {feeStructure.baseAmount.toLocaleString()})
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />

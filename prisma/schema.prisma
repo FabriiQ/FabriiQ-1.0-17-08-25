@@ -1567,7 +1567,7 @@ model DiscountType {
 
 model EnrollmentFee {
   id                String             @id @default(cuid())
-  enrollmentId      String             @unique
+  enrollmentId      String
   feeStructureId    String
   baseAmount        Float
   discountedAmount  Float
@@ -1593,8 +1593,10 @@ model EnrollmentFee {
   lateFeeWaivers    LateFeeWaiver[]
   lateFeeHistory    LateFeeHistory[]
 
+  @@index([enrollmentId])
   @@index([paymentStatus])
   @@index([dueDate])
+  @@index([enrollmentId, feeStructureId])
   @@map("enrollment_fees")
 }
 

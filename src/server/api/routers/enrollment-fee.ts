@@ -35,6 +35,13 @@ export const enrollmentFeeRouter = createTRPCRouter({
       return feeService.getEnrollmentFeeByEnrollment(input.enrollmentId);
     }),
 
+  getAllByEnrollment: protectedProcedure
+    .input(z.object({ enrollmentId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const feeService = new FeeService({ prisma: ctx.prisma });
+      return feeService.getEnrollmentFeesByEnrollment(input.enrollmentId);
+    }),
+
   update: protectedProcedure
     .input(updateEnrollmentFeeSchema)
     .mutation(async ({ ctx, input }) => {

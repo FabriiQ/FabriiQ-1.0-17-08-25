@@ -1280,7 +1280,7 @@ export default function EnrollmentDetailPage() {
           baseAmount: (fs.feeComponents as any)?.reduce((sum: number, comp: any) => sum + comp.amount, 0) || 0
         })) || []}
         onAssign={handleAssignFee}
-        isLoading={assignFeeMutation.isLoading}
+        isLoading={assignFeeMutation.isPending || assignFeeMutation.isLoading}
       />
 
       <DiscountApplicationDialog

@@ -14,7 +14,9 @@ import {
   FileText,
   Settings,
   Loader2,
-  LayoutGrid
+  LayoutGrid,
+  AlertCircle,
+  Bell
 } from 'lucide-react';
 import { DollarSign } from '@/components/ui/icons/custom-icons';
 import { format } from 'date-fns';
@@ -22,7 +24,7 @@ import { getPaymentMethodLabel, getPaymentMethodIcon } from '@/types/payment-met
 import { DataTable } from '@/components/ui/data-display/data-table';
 import { ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, Edit, Eye, Trash2, Percent } from 'lucide-react';
+import { MoreHorizontal, Edit, Eye, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -115,7 +117,7 @@ export default function SystemFeeManagementPage() {
           <div className="flex items-center">
             {row.original.isPercentage ? (
               <>
-                <Percent className="h-4 w-4 mr-1" />
+                <span className="h-4 w-4 mr-1 inline-flex items-center justify-center">%</span>
                 {value}%
               </>
             ) : (
@@ -191,6 +193,7 @@ export default function SystemFeeManagementPage() {
           <TabsTrigger value="structures">Fee Structures</TabsTrigger>
           <TabsTrigger value="discount-types">Discount Types</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-6">
@@ -695,6 +698,64 @@ export default function SystemFeeManagementPage() {
                   <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => router.push('/admin/system/fee-management/discount-types/new')}>
                     <Plus className="h-3 w-3 mr-2" />
                     New Discount Type
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push('/admin/system/fee-management/settings')}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  General Settings
+                </CardTitle>
+                <CardDescription>Configure currency, due dates, and receipt settings</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Manage fee configurations</span>
+                  <Button size="sm" variant="outline">
+                    Open Settings
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push('/admin/system/fee-management/settings?tab=late-fees')}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5" />
+                  Late Fee Policies
+                </CardTitle>
+                <CardDescription>Configure late fee policies and automated processing</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Manage late fee rules</span>
+                  <Button size="sm" variant="outline">
+                    Configure
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push('/admin/system/fee-management/settings?tab=notifications')}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bell className="h-5 w-5" />
+                  Notifications
+                </CardTitle>
+                <CardDescription>Configure automated notifications and reminders</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Setup notifications</span>
+                  <Button size="sm" variant="outline">
+                    Configure
                   </Button>
                 </div>
               </CardContent>

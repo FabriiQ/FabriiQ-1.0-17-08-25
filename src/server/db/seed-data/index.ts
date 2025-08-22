@@ -16,6 +16,8 @@ import { seedActivities } from './activities';
 import { seedActivitiesByType } from './activities-seed';
 import { seedBulkStudents } from './bulk-students-seed';
 import { seedTeacherAssignments } from './teacher-assignments';
+import { seedTeacherAttendance } from './teacher-attendance';
+import { seedLateFeePolicies } from './late-fee-policies';
 
 const prisma = new PrismaClient();
 
@@ -103,6 +105,14 @@ export async function seedNewData() {
     // Step 16: Seed teacher assignments
     await seedTeacherAssignments(prisma, users.teachers, classes, subjects);
     console.log('Teacher assignments seeded successfully');
+
+    // Step 17: Seed teacher attendance
+    await seedTeacherAttendance(prisma, users.teachers, campuses);
+    console.log('Teacher attendance seeded successfully');
+
+    // Step 18: Seed late fee policies
+    await seedLateFeePolicies(prisma, Object.values(users).flat());
+    console.log('Late fee policies seeded successfully');
 
     console.log('New database seeding completed successfully!');
     return {

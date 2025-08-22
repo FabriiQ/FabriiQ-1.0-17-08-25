@@ -23,6 +23,8 @@ const lateFeeSettingsSchema = z.object({
   lateFeeAmount: z.number().min(0).default(50),
   lateFeeType: z.enum(['FIXED', 'PERCENTAGE']).default('FIXED'),
   maxLateFeeAmount: z.number().min(0).optional(),
+  autoApply: z.boolean().default(false),
+  notificationEnabled: z.boolean().default(true),
 });
 
 export const lateFeeRouter = createTRPCRouter({
@@ -349,7 +351,15 @@ export const lateFeeRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       try {
         const lateFeeService = new LateFeeService({ prisma: ctx.prisma });
-        return await lateFeeService.getPolicies(input);
+
+        // Handle includeInactive parameter
+        const filters = input ? {
+          institutionId: input.institutionId,
+          campusId: input.campusId,
+          isActive: input.includeInactive ? undefined : (input.isActive ?? true),
+        } : undefined;
+
+        return await lateFeeService.getPolicies(filters);
       } catch (error) {
         console.error("Error fetching late fee policies:", error);
         throw new TRPCError({

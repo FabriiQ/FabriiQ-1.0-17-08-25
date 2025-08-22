@@ -581,13 +581,25 @@ export class FeeService {
   }
 
   async getFeeStructuresByProgramCampus(programCampusId: string) {
-    return this.prisma.feeStructure.findMany({
+    console.log('DEBUG getFeeStructuresByProgramCampus:', { programCampusId });
+
+    // First check if any fee structures exist for this programCampusId (regardless of status)
+    const allFeeStructures = await this.prisma.feeStructure.findMany({
+      where: { programCampusId },
+      select: { id: true, name: true, status: true }
+    });
+    console.log('DEBUG all fee structures for programCampusId:', allFeeStructures);
+
+    const activeFeeStructures = await this.prisma.feeStructure.findMany({
       where: {
         programCampusId,
         status: "ACTIVE",
       },
       orderBy: { createdAt: "desc" },
     });
+
+    console.log('DEBUG active fee structures:', activeFeeStructures.length);
+    return activeFeeStructures;
   }
 
   async updateFeeStructure(input: UpdateFeeStructureInput) {
@@ -633,12 +645,15 @@ export class FeeService {
         throw new Error(`Enrollment with ID ${enrollmentId} not found`);
       }
 
-      // Prevent duplicate fee assignment (handles unique constraint on enrollmentId)
-      const existingFee = await this.prisma.enrollmentFee.findUnique({
-        where: { enrollmentId },
+      // Check for duplicate fee structure assignment (prevent same fee structure being assigned twice)
+      const existingFee = await this.prisma.enrollmentFee.findFirst({
+        where: {
+          enrollmentId,
+          feeStructureId
+        },
       });
       if (existingFee) {
-        throw new Error('An enrollment fee is already assigned to this enrollment. Please update the existing fee.');
+        throw new Error('This fee structure is already assigned to this enrollment. Please choose a different fee structure or update the existing one.');
       }
 
       // Get fee structure
@@ -769,12 +784,12 @@ export class FeeService {
   }
 
   /**
-   * Gets enrollment fee by enrollment ID
+   * Gets enrollment fees by enrollment ID (now supports multiple fee structures)
    * @param enrollmentId The enrollment ID
-   * @returns The enrollment fee or null if not found
+   * @returns Array of enrollment fees for the enrollment
    */
-  async getEnrollmentFeeByEnrollment(enrollmentId: string) {
-    return this.prisma.enrollmentFee.findUnique({
+  async getEnrollmentFeesByEnrollment(enrollmentId: string) {
+    return this.prisma.enrollmentFee.findMany({
       where: { enrollmentId },
       include: {
         feeStructure: true,
@@ -792,7 +807,18 @@ export class FeeService {
           orderBy: { date: "desc" },
         },
       },
+      orderBy: { createdAt: "desc" },
     });
+  }
+
+  /**
+   * Gets enrollment fee by enrollment ID (legacy method for backward compatibility)
+   * @param enrollmentId The enrollment ID
+   * @returns The first enrollment fee or null if not found
+   */
+  async getEnrollmentFeeByEnrollment(enrollmentId: string) {
+    const fees = await this.getEnrollmentFeesByEnrollment(enrollmentId);
+    return fees.length > 0 ? fees[0] : null;
   }
 
   async updateEnrollmentFee(input: UpdateEnrollmentFeeInput) {

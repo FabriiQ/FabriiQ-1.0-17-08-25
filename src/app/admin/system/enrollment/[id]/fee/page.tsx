@@ -29,11 +29,14 @@ export default function SystemEnrollmentFeePage() {
     { enabled: !!id }
   );
 
-  // Fetch fee data
-  const { data: fee, isLoading: feeLoading, refetch: refetchFee, error: feeError } = api.enrollmentFee.getByEnrollment.useQuery(
+  // Fetch fee data (multiple fee structures supported)
+  const { data: fees, isLoading: feeLoading, refetch: refetchFee, error: feeError } = api.enrollmentFee.getAllByEnrollment.useQuery(
     { enrollmentId: id },
     { enabled: !!id }
   );
+
+  // For backward compatibility, use the first fee as the primary fee
+  const fee = fees && fees.length > 0 ? fees[0] : null;
 
   // Fetch fee structures
   const programCampusId = enrollment?.enrollment?.class?.programCampusId || enrollment?.enrollment?.class?.programCampus?.id;
@@ -63,6 +66,7 @@ export default function SystemEnrollmentFeePage() {
       enrollmentLoading,
       enrollmentError,
       programCampusId,
+      feeStructures,
       feeStructuresLoading,
       feeStructuresError,
       discountTypesLoading,
@@ -70,17 +74,18 @@ export default function SystemEnrollmentFeePage() {
       challanTemplatesLoading,
       challanTemplatesError
     });
-  }, [id, enrollment, enrollmentLoading, enrollmentError, programCampusId, feeStructuresLoading, feeStructuresError, discountTypesLoading, discountTypesError, challanTemplatesLoading, challanTemplatesError]);
+  }, [id, enrollment, enrollmentLoading, enrollmentError, programCampusId, feeStructures, feeStructuresLoading, feeStructuresError, discountTypesLoading, discountTypesError, challanTemplatesLoading, challanTemplatesError]);
 
   // Mutations
   const createEnrollmentFeeMutation = api.enrollmentFee.create.useMutation({
     onSuccess: () => {
       toast({
-        title: "Fee assigned successfully",
-        description: "The fee has been assigned to the enrollment.",
+        title: "Fee structure assigned successfully",
+        description: "The fee structure has been assigned to the enrollment.",
       });
       refetchFee();
-      setActiveTab("details");
+      // Stay on assign tab to allow adding more fee structures
+      // setActiveTab("details");
     },
     onError: (error) => {
       toast({
@@ -560,18 +565,60 @@ export default function SystemEnrollmentFeePage() {
         </TabsContent>
 
         <TabsContent value="assign" className="mt-6">
-          {!fee && feeStructures && (
-            <EnrollmentFeeForm
-              enrollmentId={id}
-              feeStructures={(feeStructures || []).map(fs => ({
-                id: fs.id,
-                name: fs.name,
-                components: (fs.feeComponents as any) || [],
-                baseAmount: (fs.feeComponents as any)?.reduce((sum: number, comp: any) => sum + comp.amount, 0) || 0
-              }))}
-              discountTypes={discountTypes || []}
-              onSubmit={handleCreateFee}
-            />
+          {feeStructures && (
+            <div className="space-y-4">
+              {fees && fees.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-lg font-medium mb-2">Currently Assigned Fee Structures</h3>
+                  <div className="space-y-2">
+                    {fees.map((assignedFee, index) => (
+                      <div key={assignedFee.id} className="p-3 border rounded-lg bg-muted/50">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="font-medium">{assignedFee.feeStructure.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Base Amount: Rs. {assignedFee.baseAmount.toLocaleString()} |
+                              Final Amount: Rs. {assignedFee.finalAmount.toLocaleString()} |
+                              Status: {assignedFee.paymentStatus}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <h3 className="text-lg font-medium mb-2">
+                  {fees && fees.length > 0 ? 'Assign Additional Fee Structure' : 'Assign Fee Structure'}
+                </h3>
+                <EnrollmentFeeForm
+                  enrollmentId={id}
+                  feeStructures={(() => {
+                    const availableStructures = (feeStructures || [])
+                      .filter(fs => !fees?.some(assignedFee => assignedFee.feeStructureId === fs.id))
+                      .map(fs => ({
+                        id: fs.id,
+                        name: fs.name,
+                        components: (fs.feeComponents as any) || [],
+                        baseAmount: (fs.feeComponents as any)?.reduce((sum: number, comp: any) => sum + comp.amount, 0) || 0
+                      }));
+
+                    console.log('Available fee structures for form:', {
+                      totalFeeStructures: feeStructures?.length || 0,
+                      assignedFees: fees?.length || 0,
+                      availableStructures: availableStructures.length,
+                      structures: availableStructures.map(s => ({ id: s.id, name: s.name, baseAmount: s.baseAmount }))
+                    });
+
+                    return availableStructures;
+                  })()}
+                  discountTypes={discountTypes || []}
+                  onSubmit={handleCreateFee}
+                />
+              </div>
+            </div>
           )}
         </TabsContent>
       </Tabs>

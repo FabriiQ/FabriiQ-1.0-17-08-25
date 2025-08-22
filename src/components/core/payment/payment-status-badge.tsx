@@ -3,7 +3,7 @@
 import { Badge, BadgeProps } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-export type PaymentStatus = "PAID" | "PENDING" | "PARTIAL" | "WAIVED";
+export type PaymentStatus = "PAID" | "PENDING" | "PARTIAL" | "WAIVED" | "OVERDUE";
 
 export interface PaymentStatusBadgeProps extends Omit<BadgeProps, "variant" | "children"> {
   status: PaymentStatus;
@@ -27,6 +27,8 @@ export function PaymentStatusBadge({
         return "default";
       case "WAIVED":
         return "outline";
+      case "OVERDUE":
+        return "destructive";
       default:
         return "secondary";
     }
@@ -42,6 +44,8 @@ export function PaymentStatusBadge({
         return "Partial";
       case "WAIVED":
         return "Waived";
+      case "OVERDUE":
+        return "Overdue";
       default:
         return status;
     }

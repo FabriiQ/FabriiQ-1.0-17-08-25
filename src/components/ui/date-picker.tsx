@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { format, isValid, parse } from "date-fns"
+import { format, parse } from "date-fns"
 import { Calendar as CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -79,7 +79,8 @@ export function DatePicker({
     if (value) {
       try {
         const parsedDate = parse(value, "PP", new Date())
-        if (isValid(parsedDate)) {
+        // Check if the parsed date is valid by comparing it to itself
+        if (!isNaN(parsedDate.getTime())) {
           setDate(parsedDate)
           onChange?.(parsedDate)
         }
@@ -104,7 +105,8 @@ export function DatePicker({
 
     try {
       const parsedDate = parse(inputValue, "PP", new Date())
-      if (isValid(parsedDate)) {
+      // Check if the parsed date is valid by comparing it to itself
+      if (!isNaN(parsedDate.getTime())) {
         setDate(parsedDate)
         setInputValue(format(parsedDate, "PP"))
         onChange?.(parsedDate)

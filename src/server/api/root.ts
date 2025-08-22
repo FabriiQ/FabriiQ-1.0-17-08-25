@@ -104,6 +104,7 @@ import { coordinatorAnalyticsRouter } from "./routers/coordinator-analytics";
 import { classPerformanceRouter } from "./routers/class-performance";
 import { studentAssistantRouter } from "./routers/student-assistant";
 import { teacherAssistantRouter } from "./routers/teacher-assistant";
+import { teacherAttendanceRouter } from "./routers/teacher-attendance";
 import { learningOutcomeRouter } from "./routers/learning-outcome";
 import { learningPatternsRouter } from "./routers/learning-patterns";
 
@@ -242,6 +243,9 @@ export const appRouter = createTRPCRouter({
 
   // Teacher Assistant Router
   teacherAssistant: teacherAssistantRouter,
+
+  // Teacher Attendance Router
+  teacherAttendance: teacherAttendanceRouter,
 
   // Learning Outcome Router
   learningOutcome: learningOutcomeRouter,

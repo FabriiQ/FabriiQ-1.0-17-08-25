@@ -20,7 +20,8 @@ import {
   School,
   BarChart,
   Calendar,
-  HelpCircle
+  HelpCircle,
+  ClipboardList
 } from 'lucide-react';
 import { designTokens } from '@/styles/design-tokens';
 
@@ -84,6 +85,7 @@ export function SystemAdminShell({
     { id: '/users', label: 'Users', icon: <Users size={20} />, path: '/users' },
     { id: '/campuses', label: 'Campuses', icon: <School size={20} />, path: '/campuses' },
     { id: '/courses', label: 'Courses', icon: <BookOpen size={20} />, path: '/courses' },
+    { id: '/attendance', label: 'Attendance', icon: <ClipboardList size={20} />, path: '/attendance' },
     { id: '/analytics', label: 'Analytics', icon: <BarChart size={20} />, path: '/analytics' },
     { id: '/calendar', label: 'Calendar', icon: <Calendar size={20} />, path: '/calendar' },
     { id: '/settings', label: 'Settings', icon: <Settings size={20} />, path: '/settings' },

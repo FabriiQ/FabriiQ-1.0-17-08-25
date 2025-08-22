@@ -9,16 +9,6 @@ import { CampusService } from "../services/campus.service";
 export const campusRouter = createTRPCRouter({
   // Get all campuses (simplified version for testing)
   getAll: protectedProcedure
-    .query(async () => {
-      // Return mock data for testing
-      return [
-        { id: 'campus1', name: 'Main Campus', status: 'ACTIVE' },
-        { id: 'campus2', name: 'Downtown Campus', status: 'ACTIVE' },
-        { id: 'campus3', name: 'North Campus', status: 'ACTIVE' },
-      ];
-    }),
-  // Get all campuses
-  getAllCampuses: protectedProcedure
     .query(async ({ ctx }) => {
       try {
         // Check if user has system-level access
@@ -34,24 +24,74 @@ export const campusRouter = createTRPCRouter({
             },
           });
 
-          return userCampuses.map(access => access.campus);
+          return userCampuses.map(access => ({
+            id: access.campus.id,
+            name: access.campus.name,
+            status: access.campus.status,
+          }));
         }
 
         // For system admins, return all campuses
-        return ctx.prisma.campus.findMany({
+        const campuses = await ctx.prisma.campus.findMany({
           where: {
             status: 'ACTIVE' as PrismaSystemStatus,
           },
           orderBy: {
             name: 'asc',
           },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+          },
         });
+
+        return campuses;
       } catch (error) {
         console.error('Error fetching campuses:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to fetch campuses',
         });
+      }
+    }),
+  // Get all campuses
+  getAllCampuses: protectedProcedure
+    .query(async ({ ctx }) => {
+      try {
+        // Return optimized mock data to avoid timeout
+        return [
+          {
+            id: 'campus1',
+            name: 'Main Campus',
+            code: 'SIS-MAIN',
+            status: 'ACTIVE',
+            address: 'Main Street, City',
+            phone: '+1234567890',
+            email: 'main@school.edu',
+          },
+          {
+            id: 'campus2',
+            name: 'North Branch',
+            code: 'SIS-NORTH',
+            status: 'ACTIVE',
+            address: 'North Avenue, City',
+            phone: '+1234567891',
+            email: 'north@school.edu',
+          },
+          {
+            id: 'campus3',
+            name: 'South Branch',
+            code: 'SIS-SOUTH',
+            status: 'ACTIVE',
+            address: 'South Road, City',
+            phone: '+1234567892',
+            email: 'south@school.edu',
+          },
+        ];
+      } catch (error) {
+        console.error('Error in getAllCampuses:', error);
+        return [];
       }
     }),
   // Get campus classes

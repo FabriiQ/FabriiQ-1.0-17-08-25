@@ -629,10 +629,191 @@ export function LateFeePolicy({ institutionId, campusId }: LateFeeProps) {
             </DialogDescription>
           </DialogHeader>
 
-          {/* Same form fields as create dialog */}
+          {/* Edit form fields (mirrors Create dialog) */}
           <div className="space-y-4">
-            {/* Form fields would be identical to create dialog */}
-            {/* For brevity, I'm not repeating them here */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Policy Name</Label>
+                <Input
+                  id="edit-name"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., Standard Late Fee"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-calculationType">Calculation Type</Label>
+                <Select
+                  value={formData.calculationType}
+                  onValueChange={(value) => setFormData(prev => ({
+                    ...prev,
+                    calculationType: value as LateFeeCalculationType
+                  }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={LateFeeCalculationType.FIXED}>Fixed Amount</SelectItem>
+                    <SelectItem value={LateFeeCalculationType.PERCENTAGE}>Percentage</SelectItem>
+                    <SelectItem value={LateFeeCalculationType.DAILY_FIXED}>Daily Fixed</SelectItem>
+                    <SelectItem value={LateFeeCalculationType.DAILY_PERCENTAGE}>Daily Percentage</SelectItem>
+                    <SelectItem value={LateFeeCalculationType.TIERED_FIXED}>Tiered Fixed</SelectItem>
+                    <SelectItem value={LateFeeCalculationType.TIERED_PERCENTAGE}>Tiered Percentage</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Describe when and how this policy applies..."
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-amount">
+                  {formData.calculationType.includes('PERCENTAGE') ? 'Percentage (%)' : 'Amount ($)'}
+                </Label>
+                <Input
+                  id="edit-amount"
+                  type="number"
+                  min="0"
+                  step={formData.calculationType.includes('PERCENTAGE') ? "0.1" : "0.01"}
+                  value={formData.amount}
+                  onChange={(e) => setFormData(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-gracePeriodDays">Grace Period (Days)</Label>
+                <Input
+                  id="edit-gracePeriodDays"
+                  type="number"
+                  min="0"
+                  value={formData.gracePeriodDays}
+                  onChange={(e) => setFormData(prev => ({ ...prev, gracePeriodDays: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-maxAmount">Max Amount ($)</Label>
+                <Input
+                  id="edit-maxAmount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.maxAmount || ""}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    maxAmount: e.target.value ? parseFloat(e.target.value) : undefined
+                  }))}
+                  placeholder="Optional"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Auto Apply</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically apply this policy when fees become overdue
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.autoApply}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, autoApply: checked }))}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Apply on Weekends</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Include weekends in late fee calculations
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.applyOnWeekends}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, applyOnWeekends: checked }))}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Apply on Holidays</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Include holidays in late fee calculations
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.applyOnHolidays}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, applyOnHolidays: checked }))}
+                />
+              </div>
+            </div>
+
+            {formData.calculationType.includes('DAILY') && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Enable Compounding</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Apply compounding to daily calculations
+                    </p>
+                  </div>
+                  <Switch
+                    checked={formData.compoundingEnabled}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, compoundingEnabled: checked }))}
+                  />
+                </div>
+
+                {formData.compoundingEnabled && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-compoundingInterval">Compounding Interval</Label>
+                      <Select
+                        value={formData.compoundingInterval}
+                        onValueChange={(value) => setFormData(prev => ({
+                          ...prev,
+                          compoundingInterval: value as CompoundingInterval
+                        }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={CompoundingInterval.DAILY}>Daily</SelectItem>
+                          <SelectItem value={CompoundingInterval.WEEKLY}>Weekly</SelectItem>
+                          <SelectItem value={CompoundingInterval.MONTHLY}>Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-maxCompoundingPeriods">Max Compounding Periods</Label>
+                      <Input
+                        id="edit-maxCompoundingPeriods"
+                        type="number"
+                        min="1"
+                        value={formData.maxCompoundingPeriods || ""}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          maxCompoundingPeriods: e.target.value ? parseInt(e.target.value) : undefined
+                        }))}
+                        placeholder="Optional"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <DialogFooter>

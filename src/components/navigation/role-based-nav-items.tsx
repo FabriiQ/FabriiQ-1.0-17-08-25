@@ -5,24 +5,16 @@ import {
   BookOpen,
   Calendar,
   BarChart,
-  Building,
-  Layers,
   School,
-  Map,
+  MapPin,
   GraduationCap,
   ClipboardList,
   FileText,
   Bell,
   User,
   UserPlus,
-  UserCog,
-  Book,
-  Briefcase,
   Clock,
-  Database,
-  ArrowRightLeft,
-  DollarSign,
-  Trophy,
+  ArrowRight,
   Award
 } from 'lucide-react';
 import { UserType } from '@prisma/client';
@@ -48,7 +40,7 @@ export const systemAdminNavItems: NavItem[] = [
   {
     title: 'Institutions',
     path: '/admin/system/institutions',
-    icon: <Building className="h-5 w-5" />,
+    icon: <School className="h-5 w-5" />,
     requiredRoles: ['SYSTEM_ADMIN']
   },
   {
@@ -67,7 +59,19 @@ export const systemAdminNavItems: NavItem[] = [
     title: 'Teachers',
     path: '/admin/system/teachers',
     icon: <Users className="h-5 w-5" />,
-    requiredRoles: ['SYSTEM_ADMIN']
+    requiredRoles: ['SYSTEM_ADMIN'],
+    children: [
+      {
+        title: 'All Teachers',
+        path: '/admin/system/teachers',
+        requiredRoles: ['SYSTEM_ADMIN']
+      },
+      {
+        title: 'Attendance',
+        path: '/admin/system/teachers/attendance',
+        requiredRoles: ['SYSTEM_ADMIN']
+      }
+    ]
   },
   {
     title: 'Background Jobs',
@@ -100,9 +104,37 @@ export const systemAdminNavItems: NavItem[] = [
     requiredRoles: ['SYSTEM_ADMIN']
   },
   {
+    title: 'Attendance',
+    path: '/admin/system/attendance',
+    icon: <ClipboardList className="h-5 w-5" />,
+    requiredRoles: ['SYSTEM_ADMIN'],
+    children: [
+      {
+        title: 'Overview',
+        path: '/admin/system/attendance',
+        requiredRoles: ['SYSTEM_ADMIN']
+      },
+      {
+        title: 'By Class',
+        path: '/admin/system/attendance/by-class',
+        requiredRoles: ['SYSTEM_ADMIN']
+      },
+      {
+        title: 'By Student',
+        path: '/admin/system/attendance/by-student',
+        requiredRoles: ['SYSTEM_ADMIN']
+      },
+      {
+        title: 'Analytics',
+        path: '/admin/system/attendance/analytics',
+        requiredRoles: ['SYSTEM_ADMIN']
+      }
+    ]
+  },
+  {
     title: 'Subjects',
     path: '/admin/system/subjects',
-    icon: <Book className="h-5 w-5" />,
+    icon: <BookOpen className="h-5 w-5" />,
     requiredRoles: ['SYSTEM_ADMIN']
   },
   {
@@ -120,7 +152,7 @@ export const systemAdminNavItems: NavItem[] = [
   {
     title: 'Question Bank',
     path: '/admin/academic/question-bank',
-    icon: <Database className="h-5 w-5" />,
+    icon: <FileText className="h-5 w-5" />,
     requiredRoles: ['SYSTEM_ADMIN']
   },
   {
@@ -132,7 +164,7 @@ export const systemAdminNavItems: NavItem[] = [
   {
     title: 'Permissions',
     path: '/admin/system/permissions',
-    icon: <Layers className="h-5 w-5" />,
+    icon: <Settings className="h-5 w-5" />,
     requiredRoles: ['SYSTEM_ADMIN']
   },
   {
@@ -162,7 +194,7 @@ export const systemAdminNavItems: NavItem[] = [
   {
     title: 'Fee Management',
     path: '/admin/system/fee-management',
-    icon: <DollarSign className="h-5 w-5" />,
+    icon: <FileText className="h-5 w-5" />,
     requiredRoles: ['SYSTEM_ADMIN']
   }
 ];
@@ -181,12 +213,24 @@ export const campusAdminNavItems: NavItem[] = [
     title: 'Teachers',
     path: '/admin/campus/teachers',
     icon: <Users className="h-5 w-5" />,
-    requiredRoles: ['CAMPUS_ADMIN', 'SYSTEM_ADMIN']
+    requiredRoles: ['CAMPUS_ADMIN', 'SYSTEM_ADMIN'],
+    children: [
+      {
+        title: 'All Teachers',
+        path: '/admin/campus/teachers',
+        requiredRoles: ['CAMPUS_ADMIN', 'SYSTEM_ADMIN']
+      },
+      {
+        title: 'Attendance',
+        path: '/admin/campus/teachers/attendance',
+        requiredRoles: ['CAMPUS_ADMIN', 'SYSTEM_ADMIN']
+      }
+    ]
   },
   {
     title: 'Coordinators',
     path: '/admin/campus/coordinators',
-    icon: <UserCog className="h-5 w-5" />,
+    icon: <User className="h-5 w-5" />,
     requiredRoles: ['CAMPUS_ADMIN', 'SYSTEM_ADMIN']
   },
   {
@@ -222,7 +266,7 @@ export const campusAdminNavItems: NavItem[] = [
   {
     title: 'Question Bank',
     path: '/admin/academic/question-bank',
-    icon: <Database className="h-5 w-5" />,
+    icon: <FileText className="h-5 w-5" />,
     requiredRoles: ['CAMPUS_ADMIN', 'SYSTEM_ADMIN']
   },
   {
@@ -234,13 +278,13 @@ export const campusAdminNavItems: NavItem[] = [
   {
     title: 'Transfers',
     path: '/admin/campus/transfers',
-    icon: <ArrowRightLeft className="h-5 w-5" />,
+    icon: <ArrowRight className="h-5 w-5" />,
     requiredRoles: ['CAMPUS_ADMIN', 'SYSTEM_ADMIN']
   },
   {
     title: 'Facilities',
     path: '/admin/campus/facilities',
-    icon: <Map className="h-5 w-5" />,
+    icon: <MapPin className="h-5 w-5" />,
     requiredRoles: ['CAMPUS_ADMIN', 'SYSTEM_ADMIN']
   },
   {
@@ -292,6 +336,11 @@ export const campusCoordinatorNavItems: NavItem[] = [
       {
         title: 'Performance',
         path: '/admin/coordinator/teachers/performance',
+        requiredRoles: ['CAMPUS_COORDINATOR', 'COORDINATOR', 'SYSTEM_ADMIN']
+      },
+      {
+        title: 'Attendance',
+        path: '/admin/coordinator/teachers/attendance',
         requiredRoles: ['CAMPUS_COORDINATOR', 'COORDINATOR', 'SYSTEM_ADMIN']
       }
     ]
@@ -369,7 +418,7 @@ export const campusCoordinatorNavItems: NavItem[] = [
   {
     title: 'Question Bank',
     path: '/admin/academic/question-bank',
-    icon: <Database className="h-5 w-5" />,
+    icon: <FileText className="h-5 w-5" />,
     requiredRoles: ['CAMPUS_COORDINATOR', 'COORDINATOR', 'SYSTEM_ADMIN']
   },
   {
@@ -415,7 +464,7 @@ export const campusCoordinatorNavItems: NavItem[] = [
   {
     title: 'Transfers',
     path: '/admin/coordinator/transfers',
-    icon: <ArrowRightLeft className="h-5 w-5" />,
+    icon: <ArrowRight className="h-5 w-5" />,
     requiredRoles: ['CAMPUS_COORDINATOR', 'COORDINATOR', 'SYSTEM_ADMIN']
   }
 ];
@@ -433,7 +482,7 @@ export const campusPrincipalNavItems: NavItem[] = [
   {
     title: 'Teacher Leaderboard',
     path: '/admin/principal/teacher-leaderboard',
-    icon: <Trophy className="h-5 w-5" />,
+    icon: <Award className="h-5 w-5" />,
     requiredRoles: ['CAMPUS_PRINCIPAL', 'SYSTEM_ADMIN']
   },
   {

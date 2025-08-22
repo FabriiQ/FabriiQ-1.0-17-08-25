@@ -12,15 +12,16 @@ import {
   Users,
   Settings,
   Calendar,
-  ClipboardCheck,
+  ClipboardList,
+
   MessageSquare,
   FileText,
   School,
   BookOpen,
   GraduationCap,
-  LayoutDashboard,
+  LayoutGrid,
   User,
-  UserCog
+  UserPlus
 } from 'lucide-react';
 
 // Define teacher navigation items
@@ -28,7 +29,7 @@ const teacherNavigationItems = [
   {
     title: 'Dashboard',
     path: '/teacher/dashboard',
-    icon: <LayoutDashboard className="h-5 w-5" />,
+    icon: <LayoutGrid className="h-5 w-5" />,
     requiredRoles: ['CAMPUS_TEACHER', 'TEACHER'],
   },
   {
@@ -46,7 +47,7 @@ const teacherNavigationItems = [
   {
     title: 'Assessments',
     path: '/teacher/assessments',
-    icon: <ClipboardCheck className="h-5 w-5" />,
+    icon: <ClipboardList className="h-5 w-5" />,
     requiredRoles: ['CAMPUS_TEACHER', 'TEACHER'],
   },
   {
@@ -86,7 +87,7 @@ const systemAdminItems = [
   {
     title: 'Dashboard',
     path: '/admin/system',
-    icon: <LayoutDashboard className="h-5 w-5" />,
+    icon: <LayoutGrid className="h-5 w-5" />,
     requiredRoles: ['SYSTEM_ADMIN'],
   },
   {
@@ -102,6 +103,12 @@ const systemAdminItems = [
     requiredRoles: ['SYSTEM_ADMIN'],
   },
   {
+    title: 'Attendance',
+    path: '/admin/system/attendance',
+    icon: <ClipboardList className="h-5 w-5" />,
+    requiredRoles: ['SYSTEM_ADMIN'],
+  },
+  {
     title: 'Settings',
     path: '/admin/system/settings',
     icon: <Settings className="h-5 w-5" />,
@@ -114,7 +121,7 @@ const campusAdminItems = [
   {
     title: 'Dashboard',
     path: '/admin/campus',
-    icon: <LayoutDashboard className="h-5 w-5" />,
+    icon: <LayoutGrid className="h-5 w-5" />,
     requiredRoles: ['CAMPUS_ADMIN'],
   },
   {
@@ -126,7 +133,7 @@ const campusAdminItems = [
   {
     title: 'Coordinators',
     path: '/admin/campus/coordinators',
-    icon: <UserCog className="h-5 w-5" />,
+    icon: <UserPlus className="h-5 w-5" />,
     requiredRoles: ['CAMPUS_ADMIN'],
   },
   {
@@ -190,7 +197,7 @@ export function Shell({ children, onLogout }: { children: React.ReactNode, onLog
       { icon: <Users className="h-5 w-5" />, label: 'Classes', href: '/teacher/classes' },
       { icon: <FileText className="h-5 w-5" />, label: 'AI Studio', href: '/teacher/content-studio' },
       { icon: <Calendar className="h-5 w-5" />, label: 'Schedule', href: '/teacher/schedule' },
-      { icon: <ClipboardCheck className="h-5 w-5" />, label: 'Assessments', href: '/teacher/assessments' }
+      { icon: <ClipboardList className="h-5 w-5" />, label: 'Assessments', href: '/teacher/assessments' }
     ];
   } else {
     // Default bottom nav for other roles
