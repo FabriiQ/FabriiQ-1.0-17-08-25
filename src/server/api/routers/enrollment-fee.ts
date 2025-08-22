@@ -106,6 +106,23 @@ export const enrollmentFeeRouter = createTRPCRouter({
       });
     }),
 
+  updatePaymentStatus: protectedProcedure
+    .input(z.object({
+      enrollmentFeeId: z.string(),
+      paymentStatus: z.string(),
+      paidAmount: z.number().optional(),
+      paymentMethod: z.string().optional(),
+      transactionReference: z.string().optional(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const feeService = new FeeService({ prisma: ctx.prisma });
+      return feeService.updatePaymentStatus({
+        ...input,
+        updatedById: ctx.session.user.id,
+      });
+    }),
+
   getTransactions: protectedProcedure
     .input(z.object({ enrollmentFeeId: z.string() }))
     .query(async ({ ctx, input }) => {

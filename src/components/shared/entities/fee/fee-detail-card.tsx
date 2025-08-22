@@ -587,7 +587,7 @@ export function FeeDetailCard({
 
       {/* Edit Fee Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
           <EnrollmentFeeForm
             enrollmentId={fee.enrollmentId}
             feeStructures={availableFeeStructures}

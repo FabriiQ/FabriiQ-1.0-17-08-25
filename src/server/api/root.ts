@@ -32,6 +32,7 @@ import { assignmentRouter } from "./routers/assignment";
 import { resourceRouter } from "./routers/resource";
 import { notificationRouter } from "./routers/notification";
 import { docsRouter } from "./routers/docs";
+import { documentRouter } from "./routers/document";
 import { enrollmentRouter } from "./routers/enrollment";
 import { communicationRouter } from "./routers/communication";
 import { exampleRouter } from "./routers/example.router";
@@ -67,7 +68,11 @@ import { feeStructureRouter } from "./routers/fee-structure";
 import { discountTypeRouter } from "./routers/discount-type";
 import { enrollmentFeeRouter } from "./routers/enrollment-fee";
 import { challanRouter } from "./routers/challan";
+import { invoiceRouter } from "./routers/invoice";
 import { programCampusRouter } from "./routers/program-campus";
+import { financialReportsRouter } from "./routers/financial-reports";
+import { settingsRouter } from "./routers/settings";
+import { lateFeeRouter } from "./routers/late-fee";
 
 // Reward System Routers
 import { achievementRouter } from "./routers/achievement";
@@ -151,6 +156,7 @@ export const appRouter = createTRPCRouter({
   resource: resourceRouter,
   notification: notificationRouter,
   enrollment: enrollmentRouter,
+  document: documentRouter,
   communication: communicationRouter,
   docs: docsRouter,
   example: exampleRouter,
@@ -187,7 +193,11 @@ export const appRouter = createTRPCRouter({
   discountType: discountTypeRouter,
   enrollmentFee: enrollmentFeeRouter,
   challan: challanRouter,
+  invoice: invoiceRouter,
   programCampus: programCampusRouter,
+  financialReports: financialReportsRouter,
+  settings: settingsRouter,
+  lateFee: lateFeeRouter,
 
   // Reward System Routers
   achievement: achievementRouter,

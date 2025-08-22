@@ -13,7 +13,7 @@ import { DiscountBadge, DiscountType } from "@/components/core/fee/discount-badg
 
 const discountFormSchema = z.object({
   discountTypeId: z.string().min(1, "Discount type is required"),
-  amount: z.coerce.number().min(0, "Amount must be a positive number"),
+  amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
   reason: z.string().optional(),
 });
 
@@ -49,13 +49,15 @@ export function DiscountForm({
     resolver: zodResolver(discountFormSchema),
     defaultValues: {
       discountTypeId: initialData?.discountTypeId || "",
-      amount: initialData?.amount || 0,
+      amount: initialData?.amount || 1,
       reason: initialData?.reason || "",
     },
   });
 
   const selectedDiscountTypeId = form.watch("discountTypeId");
   const selectedDiscountType = discountTypes.find(dt => dt.id === selectedDiscountTypeId);
+
+
 
   const handleSubmit = (values: DiscountFormValues) => {
     onSubmit(values);
@@ -80,10 +82,10 @@ export function DiscountForm({
                       field.onChange(value);
                       const discountType = discountTypes.find(dt => dt.id === value);
                       if (discountType) {
-                        // Auto-calculate amount based on discount type
+                        // Auto-set amount based on discount type
                         if (discountType.isPercentage) {
-                          // For percentage discounts, leave the amount field for user input
-                          form.setValue("amount", 0);
+                          // For percentage discounts, set a reasonable default (the percentage value)
+                          form.setValue("amount", discountType.discountValue);
                         } else {
                           // For fixed amount discounts, set the amount from the discount type
                           form.setValue("amount", discountType.discountValue);

@@ -111,7 +111,8 @@ export const CourseForm = ({
   });
 
   const updateCourse = api.course.update.useMutation({
-    onSuccess: () => {
+    onSuccess: (result) => {
+      console.log('Course updated successfully:', result);
       toast({
         title: "Success",
         description: "Course updated successfully",
@@ -120,6 +121,7 @@ export const CourseForm = ({
       router.push("/admin/system/courses");
     },
     onError: (error) => {
+      console.error('Error updating course:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to update course",
@@ -165,15 +167,32 @@ export const CourseForm = ({
   };
 
   const onSubmit = (data: CourseFormValues) => {
+    console.log('Form submitted with data:', data);
+
+    // Transform the data to match the expected API format
+    const { objectives, resources, ...courseData } = data;
+
+    const transformedData = {
+      ...courseData,
+      settings: {
+        objectives: objectives || [],
+        resources: resources || [],
+      },
+    };
+
+    console.log('Transformed data for API:', transformedData);
+
     if (externalSubmit) {
       externalSubmit(data);
     } else if (isEditing && courseId) {
+      console.log('Updating course with ID:', courseId);
       updateCourse.mutate({
         id: courseId,
-        ...data,
+        ...transformedData,
       });
     } else {
-      createCourse.mutate(data);
+      console.log('Creating new course');
+      createCourse.mutate(transformedData);
     }
   };
 

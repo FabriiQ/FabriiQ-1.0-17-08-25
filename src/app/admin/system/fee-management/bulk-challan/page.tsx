@@ -102,16 +102,21 @@ export default function BulkChallanGenerationPage() {
     return [];
   };
 
+  // Helper function to filter out items with empty or invalid IDs
+  const getValidItemsForSelect = (data: any): any[] => {
+    return getArrayFromData(data).filter(item => item && item.id && item.id.trim() !== '');
+  };
+
   // Filter programs by selected campus - using a safer approach
   const filteredPrograms = React.useMemo(() => {
-    if (!selectedCampusId) return getArrayFromData(programs);
-    return getArrayFromData(programs).filter(program => program.id === selectedCampusId);
+    if (!selectedCampusId) return getValidItemsForSelect(programs);
+    return getValidItemsForSelect(programs).filter(program => program.id === selectedCampusId);
   }, [selectedCampusId, programs]);
 
   // Filter classes by selected program - using a safer approach
   const filteredClasses = React.useMemo(() => {
-    if (!selectedProgramId) return getArrayFromData(classes);
-    return getArrayFromData(classes).filter(cls => cls.id === selectedProgramId);
+    if (!selectedProgramId) return getValidItemsForSelect(classes);
+    return getValidItemsForSelect(classes).filter(cls => cls.id === selectedProgramId);
   }, [selectedProgramId, classes]);
 
   // Bulk generate challans mutation
@@ -158,9 +163,20 @@ export default function BulkChallanGenerationPage() {
 
   // Handle form submission
   const onSubmit = (values: BulkChallanFormValues) => {
+    // Convert "all" values to undefined for proper filtering
+    const processedValues = {
+      ...values,
+      filters: {
+        ...values.filters,
+        campusId: values.filters.campusId === "all" ? undefined : values.filters.campusId,
+        programId: values.filters.programId === "all" ? undefined : values.filters.programId,
+        classId: values.filters.classId === "all" ? undefined : values.filters.classId,
+      }
+    };
+
     // Add createdById from session (in a real app, this would come from the session)
     bulkGenerateMutation.mutate({
-      ...values,
+      ...processedValues,
       createdById: "system-admin" // This would normally come from the session
     });
   };
@@ -247,13 +263,13 @@ export default function BulkChallanGenerationPage() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="">All Campuses</SelectItem>
+                                <SelectItem value="all">All Campuses</SelectItem>
                                 {campusesLoading ? (
                                   <div className="flex items-center justify-center p-2">
                                     <Loader2 className="h-4 w-4 animate-spin" />
                                   </div>
                                 ) : (
-                                  getArrayFromData(campuses).map((campus) => (
+                                  getValidItemsForSelect(campuses).map((campus) => (
                                     <SelectItem key={campus.id} value={campus.id}>
                                       {campus.name}
                                     </SelectItem>
@@ -284,7 +300,7 @@ export default function BulkChallanGenerationPage() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="">All Programs</SelectItem>
+                                <SelectItem value="all">All Programs</SelectItem>
                                 {programsLoading ? (
                                   <div className="flex items-center justify-center p-2">
                                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -321,7 +337,7 @@ export default function BulkChallanGenerationPage() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="">All Classes</SelectItem>
+                                <SelectItem value="all">All Classes</SelectItem>
                                 {classesLoading ? (
                                   <div className="flex items-center justify-center p-2">
                                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -442,7 +458,7 @@ export default function BulkChallanGenerationPage() {
                                     <Loader2 className="h-4 w-4 animate-spin" />
                                   </div>
                                 ) : (
-                                  getArrayFromData(templates).map((template) => (
+                                  getValidItemsForSelect(templates).map((template) => (
                                     <SelectItem key={template.id} value={template.id}>
                                       {template.name}
                                     </SelectItem>

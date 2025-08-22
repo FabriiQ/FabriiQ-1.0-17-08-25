@@ -1,11 +1,21 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { TRPCError } from "@trpc/server";
 import { DiscountService, createDiscountTypeSchema, updateDiscountTypeSchema } from "../services/discount.service";
+
+// Client-side schemas (without server-injected fields)
+const createDiscountTypeApiSchema = createDiscountTypeSchema.omit({ createdById: true });
+const updateDiscountTypeApiSchema = updateDiscountTypeSchema.omit({ updatedById: true });
 
 export const discountTypeRouter = createTRPCRouter({
   create: protectedProcedure
-    .input(createDiscountTypeSchema)
+    .input(createDiscountTypeApiSchema)
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.session?.user?.id) {
+        console.error('Session validation failed in discountType.create:', ctx.session);
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "User session is invalid" });
+      }
+      console.log('Creating discount type for user:', ctx.session.user.id);
       const discountService = new DiscountService({ prisma: ctx.prisma });
       return discountService.createDiscountType({
         ...input,
@@ -41,8 +51,13 @@ export const discountTypeRouter = createTRPCRouter({
     }),
 
   update: protectedProcedure
-    .input(updateDiscountTypeSchema)
+    .input(updateDiscountTypeApiSchema)
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.session?.user?.id) {
+        console.error('Session validation failed in discountType.update:', ctx.session);
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "User session is invalid" });
+      }
+      console.log('Updating discount type by user:', ctx.session.user.id);
       const discountService = new DiscountService({ prisma: ctx.prisma });
       return discountService.updateDiscountType({
         ...input,

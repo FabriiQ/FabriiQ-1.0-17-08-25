@@ -573,7 +573,7 @@ export default async function EnrollmentDetailPage({ params }: { params: Promise
             </CardContent>
             <CardFooter>
               <Button variant="outline" className="w-full" asChild>
-                <Link href={`/admin/campus/students/${enrollment.student.id}`}>
+                <Link href={`/admin/campus/students/${enrollment.student.user?.id || enrollment.student.id}`}>
                   View Student Profile
                 </Link>
               </Button>
@@ -612,7 +612,7 @@ export default async function EnrollmentDetailPage({ params }: { params: Promise
             </CardContent>
             <CardFooter>
               <Button variant="outline" className="w-full" asChild>
-                <Link href={`/admin/campus/students/${enrollment.student.id}/enrollments`}>
+                <Link href={`/admin/campus/students/${enrollment.student.user?.id || enrollment.student.id}/enrollments`}>
                   View All Enrollments
                 </Link>
               </Button>

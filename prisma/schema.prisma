@@ -135,6 +135,21 @@ model User {
   institution                Institution                 @relation(fields: [institutionId], references: [id])
   calendarEvents             AcademicCalendarEvent[]     @relation("EventUsers")
   holidays                   Holiday[]                   @relation("HolidayUsers")
+  createdInvoices            Invoice[]                   @relation("InvoiceCreatedBy")
+  updatedInvoices            Invoice[]                   @relation("InvoiceUpdatedBy")
+  deletedInvoices            Invoice[]                   @relation("InvoiceDeletedBy")
+  createdInvoiceTemplates    InvoiceTemplate[]
+  createdInvoicePayments     InvoicePayment[]
+  createdInvoiceReminders    InvoiceReminder[]
+  createdLateFeePolicy       LateFeePolicy[]             @relation("CreatedLateFeePolicy")
+  updatedLateFeePolicy       LateFeePolicy[]             @relation("UpdatedLateFeePolicy")
+  waivedLateFees             LateFeeApplication[]        @relation("WaivedLateFees")
+  createdLateFeeApplication  LateFeeApplication[]        @relation("CreatedLateFeeApplication")
+  updatedLateFeeApplication  LateFeeApplication[]        @relation("UpdatedLateFeeApplication")
+  requestedWaivers           LateFeeWaiver[]             @relation("RequestedWaivers")
+  reviewedWaivers            LateFeeWaiver[]             @relation("ReviewedWaivers")
+  approvedWaivers            LateFeeWaiver[]             @relation("ApprovedWaivers")
+  performedLateFeeActions    LateFeeHistory[]            @relation("PerformedLateFeeActions")
 
   @@index([institutionId, email])
   @@index([institutionId, username])
@@ -561,6 +576,7 @@ model StudentProfile {
   pointsAggregates    StudentPointsAggregate[]
   user                User                      @relation(fields: [userId], references: [id])
   topicMasteries      TopicMastery[]            @relation("UserTopicMasteries")
+  invoices            Invoice[]
 
   @@index([totalPoints])
   @@index([currentLevel])
@@ -641,6 +657,7 @@ model StudentEnrollment {
   createdBy   User                @relation("CreatedEnrollments", fields: [createdById], references: [id])
   student     StudentProfile      @relation(fields: [studentId], references: [id])
   updatedBy   User?               @relation("UpdatedEnrollments", fields: [updatedById], references: [id])
+  invoices    Invoice[]
 
   @@unique([studentId, classId])
   @@index([studentId, status])
@@ -1129,6 +1146,7 @@ model Institution {
   questionSources      QuestionSource[]
   rewardPointsConfigs  RewardPointsConfig[]
   users                User[]
+  invoiceTemplates     InvoiceTemplate[]
 
   @@map("institutions")
 }
@@ -1516,6 +1534,7 @@ model FeeStructure {
   createdById       String
   updatedById       String?
   enrollmentFees    EnrollmentFee[]
+  invoices          Invoice[]
   createdBy         User            @relation("CreatedFeeStructures", fields: [createdById], references: [id])
   programCampus     ProgramCampus   @relation(fields: [programCampusId], references: [id])
   updatedBy         User?           @relation("UpdatedFeeStructures", fields: [updatedById], references: [id])
@@ -1570,6 +1589,9 @@ model EnrollmentFee {
   challans          FeeChallan[]
   discounts         FeeDiscount[]
   transactions      FeeTransaction[]
+  lateFeeApplications LateFeeApplication[]
+  lateFeeWaivers    LateFeeWaiver[]
+  lateFeeHistory    LateFeeHistory[]
 
   @@index([paymentStatus])
   @@index([dueDate])
@@ -1639,6 +1661,149 @@ model FeeArrear {
   @@map("fee_arrears")
 }
 
+model LateFeePolicy {
+  id                      String                    @id @default(cuid())
+  institutionId           String?
+  campusId                String?
+  name                    String
+  description             String?
+  calculationType         LateFeeCalculationType    @default(FIXED)
+  amount                  Float                     @default(0)
+  maxAmount               Float?
+  minAmount               Float                     @default(0)
+  gracePeriodDays         Int                       @default(0)
+  applyAfterDays          Int                       @default(1)
+  compoundingEnabled      Boolean                   @default(false)
+  compoundingInterval     CompoundingInterval?      @default(DAILY)
+  maxCompoundingPeriods   Int?
+  tieredRules             Json?
+  applyOnWeekends         Boolean                   @default(true)
+  applyOnHolidays         Boolean                   @default(true)
+  autoApply               Boolean                   @default(true)
+  applicableToFeeTypes    String[]
+  applicableToPrograms    String[]
+  applicableToClasses     String[]
+  isActive                Boolean                   @default(true)
+  effectiveFrom           DateTime?
+  effectiveTo             DateTime?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  createdById             String
+  updatedById             String?
+  createdBy               User                      @relation("CreatedLateFeePolicy", fields: [createdById], references: [id])
+  updatedBy               User?                     @relation("UpdatedLateFeePolicy", fields: [updatedById], references: [id])
+  applications            LateFeeApplication[]
+
+  @@index([institutionId])
+  @@index([campusId])
+  @@index([isActive])
+  @@index([effectiveFrom, effectiveTo])
+  @@map("late_fee_policies")
+}
+
+model LateFeeApplication {
+  id                  String           @id @default(cuid())
+  enrollmentFeeId     String
+  policyId            String
+  daysOverdue         Int
+  calculatedAmount    Float
+  appliedAmount       Float
+  compoundingPeriods  Int              @default(0)
+  dueDate             DateTime
+  calculationDate     DateTime
+  applicationDate     DateTime?
+  paymentDate         DateTime?
+  status              LateFeeStatus    @default(PENDING)
+  reason              String?
+  notes               String?
+  waivedAmount        Float            @default(0)
+  waivedBy            String?
+  waivedDate          DateTime?
+  waiverReason        String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  createdById         String
+  updatedById         String?
+  enrollmentFee       EnrollmentFee    @relation(fields: [enrollmentFeeId], references: [id], onDelete: Cascade)
+  policy              LateFeePolicy    @relation(fields: [policyId], references: [id])
+  waivedByUser        User?            @relation("WaivedLateFees", fields: [waivedBy], references: [id])
+  createdBy           User             @relation("CreatedLateFeeApplication", fields: [createdById], references: [id])
+  updatedBy           User?            @relation("UpdatedLateFeeApplication", fields: [updatedById], references: [id])
+  waivers             LateFeeWaiver[]
+  history             LateFeeHistory[]
+
+  @@index([enrollmentFeeId])
+  @@index([policyId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([calculationDate])
+  @@index([daysOverdue])
+  @@map("late_fee_applications")
+}
+
+model LateFeeWaiver {
+  id                     String                @id @default(cuid())
+  lateFeeApplicationId   String
+  enrollmentFeeId        String
+  requestedAmount        Float
+  approvedAmount         Float                 @default(0)
+  reason                 String
+  justification          String?
+  supportingDocuments    Json?
+  status                 WaiverStatus          @default(PENDING)
+  requestedBy            String
+  requestedDate          DateTime              @default(now())
+  reviewedBy             String?
+  reviewedDate           DateTime?
+  approvedBy             String?
+  approvedDate           DateTime?
+  rejectionReason        String?
+  expiresAt              DateTime?
+  isExpired              Boolean               @default(false)
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  lateFeeApplication     LateFeeApplication    @relation(fields: [lateFeeApplicationId], references: [id], onDelete: Cascade)
+  enrollmentFee          EnrollmentFee         @relation(fields: [enrollmentFeeId], references: [id], onDelete: Cascade)
+  requestedByUser        User                  @relation("RequestedWaivers", fields: [requestedBy], references: [id])
+  reviewedByUser         User?                 @relation("ReviewedWaivers", fields: [reviewedBy], references: [id])
+  approvedByUser         User?                 @relation("ApprovedWaivers", fields: [approvedBy], references: [id])
+  history                LateFeeHistory[]
+
+  @@index([lateFeeApplicationId])
+  @@index([enrollmentFeeId])
+  @@index([status])
+  @@index([requestedBy])
+  @@index([reviewedBy])
+  @@map("late_fee_waivers")
+}
+
+model LateFeeHistory {
+  id                     String              @id @default(cuid())
+  enrollmentFeeId        String
+  lateFeeApplicationId   String?
+  waiverRequestId        String?
+  action                 String
+  previousStatus         String?
+  newStatus              String?
+  amount                 Float?
+  details                Json?
+  performedBy            String
+  performedAt            DateTime            @default(now())
+  reason                 String?
+  systemGenerated        Boolean             @default(false)
+  enrollmentFee          EnrollmentFee       @relation(fields: [enrollmentFeeId], references: [id], onDelete: Cascade)
+  lateFeeApplication     LateFeeApplication? @relation(fields: [lateFeeApplicationId], references: [id], onDelete: Cascade)
+  waiverRequest          LateFeeWaiver?      @relation(fields: [waiverRequestId], references: [id], onDelete: Cascade)
+  performedByUser        User                @relation("PerformedLateFeeActions", fields: [performedBy], references: [id])
+
+  @@index([enrollmentFeeId])
+  @@index([lateFeeApplicationId])
+  @@index([action])
+  @@index([performedAt])
+  @@index([performedBy])
+  @@map("late_fee_history")
+}
+
 model FeeChallan {
   id              String            @id @default(cuid())
   enrollmentFeeId String
@@ -1696,7 +1861,7 @@ model FeeTransaction {
   challanId       String?
   amount          Float
   date            DateTime
-  method          String
+  method          PaymentMethod @default(ON_CAMPUS_COUNTER)
   reference       String?
   notes           String?
   receiptUrl      String?
@@ -3623,6 +3788,7 @@ enum NotificationType {
   EVENT
   EMERGENCY
   SOCIAL_WALL_MODERATION
+  LATE_FEE
 }
 
 enum NotificationPriority {
@@ -3740,6 +3906,51 @@ enum PaymentStatusType {
   PENDING
   PARTIAL
   WAIVED
+  OVERDUE
+}
+
+enum LateFeeCalculationType {
+  FIXED
+  PERCENTAGE
+  DAILY_FIXED
+  DAILY_PERCENTAGE
+  TIERED_FIXED
+  TIERED_PERCENTAGE
+}
+
+enum LateFeeStatus {
+  PENDING
+  APPLIED
+  WAIVED
+  PARTIAL_WAIVED
+  REVERSED
+  PAID
+}
+
+enum WaiverStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum CompoundingInterval {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  JAZZ_CASH
+  EASY_PAISA
+  ON_CAMPUS_COUNTER
+  CREDIT_CARD
+  DEBIT_CARD
+  CASH
+  CHEQUE
+  ONLINE_BANKING
+  MOBILE_WALLET
 }
 
 enum FeeComponentType {
@@ -3982,4 +4193,194 @@ enum ReportStatus {
   RESOLVED
   DISMISSED
   ESCALATED
+}
+
+// Invoice Management System Models
+model Invoice {
+  id                String    @id @default(cuid())
+  invoiceNumber     String    @unique
+  studentId         String
+  enrollmentId      String?
+  feeStructureId    String?
+
+  // Invoice Classification
+  invoiceType       InvoiceType
+  priority          InvoicePriority @default(NORMAL)
+
+  // Invoice Details
+  title             String
+  description       String?
+
+  // Financial Details
+  lineItems         Json      // Array of InvoiceLineItem
+  subtotal          Decimal   @db.Decimal(10, 2)
+  discountAmount    Decimal   @default(0) @db.Decimal(10, 2)
+  taxAmount         Decimal   @default(0) @db.Decimal(10, 2)
+  totalAmount       Decimal   @db.Decimal(10, 2)
+
+  // Dates
+  issueDate         DateTime  @default(now())
+  dueDate           DateTime
+  paidDate          DateTime?
+
+  // Payment Terms
+  paymentTerms      String?
+  lateFeePenalty    Decimal   @default(0) @db.Decimal(10, 2)
+
+  // Status and Workflow
+  status            InvoiceStatus @default(DRAFT)
+
+  // Additional Information
+  notes             String?
+  termsAndConditions String?
+
+  // Metadata and Customization
+  metadata          Json?
+  templateId        String?
+  customBranding    Json?
+
+  // Audit Fields
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+  createdById       String
+  updatedById       String?
+  deletedById       String?
+
+  // Partitioning for scalability
+  partitionKey      String    // Format: YYYY_Q (year_quarter)
+
+  // Relations
+  student           StudentProfile   @relation(fields: [studentId], references: [id])
+  enrollment        StudentEnrollment? @relation(fields: [enrollmentId], references: [id])
+  feeStructure      FeeStructure? @relation(fields: [feeStructureId], references: [id])
+  template          InvoiceTemplate? @relation(fields: [templateId], references: [id])
+  createdBy         User      @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  updatedBy         User?     @relation("InvoiceUpdatedBy", fields: [updatedById], references: [id])
+  deletedBy         User?     @relation("InvoiceDeletedBy", fields: [deletedById], references: [id])
+
+  // Related records
+  payments          InvoicePayment[]
+  reminders         InvoiceReminder[]
+
+  @@index([studentId, status])
+  @@index([invoiceType, status])
+  @@index([dueDate, status])
+  @@index([partitionKey, createdAt])
+  @@index([createdAt])
+  @@map("invoices")
+}
+
+model InvoiceTemplate {
+  id            String        @id @default(cuid())
+  name          String
+  description   String?
+  templateData  Json          // Template configuration and styling
+  isDefault     Boolean       @default(false)
+  institutionId String
+  status        SystemStatus  @default(ACTIVE)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  createdById   String
+
+  // Relations
+  institution   Institution   @relation(fields: [institutionId], references: [id])
+  createdBy     User         @relation(fields: [createdById], references: [id])
+  invoices      Invoice[]
+
+  @@map("invoice_templates")
+}
+
+model InvoicePayment {
+  id                    String    @id @default(cuid())
+  invoiceId             String
+  amount                Decimal   @db.Decimal(10, 2)
+  paymentMethod         String
+  paymentDate           DateTime  @default(now())
+  transactionReference  String?
+  notes                 String?
+  metadata              Json?
+  status                PaymentStatus @default(COMPLETED)
+  createdAt             DateTime  @default(now())
+  createdById           String
+
+  // Relations
+  invoice               Invoice   @relation(fields: [invoiceId], references: [id])
+  createdBy             User      @relation(fields: [createdById], references: [id])
+
+  @@index([invoiceId])
+  @@index([paymentDate])
+  @@map("invoice_payments")
+}
+
+model InvoiceReminder {
+  id            String          @id @default(cuid())
+  invoiceId     String
+  reminderType  ReminderType
+  message       String?
+  sentAt        DateTime?
+  scheduledAt   DateTime?
+  status        ReminderStatus  @default(PENDING)
+  metadata      Json?
+  createdAt     DateTime        @default(now())
+  createdById   String
+
+  // Relations
+  invoice       Invoice         @relation(fields: [invoiceId], references: [id])
+  createdBy     User           @relation(fields: [createdById], references: [id])
+
+  @@index([invoiceId])
+  @@index([scheduledAt, status])
+  @@map("invoice_reminders")
+}
+
+// Enums for Invoice System
+enum InvoiceType {
+  TUITION_FEE
+  ADMISSION_FEE
+  EXAM_FEE
+  LIBRARY_FEE
+  LAB_FEE
+  TRANSPORT_FEE
+  HOSTEL_FEE
+  MISCELLANEOUS
+  LATE_FEE
+  FINE
+}
+
+enum InvoicePriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  VIEWED
+  PAID
+  OVERDUE
+  CANCELLED
+  ARCHIVED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum ReminderType {
+  EMAIL
+  SMS
+  BOTH
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
 }

@@ -49,7 +49,7 @@ export const courseRouter = createTRPCRouter({
       }
 
       const courseService = new CourseService({ prisma: ctx.prisma });
-      return courseService.createCourse(input);
+      return courseService.createCourse(input, ctx.session.user.id);
     }),
 
   get: protectedProcedure
@@ -70,7 +70,7 @@ export const courseRouter = createTRPCRouter({
       }
 
       const courseService = new CourseService({ prisma: ctx.prisma });
-      return courseService.updateCourse(input);
+      return courseService.updateCourse(input, ctx.session.user.id);
     }),
 
   delete: protectedProcedure

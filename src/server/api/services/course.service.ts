@@ -86,9 +86,10 @@ export class CourseService extends ServiceBase {
   /**
    * Creates a new course
    * @param data Course data
+   * @param userId User ID of the creator
    * @returns Created course
    */
-  async createCourse(data: z.infer<typeof createCourseSchema>) {
+  async createCourse(data: z.infer<typeof createCourseSchema>, userId?: string) {
     try {
       // Check if program exists
       const program = await this.prisma.program.findUnique({
@@ -130,6 +131,42 @@ export class CourseService extends ServiceBase {
           status: SystemStatus.ACTIVE,
         },
       });
+
+      // Handle resources if they exist in settings
+      if (data.settings?.resources && Array.isArray(data.settings.resources)) {
+        const resources = data.settings.resources as Array<{
+          name: string;
+          url: string;
+          type: string;
+          description?: string;
+          isRequired: boolean;
+        }>;
+
+        // Create resources in the resources table
+        for (const resource of resources) {
+          if (resource.name && resource.url) {
+            await this.prisma.resource.create({
+              data: {
+                title: resource.name,
+                description: resource.description || '',
+                type: 'LINK', // Default to LINK type for course resources
+                url: resource.url,
+                tags: [course.code, resource.type],
+                access: 'PRIVATE',
+                settings: {
+                  courseId: course.id,
+                  resourceType: resource.type,
+                  isRequired: resource.isRequired,
+                },
+                owner: {
+                  connect: { id: userId || 'system' },
+                },
+                status: SystemStatus.ACTIVE,
+              },
+            });
+          }
+        }
+      }
 
       return {
         success: true,
@@ -212,9 +249,10 @@ export class CourseService extends ServiceBase {
   /**
    * Updates a course
    * @param data Course update data
+   * @param userId User ID of the updater
    * @returns Updated course
    */
-  async updateCourse(data: z.infer<typeof updateCourseSchema>) {
+  async updateCourse(data: z.infer<typeof updateCourseSchema>, userId?: string) {
     try {
       // Check if course exists
       const existingCourse = await this.prisma.course.findUnique({
@@ -265,6 +303,52 @@ export class CourseService extends ServiceBase {
           },
         },
       });
+
+      // Handle resources if they exist in settings
+      if (data.settings?.resources && Array.isArray(data.settings.resources)) {
+        // First, delete existing course resources
+        await this.prisma.resource.deleteMany({
+          where: {
+            settings: {
+              path: ['courseId'],
+              equals: data.id,
+            },
+          },
+        });
+
+        const resources = data.settings.resources as Array<{
+          name: string;
+          url: string;
+          type: string;
+          description?: string;
+          isRequired: boolean;
+        }>;
+
+        // Create new resources in the resources table
+        for (const resource of resources) {
+          if (resource.name && resource.url) {
+            await this.prisma.resource.create({
+              data: {
+                title: resource.name,
+                description: resource.description || '',
+                type: 'LINK', // Default to LINK type for course resources
+                url: resource.url,
+                tags: [course.code, resource.type],
+                access: 'PRIVATE',
+                settings: {
+                  courseId: course.id,
+                  resourceType: resource.type,
+                  isRequired: resource.isRequired,
+                },
+                owner: {
+                  connect: { id: userId || 'system' },
+                },
+                status: SystemStatus.ACTIVE,
+              },
+            });
+          }
+        }
+      }
 
       return {
         success: true,

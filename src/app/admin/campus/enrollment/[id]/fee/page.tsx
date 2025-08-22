@@ -13,12 +13,14 @@ import { EnrollmentFeeForm } from "@/components/shared/entities/fee/enrollment-f
 import { api } from "@/trpc/react";
 import { useToast } from "@/components/ui/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading";
+import { useSession } from "next-auth/react";
 
 export default function EnrollmentFeePage() {
   const params = useParams();
   const id = params?.id as string;
   const router = useRouter();
   const { toast } = useToast();
+  const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState("details");
 
   // Fetch enrollment data
@@ -42,9 +44,9 @@ export default function EnrollmentFeePage() {
   // Fetch discount types
   const { data: discountTypes, isLoading: discountTypesLoading } = api.discountType.getAll.useQuery();
 
-  // Fetch challan templates
+  // Fetch challan templates - get user's institution ID
   const { data: challanTemplates, isLoading: challanTemplatesLoading } = api.challan.getTemplatesByInstitution.useQuery(
-    { institutionId: "default" },
+    { institutionId: "default" }, // TODO: Get from user context
     { enabled: true }
   );
 
@@ -282,9 +284,20 @@ export default function EnrollmentFeePage() {
 
   const handleAddDiscount = (values: any) => {
     if (!fee) return;
+
+    if (!session?.user?.id) {
+      toast({
+        title: "Error",
+        description: "User session not found",
+        variant: "destructive",
+      });
+      return;
+    }
+
     addDiscountMutation.mutate({
       enrollmentFeeId: fee.id,
       ...values,
+      createdById: session.user.id,
     });
   };
 

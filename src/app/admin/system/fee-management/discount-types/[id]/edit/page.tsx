@@ -51,7 +51,6 @@ export default function EditDiscountTypePage() {
   const handleSubmit = (values: DiscountTypeFormValues) => {
     updateDiscountTypeMutation.mutate({
       id,
-      updatedById: "default", // TODO: Get from session
       ...values,
     });
   };

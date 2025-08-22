@@ -18,13 +18,157 @@ import {
 } from 'lucide-react';
 import { DollarSign } from '@/components/ui/icons/custom-icons';
 import { format } from 'date-fns';
+import { getPaymentMethodLabel, getPaymentMethodIcon } from '@/types/payment-methods';
+import { DataTable } from '@/components/ui/data-display/data-table';
+import { ColumnDef } from '@tanstack/react-table';
+import { Badge } from '@/components/ui/badge';
+import { MoreHorizontal, Edit, Eye, Trash2, Percent } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function SystemFeeManagementPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
 
+  // Fee structures table columns
+  const feeStructuresColumns: ColumnDef<any>[] = [
+    {
+      accessorKey: 'name',
+      header: 'Structure Name',
+    },
+    {
+      accessorKey: 'programCampus.program.name',
+      header: 'Program',
+    },
+    {
+      accessorKey: 'programCampus.campus.name',
+      header: 'Campus',
+    },
+    {
+      accessorKey: 'feeComponents',
+      header: 'Total Amount',
+      cell: ({ row }) => {
+        const components = row.original.feeComponents;
+        if (!components || !Array.isArray(components)) {
+          return 'Rs. 0';
+        }
+        const total = components.reduce((sum: number, comp: any) => sum + (comp.amount || 0), 0);
+        return `Rs. ${total.toLocaleString()}`;
+      },
+    },
+    {
+      accessorKey: 'isActive',
+      header: 'Status',
+      cell: ({ row }) => (
+        <Badge variant={row.original.isActive ? 'success' : 'secondary'}>
+          {row.original.isActive ? 'Active' : 'Inactive'}
+        </Badge>
+      ),
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => router.push(`/admin/system/fee-management/structures/${row.original.id}`)}>
+              <Eye className="mr-2 h-4 w-4" />
+              View Details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push(`/admin/system/fee-management/structures/${row.original.id}/edit`)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
+
+  // Discount types table columns
+  const discountTypesColumns: ColumnDef<any>[] = [
+    {
+      accessorKey: 'name',
+      header: 'Discount Type',
+    },
+    {
+      accessorKey: 'description',
+      header: 'Description',
+    },
+    {
+      accessorKey: 'discountValue',
+      header: 'Value',
+      cell: ({ row }) => {
+        const value = row.original.discountValue;
+        if (value === null || value === undefined) {
+          return 'N/A';
+        }
+        return (
+          <div className="flex items-center">
+            {row.original.isPercentage ? (
+              <>
+                <Percent className="h-4 w-4 mr-1" />
+                {value}%
+              </>
+            ) : (
+              <>
+                <DollarSign className="h-4 w-4 mr-1" />
+                Rs. {value.toLocaleString()}
+              </>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'isActive',
+      header: 'Status',
+      cell: ({ row }) => (
+        <Badge variant={row.original.isActive ? 'success' : 'secondary'}>
+          {row.original.isActive ? 'Active' : 'Inactive'}
+        </Badge>
+      ),
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => router.push(`/admin/system/fee-management/discount-types/${row.original.id}`)}>
+              <Eye className="mr-2 h-4 w-4" />
+              View Details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push(`/admin/system/fee-management/discount-types/${row.original.id}/edit`)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
+
   // Fetch fee collection statistics
   const { data: feeStats, isLoading: isLoadingFeeStats } = api.enrollmentFee.getFeeCollectionStats.useQuery();
+
+  // Fetch fee structures
+  const { data: feeStructures, isLoading: feeStructuresLoading } = api.feeStructure.getAll.useQuery();
+
+  // Fetch discount types
+  const { data: discountTypes, isLoading: discountTypesLoading } = api.discountType.getAll.useQuery();
 
   return (
     <div className="container mx-auto py-8 space-y-6">
@@ -89,7 +233,7 @@ export default function SystemFeeManagementPage() {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Fee Coverage</CardTitle>
+                <CardTitle className="text-sm font-medium">Collection Rate</CardTitle>
               </CardHeader>
               <CardContent>
                 {isLoadingFeeStats ? (
@@ -100,12 +244,88 @@ export default function SystemFeeManagementPage() {
                 ) : (
                   <>
                     <div className="text-2xl font-bold">
-                      {feeStats?.totalStudents ?
-                        Math.round((feeStats.studentsWithFees / feeStats.totalStudents) * 100) : 0}%
+                      {feeStats?.collectionRate?.toFixed(1) || '0.0'}%
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {feeStats?.studentsWithFees || 0} of {feeStats?.totalStudents || 0} students
+                      {feeStats?.monthlyComparison?.trend === 'up' && '↗ '}
+                      {feeStats?.monthlyComparison?.trend === 'down' && '↘ '}
+                      {feeStats?.monthlyComparison?.percentageChange?.toFixed(1) || '0'}% vs last month
                     </p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Overdue Fees</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoadingFeeStats ? (
+                  <div className="flex items-center space-x-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <p className="text-sm text-muted-foreground">Loading...</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold text-red-600">Rs. {feeStats?.overdueFees?.toLocaleString() || '0'}</div>
+                    <p className="text-xs text-muted-foreground">Past due date</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">This Month</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoadingFeeStats ? (
+                  <div className="flex items-center space-x-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <p className="text-sm text-muted-foreground">Loading...</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">Rs. {feeStats?.monthlyComparison?.currentMonth?.toLocaleString() || '0'}</div>
+                    <p className="text-xs text-muted-foreground">Current month collection</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Fee Structures</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoadingFeeStats ? (
+                  <div className="flex items-center space-x-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <p className="text-sm text-muted-foreground">Loading...</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">{feeStats?.feeStructures || 0}</div>
+                    <p className="text-xs text-muted-foreground">Active structures</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Discount Types</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoadingFeeStats ? (
+                  <div className="flex items-center space-x-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <p className="text-sm text-muted-foreground">Loading...</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">{feeStats?.discountTypes || 0}</div>
+                    <p className="text-xs text-muted-foreground">Available discounts</p>
                   </>
                 )}
               </CardContent>
@@ -115,16 +335,97 @@ export default function SystemFeeManagementPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Fee Collection Overview</CardTitle>
-                <CardDescription>Fee collection status across campuses</CardDescription>
+                <CardTitle>Collection Trends</CardTitle>
+                <CardDescription>Monthly fee collection over the last 12 months</CardDescription>
               </CardHeader>
-              <CardContent className="h-80 flex items-center justify-center">
-                <div className="text-center text-muted-foreground">
-                  <BarChart className="h-16 w-16 mx-auto mb-4" />
-                  <p>Fee collection chart will be displayed here</p>
-                </div>
+              <CardContent className="h-80">
+                {isLoadingFeeStats ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : feeStats?.collectionTrends && feeStats.collectionTrends.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-6 gap-2 text-xs">
+                      {feeStats.collectionTrends.slice(-6).map((trend, index) => (
+                        <div key={index} className="text-center">
+                          <div className="font-medium">{trend.month}</div>
+                          <div className="text-muted-foreground">Rs. {trend.amount.toLocaleString()}</div>
+                          <div className="mt-2 bg-primary/20 rounded-full h-2">
+                            <div
+                              className="bg-primary h-full rounded-full"
+                              style={{
+                                width: `${Math.max(10, (trend.amount / Math.max(...feeStats.collectionTrends.map(t => t.amount))) * 100)}%`
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground flex items-center justify-center h-full">
+                    <div>
+                      <BarChart className="h-16 w-16 mx-auto mb-4" />
+                      <p>No collection data available</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Payment Methods</CardTitle>
+                <CardDescription>Distribution of payment methods used</CardDescription>
+              </CardHeader>
+              <CardContent className="h-80">
+                {isLoadingFeeStats ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : feeStats?.paymentMethods && feeStats.paymentMethods.length > 0 ? (
+                  <div className="space-y-4">
+                    {feeStats.paymentMethods.map((method, index) => {
+                      const totalAmount = feeStats.paymentMethods.reduce((sum, m) => sum + m.amount, 0);
+                      const percentage = totalAmount > 0 ? (method.amount / totalAmount) * 100 : 0;
+                      const methodLabel = getPaymentMethodLabel(method.method);
+                      const methodIcon = getPaymentMethodIcon(method.method);
+                      return (
+                        <div key={index} className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">{methodIcon}</span>
+                              <span className="text-sm font-medium">{methodLabel}</span>
+                            </div>
+                            <span className="text-sm text-muted-foreground">
+                              Rs. {method.amount.toLocaleString()} ({method.count} transactions)
+                            </span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div
+                              className="bg-primary h-full rounded-full transition-all duration-300"
+                              style={{ width: `${Math.max(5, percentage)}%` }}
+                            />
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {percentage.toFixed(1)}% of total amount
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground flex items-center justify-center h-full">
+                    <div>
+                      <BarChart className="h-16 w-16 mx-auto mb-4" />
+                      <p>No payment method data available</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle>Recent Fee Transactions</CardTitle>
@@ -224,22 +525,37 @@ export default function SystemFeeManagementPage() {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-medium">Fee Payment Status</h3>
-                      <div className="w-full bg-muted rounded-full h-4 overflow-hidden">
-                        {feeStats?.totalCollected !== undefined && feeStats?.pendingFees !== undefined && (
-                          <div
-                            className="bg-primary h-full"
-                            style={{
-                              width: `${Math.round((feeStats.totalCollected / (feeStats.totalCollected + feeStats.pendingFees)) * 100)}%`
-                            }}
-                          />
-                        )}
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="text-sm font-medium mb-2">Fee Payment Status</h3>
+                        <div className="w-full bg-muted rounded-full h-4 overflow-hidden">
+                          {feeStats?.totalCollected !== undefined && feeStats?.pendingFees !== undefined && (
+                            <div
+                              className="bg-primary h-full transition-all duration-300"
+                              style={{
+                                width: `${Math.round((feeStats.totalCollected / (feeStats.totalCollected + feeStats.pendingFees)) * 100)}%`
+                              }}
+                            />
+                          )}
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                          <span>Received: Rs. {feeStats?.totalCollected.toLocaleString() || 0}</span>
+                          <span>Pending: Rs. {feeStats?.pendingFees.toLocaleString() || 0}</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Received: Rs. {feeStats?.totalCollected.toLocaleString() || 0}</span>
-                        <span>Pending: Rs. {feeStats?.pendingFees.toLocaleString() || 0}</span>
-                      </div>
+
+                      {feeStats?.overdueFees && feeStats.overdueFees > 0 && (
+                        <div>
+                          <h3 className="text-sm font-medium mb-2 text-red-600">Overdue Fees Alert</h3>
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-red-800">Amount Overdue</span>
+                              <span className="text-sm font-bold text-red-800">Rs. {feeStats.overdueFees.toLocaleString()}</span>
+                            </div>
+                            <p className="text-xs text-red-600 mt-1">Requires immediate attention</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -253,7 +569,11 @@ export default function SystemFeeManagementPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Fee Structures</CardTitle>
-                <CardDescription>Manage fee structures across all campuses</CardDescription>
+                <CardDescription>
+                  {feeStructuresLoading
+                    ? 'Loading fee structures...'
+                    : `Showing ${feeStructures?.length || 0} fee structures`}
+                </CardDescription>
               </div>
               <Button onClick={() => router.push('/admin/system/fee-management/structures/new')}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -261,9 +581,23 @@ export default function SystemFeeManagementPage() {
               </Button>
             </CardHeader>
             <CardContent>
-              <p className="text-center text-muted-foreground py-8">
-                Fee structures list will be displayed here
-              </p>
+              {feeStructuresLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+                  ))}
+                </div>
+              ) : feeStructures && feeStructures.length > 0 ? (
+                <DataTable
+                  columns={feeStructuresColumns}
+                  data={feeStructures}
+                  searchColumn="name"
+                />
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No fee structures found. Create your first fee structure to get started.
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -273,7 +607,11 @@ export default function SystemFeeManagementPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Discount Types</CardTitle>
-                <CardDescription>Manage discount types for fee structures</CardDescription>
+                <CardDescription>
+                  {discountTypesLoading
+                    ? 'Loading discount types...'
+                    : `Showing ${discountTypes?.length || 0} discount types`}
+                </CardDescription>
               </div>
               <Button onClick={() => router.push('/admin/system/fee-management/discount-types/new')}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -281,25 +619,87 @@ export default function SystemFeeManagementPage() {
               </Button>
             </CardHeader>
             <CardContent>
-              <p className="text-center text-muted-foreground py-8">
-                Discount types list will be displayed here
-              </p>
+              {discountTypesLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+                  ))}
+                </div>
+              ) : discountTypes && discountTypes.length > 0 ? (
+                <DataTable
+                  columns={discountTypesColumns}
+                  data={discountTypes}
+                  searchColumn="name"
+                />
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No discount types found. Create your first discount type to get started.
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Fee Reports</CardTitle>
-              <CardDescription>Generate and view fee collection reports</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-center text-muted-foreground py-8">
-                Fee reports will be displayed here
-              </p>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push('/admin/system/fee-management/reports')}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Financial Reports
+                </CardTitle>
+                <CardDescription>Comprehensive financial analytics and reporting</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">View detailed reports</span>
+                  <Button size="sm" variant="outline">
+                    View Reports
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push('/admin/system/fee-management/settings')}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  Fee Settings
+                </CardTitle>
+                <CardDescription>Configure fee structures, discount types, and payment methods</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Manage configurations</span>
+                  <Button size="sm" variant="outline">
+                    Open Settings
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-md transition-shadow">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <LayoutGrid className="h-5 w-5" />
+                  Quick Actions
+                </CardTitle>
+                <CardDescription>Common fee management tasks</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => router.push('/admin/system/fee-management/structures/new')}>
+                    <Plus className="h-3 w-3 mr-2" />
+                    New Fee Structure
+                  </Button>
+                  <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => router.push('/admin/system/fee-management/discount-types/new')}>
+                    <Plus className="h-3 w-3 mr-2" />
+                    New Discount Type
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

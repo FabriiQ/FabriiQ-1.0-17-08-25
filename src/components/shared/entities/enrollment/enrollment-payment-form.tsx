@@ -67,7 +67,7 @@ export function EnrollmentPaymentForm({
         <CardTitle>Payment Details</CardTitle>
       </CardHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleSubmit)}>
+        <form id="payment-form" onSubmit={form.handleSubmit(handleSubmit)}>
           <CardContent className="space-y-4">
             <FormField
               control={form.control}

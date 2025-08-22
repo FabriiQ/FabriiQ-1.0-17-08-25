@@ -6,7 +6,8 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { PaymentStatusBadge, PaymentStatus } from "@/components/core/payment/payment-status-badge";
 import { TransactionList, Transaction } from "@/components/core/payment/transaction-list";
 import { format } from "date-fns";
-import { Calendar, DollarSign, Edit, Plus } from "lucide-react";
+import { Calendar, Edit, Plus } from "lucide-react";
+import { DollarSign } from "@/components/ui/icons/lucide-icons";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { TransactionForm, TransactionFormValues } from "./transaction-form";
 import { EnrollmentPaymentForm, PaymentFormValues } from "./enrollment-payment-form";

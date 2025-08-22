@@ -48,12 +48,12 @@ export const logLoginPerformance = (metrics: Omit<LoginPerformanceMetrics, 'dura
                   duration > 2000 ? 'MEDIUM' : 'LOW';
 
   if (severity === 'CRITICAL') {
-    logger.error("Critical login performance issue", JSON.stringify({
+    logger.error("Critical login performance issue", {
       username: fullMetrics.username,
       duration: `${duration}ms`,
       targetUrl: fullMetrics.targetUrl,
       severity
-    }));
+    });
   } else if (severity === 'HIGH') {
     logger.warn("High login performance issue", {
       username: fullMetrics.username,

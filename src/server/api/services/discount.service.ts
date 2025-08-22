@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { handleError } from "../utils/error-handler";
 import { z } from "zod";
 
 // Input schemas
@@ -37,6 +38,12 @@ export class DiscountService {
   async createDiscountType(input: CreateDiscountTypeInput) {
     const { createdById, ...restData } = input;
 
+    console.log('DEBUG DiscountService.createDiscountType input snapshot:', {
+      hasCreatedById: Boolean(createdById),
+      name: restData?.name,
+      discountValue: restData?.discountValue,
+    });
+
     // Ensure name and discountValue are provided (required fields)
     if (!restData.name) {
       throw new Error('Discount type name is required');
@@ -49,17 +56,24 @@ export class DiscountService {
     // Extract required fields to ensure they're treated as required
     const { name, discountValue, applicableFor, ...otherData } = restData;
 
-    return this.prisma.discountType.create({
-      data: {
-        name,
-        discountValue,
-        applicableFor,
-        ...otherData,
-        createdBy: {
-          connect: { id: createdById }
-        }
-      },
-    });
+    try {
+      const result = await this.prisma.discountType.create({
+        data: {
+          name,
+          discountValue,
+          applicableFor,
+          ...otherData,
+          createdBy: {
+            connect: { id: createdById }
+          }
+        },
+      });
+      console.log('SUCCESS DiscountService.createDiscountType created id:', result.id);
+      return result;
+    } catch (error) {
+      console.error('ERROR DiscountService.createDiscountType failed:', error);
+      handleError(error, "Failed to create discount type");
+    }
   }
 
   async getDiscountType(id: string) {

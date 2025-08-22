@@ -677,9 +677,14 @@ export const systemAnalyticsRouter = createTRPCRouter({
           });
         }
 
-        // Get student with related data
+        // Get student with related data - only if user is a student type
         const student = await ctx.prisma.user.findUnique({
-          where: { id: input.id },
+          where: {
+            id: input.id,
+            userType: {
+              in: ['CAMPUS_STUDENT', 'STUDENT']
+            }
+          },
           include: {
             studentProfile: true,
             activeCampuses: {
@@ -693,7 +698,7 @@ export const systemAnalyticsRouter = createTRPCRouter({
         if (!student) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: `Student not found. User exists but is not a CAMPUS_STUDENT or STUDENT (userType: ${userExists.userType})`,
+            message: `Student not found. User exists but is not a student (userType: ${userExists.userType})`,
           });
         }
 

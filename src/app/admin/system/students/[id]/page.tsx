@@ -25,7 +25,7 @@ export default function SystemStudentDetailPage() {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   // Fetch student details with real-time updates
-  const { data: student, isLoading: isLoadingStudent } = api.systemAnalytics.getStudentById.useQuery(
+  const { data: student, isLoading: isLoadingStudent, error: studentError } = api.systemAnalytics.getStudentById.useQuery(
     { id: studentId },
     {
       enabled: !!studentId,
@@ -165,6 +165,25 @@ export default function SystemStudentDetailPage() {
               </CardContent>
             </Card>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (studentError) {
+    return (
+      <div className="container mx-auto py-8 space-y-6">
+        <PageHeader
+          title="Error Loading Student"
+          description={studentError.message || "An error occurred while loading the student details."}
+        />
+        <div className="flex gap-4">
+          <Button asChild>
+            <Link href="/admin/system/students">Back to Students</Link>
+          </Button>
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
         </div>
       </div>
     );

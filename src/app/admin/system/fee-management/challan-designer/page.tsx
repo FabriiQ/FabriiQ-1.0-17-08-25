@@ -143,8 +143,6 @@ export default function SimpleChallanDesignerPage() {
       description: values.description,
       design: templateDesign,
       copies: values.copies,
-      institutionId: "default", // TODO: Get from context
-      createdById: "default", // TODO: Get from session
     });
   };
 

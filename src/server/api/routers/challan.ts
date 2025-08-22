@@ -7,15 +7,56 @@ import {
   generateChallanSchema,
   bulkGenerateChallansSchema
 } from "../services/challan.service";
+import { TRPCError } from "@trpc/server";
 
 export const challanRouter = createTRPCRouter({
   // Challan Template Endpoints
   createTemplate: protectedProcedure
     .input(createChallanTemplateSchema)
     .mutation(async ({ ctx, input }) => {
+      // Get user's institution ID from session
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: ctx.session.user.id },
+        select: { institutionId: true, primaryCampusId: true }
+      });
+
+      let institutionId = user?.institutionId;
+
+      // If no institutionId, try to get it from the primary campus
+      if (!institutionId && user?.primaryCampusId) {
+        const campus = await ctx.prisma.campus.findUnique({
+          where: { id: user.primaryCampusId },
+          select: { institutionId: true }
+        });
+        institutionId = campus?.institutionId;
+      }
+
+      // If still no institutionId, use a default one or create one
+      if (!institutionId) {
+        // Try to find any institution or create a default one
+        let defaultInstitution = await ctx.prisma.institution.findFirst({
+          select: { id: true }
+        });
+
+        if (!defaultInstitution) {
+          // Create a default institution if none exists
+          defaultInstitution = await ctx.prisma.institution.create({
+            data: {
+              name: "Default Institution",
+              code: "DEFAULT",
+              status: "ACTIVE"
+            },
+            select: { id: true }
+          });
+        }
+
+        institutionId = defaultInstitution.id;
+      }
+
       const challanService = new ChallanService();
       return challanService.createChallanTemplate({
         ...input,
+        institutionId,
         createdById: ctx.session.user.id,
       });
     }),

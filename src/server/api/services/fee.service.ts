@@ -1,8 +1,11 @@
 import { prisma } from "@/server/db";
 import { EnrollmentHistoryService } from "./enrollment-history.service";
+import { handleError } from "../utils/error-handler";
+import { PaymentMethod } from "@/types/payment-methods";
+import { z } from "zod";
 
 // Define PaymentStatusType enum since it's not exported from @prisma/client yet
-type PaymentStatusType = "PAID" | "PENDING" | "PARTIAL" | "WAIVED";
+type PaymentStatusType = "PAID" | "PENDING" | "PARTIAL" | "WAIVED" | "OVERDUE";
 
 // Define FeeComponent type for fee structure components
 type FeeComponent = {
@@ -14,7 +17,9 @@ type FeeComponent = {
 
 // Create an instance of the EnrollmentHistoryService
 const historyService = new EnrollmentHistoryService();
-import { z } from "zod";
+
+// Payment method schema
+export const paymentMethodSchema = z.nativeEnum(PaymentMethod);
 
 // Input schemas
 export const createFeeStructureSchema = z.object({
@@ -70,7 +75,7 @@ export const createEnrollmentFeeSchema = z.object({
     amount: z.number().min(0),
     reason: z.string().optional(),
   })).optional(),
-  createdById: z.string(),
+  createdById: z.string().optional(), // Made optional since it's added by tRPC procedure
 });
 
 export const updateEnrollmentFeeSchema = z.object({
@@ -115,7 +120,7 @@ export const addTransactionSchema = z.object({
   challanId: z.string().optional(),
   amount: z.number().positive(),
   date: z.date().default(() => new Date()),
-  method: z.string(),
+  method: paymentMethodSchema.default(PaymentMethod.ON_CAMPUS_COUNTER),
   reference: z.string().optional(),
   notes: z.string().optional(),
   createdById: z.string(),
@@ -140,8 +145,8 @@ export class FeeService {
 
   // Fee Analytics Methods
   /**
-   * Gets fee collection statistics
-   * @returns Fee collection statistics
+   * Gets comprehensive fee collection statistics with trends and analytics
+   * @returns Enhanced fee collection statistics
    */
   async getFeeCollectionStats() {
     try {
@@ -283,20 +288,174 @@ export class FeeService {
         }
       });
 
+      // Get collection trends for the last 12 months
+      const collectionTrends = await this.getCollectionTrends();
+
+      // Get payment method distribution
+      const paymentMethods = await this.getPaymentMethodDistribution();
+
+      // Calculate collection rate
+      const totalAmount = (totalCollected._sum.amount || 0) + pendingFees;
+      const collectionRate = totalAmount > 0 ? ((totalCollected._sum.amount || 0) / totalAmount) * 100 : 0;
+
+      // Get overdue fees (fees past due date)
+      const overdueFees = await this.getOverdueFees();
+
+      // Get monthly collection comparison
+      const monthlyComparison = await this.getMonthlyCollectionComparison();
+
       return {
         totalCollected: totalCollected._sum.amount || 0,
         pendingFees,
+        overdueFees,
         totalStudents,
         studentsWithFees,
         studentsWithoutFees,
         feeStructures,
         discountTypes,
+        collectionRate: Math.round(collectionRate * 100) / 100,
         recentTransactions: mappedTransactions,
+        collectionTrends,
+        paymentMethods,
+        monthlyComparison,
       };
     } catch (error) {
       console.error('Error getting fee collection stats:', error);
       throw new Error(`Failed to get fee collection statistics: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  /**
+   * Gets collection trends for the last 12 months
+   */
+  private async getCollectionTrends() {
+    const trends: Array<{ month: string; amount: number }> = [];
+    const now = new Date();
+
+    for (let i = 11; i >= 0; i--) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+
+      const monthlyCollection = await this.prisma.feeTransaction.aggregate({
+        where: {
+          date: {
+            gte: monthStart,
+            lte: monthEnd,
+          },
+        },
+        _sum: {
+          amount: true,
+        },
+      });
+
+      trends.push({
+        month: monthStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        amount: monthlyCollection._sum.amount || 0,
+      });
+    }
+
+    return trends;
+  }
+
+  /**
+   * Gets payment method distribution
+   */
+  private async getPaymentMethodDistribution() {
+    const distribution = await this.prisma.feeTransaction.groupBy({
+      by: ['method'],
+      _sum: {
+        amount: true,
+      },
+      _count: {
+        id: true,
+      },
+    });
+
+    return distribution.map(item => ({
+      method: item.method,
+      amount: item._sum.amount || 0,
+      count: item._count.id || 0,
+    }));
+  }
+
+  /**
+   * Gets overdue fees amount
+   */
+  private async getOverdueFees() {
+    const now = new Date();
+    const overdueEnrollmentFees = await this.prisma.enrollmentFee.findMany({
+      where: {
+        paymentStatus: {
+          in: ["PENDING", "PARTIAL"],
+        },
+        dueDate: {
+          lt: now,
+        },
+      },
+      select: {
+        finalAmount: true,
+        transactions: {
+          select: {
+            amount: true,
+          },
+        },
+      },
+    });
+
+    let overdueAmount = 0;
+    for (const fee of overdueEnrollmentFees) {
+      const paidAmount = fee.transactions.reduce((sum, t) => sum + t.amount, 0);
+      overdueAmount += fee.finalAmount - paidAmount;
+    }
+
+    return overdueAmount;
+  }
+
+  /**
+   * Gets monthly collection comparison (current vs previous month)
+   */
+  private async getMonthlyCollectionComparison() {
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    const [currentMonth, previousMonth] = await Promise.all([
+      this.prisma.feeTransaction.aggregate({
+        where: {
+          date: {
+            gte: currentMonthStart,
+          },
+        },
+        _sum: {
+          amount: true,
+        },
+      }),
+      this.prisma.feeTransaction.aggregate({
+        where: {
+          date: {
+            gte: previousMonthStart,
+            lte: previousMonthEnd,
+          },
+        },
+        _sum: {
+          amount: true,
+        },
+      }),
+    ]);
+
+    const currentAmount = currentMonth._sum.amount || 0;
+    const previousAmount = previousMonth._sum.amount || 0;
+    const percentageChange = previousAmount > 0
+      ? ((currentAmount - previousAmount) / previousAmount) * 100
+      : 0;
+
+    return {
+      currentMonth: currentAmount,
+      previousMonth: previousAmount,
+      percentageChange: Math.round(percentageChange * 100) / 100,
+      trend: percentageChange > 0 ? 'up' : percentageChange < 0 ? 'down' : 'stable',
+    };
   }
 
   // Fee Structure Methods
@@ -308,6 +467,13 @@ export class FeeService {
   async createFeeStructure(input: CreateFeeStructureInput) {
     const { feeComponents, programCampusId, createdById, ...restData } = input;
 
+    console.log('DEBUG FeeService.createFeeStructure input snapshot:', {
+      hasCreatedById: Boolean(createdById),
+      programCampusId,
+      name: restData?.name,
+      componentsCount: Array.isArray(feeComponents) ? feeComponents.length : 0,
+    });
+
     // Ensure name is provided
     if (!restData.name) {
       throw new Error('Fee structure name is required');
@@ -316,19 +482,24 @@ export class FeeService {
     // Extract name to ensure it's treated as a required field
     const { name, ...otherData } = restData;
 
-    return this.prisma.feeStructure.create({
-      data: {
-        name, // Explicitly provide name as a required field
-        ...otherData,
-        feeComponents: feeComponents as any,
-        programCampus: {
-          connect: { id: programCampusId }
+    try {
+      const result = await this.prisma.feeStructure.create({
+        data: {
+          name, // Explicitly provide name as a required field
+          ...otherData,
+          feeComponents: feeComponents as any,
+          programCampus: {
+            connect: { id: programCampusId }
+          },
+          createdBy: { connect: { id: createdById } }
         },
-        createdBy: {
-          connect: { id: createdById }
-        }
-      },
-    });
+      });
+      console.log('SUCCESS FeeService.createFeeStructure created id:', result.id);
+      return result;
+    } catch (error) {
+      console.error('ERROR FeeService.createFeeStructure failed:', error);
+      handleError(error, "Failed to create fee structure");
+    }
   }
 
   /**
@@ -449,6 +620,27 @@ export class FeeService {
     const { enrollmentId, feeStructureId, ...data } = input;
 
     try {
+      // Validate enrollment ID
+      if (!enrollmentId) {
+        throw new Error('Enrollment ID is required');
+      }
+
+      // Ensure enrollment exists (prevents relation errors)
+      const enrollment = await this.prisma.studentEnrollment.findUnique({
+        where: { id: enrollmentId },
+      });
+      if (!enrollment) {
+        throw new Error(`Enrollment with ID ${enrollmentId} not found`);
+      }
+
+      // Prevent duplicate fee assignment (handles unique constraint on enrollmentId)
+      const existingFee = await this.prisma.enrollmentFee.findUnique({
+        where: { enrollmentId },
+      });
+      if (existingFee) {
+        throw new Error('An enrollment fee is already assigned to this enrollment. Please update the existing fee.');
+      }
+
       // Get fee structure
       const feeStructure = await this.prisma.feeStructure.findUnique({
         where: { id: feeStructureId },
@@ -456,11 +648,6 @@ export class FeeService {
 
       if (!feeStructure) {
         throw new Error(`Fee structure with ID ${feeStructureId} not found`);
-      }
-
-      // Validate enrollment ID
-      if (!enrollmentId) {
-        throw new Error('Enrollment ID is required');
       }
 
       // Calculate base amount from fee components
@@ -1351,5 +1538,433 @@ export class FeeService {
     // In a real implementation, generate PDF and update receiptUrl
     // For now, just return the transaction
     return transaction;
+  }
+
+  /**
+   * Bulk import fee assignments
+   */
+  async bulkImportFeeAssignments(data: {
+    assignments: Array<{
+      studentEmail: string;
+      studentEnrollmentNumber?: string;
+      feeStructureName: string;
+      academicCycle?: string;
+      term?: string;
+      dueDate: string;
+      notes?: string;
+    }>;
+    createdById: string;
+  }) {
+    const results = {
+      total: data.assignments.length,
+      successful: 0,
+      failed: 0,
+      errors: [] as string[],
+      details: [] as Array<{
+        row: number;
+        status: 'success' | 'error';
+        message: string;
+      }>,
+    };
+
+    for (let i = 0; i < data.assignments.length; i++) {
+      const assignment = data.assignments[i];
+      const rowNumber = i + 1;
+
+      try {
+        // Find student by email or enrollment number
+        const student = await this.prisma.studentProfile.findFirst({
+          where: {
+            OR: [
+              { user: { email: assignment.studentEmail } },
+              ...(assignment.studentEnrollmentNumber ? [{ enrollmentNumber: assignment.studentEnrollmentNumber }] : [])
+            ]
+          },
+          include: {
+            user: true
+          }
+        });
+
+        if (!student) {
+          throw new Error(`Student not found: ${assignment.studentEmail}`);
+        }
+
+        // Find fee structure by name
+        const feeStructure = await this.prisma.feeStructure.findFirst({
+          where: { name: assignment.feeStructureName }
+        });
+
+        if (!feeStructure) {
+          throw new Error(`Fee structure not found: ${assignment.feeStructureName}`);
+        }
+
+        // Find student's enrollment
+        const enrollment = await this.prisma.studentEnrollment.findFirst({
+          where: { studentId: student.id, status: 'ACTIVE' }
+        });
+
+        if (!enrollment) {
+          throw new Error(`No active enrollment found for student: ${assignment.studentEmail}`);
+        }
+
+        // Create enrollment fee
+        await this.prisma.enrollmentFee.create({
+          data: {
+            enrollmentId: enrollment.id,
+            feeStructureId: feeStructure.id,
+            baseAmount: 0, // Will be calculated based on fee structure
+            discountedAmount: 0,
+            finalAmount: 0,
+            dueDate: new Date(assignment.dueDate),
+            paymentStatus: 'PENDING',
+            notes: assignment.notes,
+            createdById: data.createdById,
+          }
+        });
+
+        results.successful++;
+        results.details.push({
+          row: rowNumber,
+          status: 'success',
+          message: `Fee assigned successfully to ${assignment.studentEmail}`
+        });
+
+      } catch (error) {
+        results.failed++;
+        const errorMessage = `Row ${rowNumber}: ${(error as Error).message}`;
+        results.errors.push(errorMessage);
+        results.details.push({
+          row: rowNumber,
+          status: 'error',
+          message: errorMessage
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Bulk import fee payments
+   */
+  async bulkImportFeePayments(data: {
+    payments: Array<{
+      studentEmail: string;
+      studentEnrollmentNumber?: string;
+      paymentAmount: number;
+      paymentMethod: string;
+      paymentDate: string;
+      transactionReference?: string;
+      notes?: string;
+    }>;
+    createdById: string;
+  }) {
+    const results = {
+      total: data.payments.length,
+      successful: 0,
+      failed: 0,
+      errors: [] as string[],
+      details: [] as Array<{
+        row: number;
+        status: 'success' | 'error';
+        message: string;
+      }>,
+    };
+
+    for (let i = 0; i < data.payments.length; i++) {
+      const payment = data.payments[i];
+      const rowNumber = i + 1;
+
+      try {
+        // Find student by email or enrollment number
+        const student = await this.prisma.studentProfile.findFirst({
+          where: {
+            OR: [
+              { user: { email: payment.studentEmail } },
+              ...(payment.studentEnrollmentNumber ? [{ enrollmentNumber: payment.studentEnrollmentNumber }] : [])
+            ]
+          },
+          include: {
+            user: true
+          }
+        });
+
+        if (!student) {
+          throw new Error(`Student not found: ${payment.studentEmail}`);
+        }
+
+        // Find student's enrollment fee
+        const enrollmentFee = await this.prisma.enrollmentFee.findFirst({
+          where: {
+            enrollment: {
+              studentId: student.id,
+              status: 'ACTIVE'
+            },
+            paymentStatus: { in: ['PENDING', 'PARTIAL'] }
+          }
+        });
+
+        if (!enrollmentFee) {
+          throw new Error(`No pending fee found for student: ${payment.studentEmail}`);
+        }
+
+        // Create fee transaction
+        await this.prisma.feeTransaction.create({
+          data: {
+            enrollmentFeeId: enrollmentFee.id,
+            amount: payment.paymentAmount,
+            method: payment.paymentMethod as any,
+            date: new Date(payment.paymentDate),
+            reference: payment.transactionReference,
+            status: 'ACTIVE',
+            notes: payment.notes,
+            createdById: data.createdById,
+          }
+        });
+
+        // Calculate new amounts based on existing transactions
+        const existingTransactions = await this.prisma.feeTransaction.aggregate({
+          where: { enrollmentFeeId: enrollmentFee.id },
+          _sum: { amount: true }
+        });
+
+        const totalPaid = existingTransactions._sum.amount || 0;
+        const remainingAmount = Math.max(0, enrollmentFee.finalAmount - totalPaid);
+        const newStatus = remainingAmount === 0 ? 'PAID' : totalPaid > 0 ? 'PARTIAL' : 'PENDING';
+
+        await this.prisma.enrollmentFee.update({
+          where: { id: enrollmentFee.id },
+          data: {
+            paymentStatus: newStatus,
+          }
+        });
+
+        results.successful++;
+        results.details.push({
+          row: rowNumber,
+          status: 'success',
+          message: `Payment recorded successfully for ${payment.studentEmail}`
+        });
+
+      } catch (error) {
+        results.failed++;
+        const errorMessage = `Row ${rowNumber}: ${(error as Error).message}`;
+        results.errors.push(errorMessage);
+        results.details.push({
+          row: rowNumber,
+          status: 'error',
+          message: errorMessage
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Update payment status for an enrollment fee
+   */
+  async updatePaymentStatus(data: {
+    enrollmentFeeId: string;
+    paymentStatus: string;
+    paidAmount?: number;
+    paymentMethod?: string;
+    transactionReference?: string;
+    notes?: string;
+    updatedById: string;
+  }) {
+    try {
+      // Get the enrollment fee
+      const enrollmentFee = await this.prisma.enrollmentFee.findUnique({
+        where: { id: data.enrollmentFeeId },
+        include: {
+          transactions: true,
+        },
+      });
+
+      if (!enrollmentFee) {
+        throw new Error("Enrollment fee not found");
+      }
+
+      // Update the enrollment fee
+      const updatedFee = await this.prisma.enrollmentFee.update({
+        where: { id: data.enrollmentFeeId },
+        data: {
+          paymentStatus: data.paymentStatus as any,
+          notes: data.notes,
+          updatedAt: new Date(),
+          updatedById: data.updatedById,
+        },
+        include: {
+          enrollment: {
+            include: {
+              student: {
+                include: {
+                  user: true,
+                },
+              },
+            },
+          },
+          feeStructure: true,
+          transactions: true,
+          discounts: true,
+          additionalCharges: true,
+          arrears: true,
+        },
+      });
+
+      // If paidAmount is provided and transactionReference is provided, create a transaction
+      if (data.paidAmount && data.transactionReference) {
+        await this.prisma.feeTransaction.create({
+          data: {
+            enrollmentFeeId: data.enrollmentFeeId,
+            amount: data.paidAmount,
+            method: data.paymentMethod as any || 'ON_CAMPUS_COUNTER',
+            reference: data.transactionReference,
+            date: new Date(),
+            notes: data.notes,
+            createdById: data.updatedById,
+          },
+        });
+      }
+
+      return {
+        success: true,
+        enrollmentFee: updatedFee,
+      };
+    } catch (error) {
+      console.error("Error updating payment status:", error);
+      throw new Error(`Failed to update payment status: ${(error as Error).message}`);
+    }
+  }
+
+  // ========================================================================
+  // ENHANCED DISCOUNT MANAGEMENT WITH ENROLLMENT-LEVEL PERSISTENCE
+  // ========================================================================
+
+  /**
+   * Ensure discount inheritance to all challans/invoices for an enrollment
+   */
+  async ensureDiscountInheritanceToChallans(enrollmentFeeId: string) {
+    try {
+      const enrollmentFee = await this.prisma.enrollmentFee.findUnique({
+        where: { id: enrollmentFeeId },
+        include: {
+          challans: true,
+          discounts: {
+            where: { status: 'ACTIVE' },
+            include: { discountType: true }
+          }
+        }
+      });
+
+      if (!enrollmentFee) {
+        throw new Error("Enrollment fee not found");
+      }
+
+      const totalDiscount = enrollmentFee.discounts.reduce((sum, d) => sum + d.amount, 0);
+      const discountPercentage = enrollmentFee.baseAmount > 0
+        ? totalDiscount / enrollmentFee.baseAmount
+        : 0;
+
+      let updatedChallans = 0;
+
+      // Update all existing challans to reflect current discount
+      for (const challan of enrollmentFee.challans) {
+        const originalAmount = challan.totalAmount + challan.paidAmount; // Estimate original amount
+        const challanDiscount = originalAmount * discountPercentage;
+        const newTotalAmount = Math.max(0, originalAmount - challanDiscount - challan.paidAmount);
+
+        await this.prisma.feeChallan.update({
+          where: { id: challan.id },
+          data: {
+            totalAmount: newTotalAmount,
+          }
+        });
+
+        updatedChallans++;
+      }
+
+      return {
+        success: true,
+        message: `Discount inheritance updated for ${updatedChallans} challans`,
+        updatedChallans,
+        discountPercentage: (discountPercentage * 100).toFixed(2) + '%',
+        totalDiscount,
+      };
+
+    } catch (error) {
+      console.error('ERROR FeeService.ensureDiscountInheritanceToChallans failed:', error);
+      handleError(error, "Failed to ensure discount inheritance to challans");
+    }
+  }
+
+  /**
+   * Apply bulk discount to multiple enrollments (for batch operations)
+   */
+  async applyBulkDiscount(data: {
+    enrollmentFeeIds: string[];
+    discountTypeId: string;
+    customAmount?: number;
+    reason: string;
+    createdById: string;
+  }) {
+    try {
+      const results: Array<{
+        enrollmentFeeId: string;
+        success: boolean;
+        discountId?: string;
+        amount?: number;
+        error?: string;
+      }> = [];
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const enrollmentFeeId of data.enrollmentFeeIds) {
+        try {
+          const result = await this.addDiscount({
+            enrollmentFeeId,
+            discountTypeId: data.discountTypeId,
+            amount: data.customAmount || 0, // Will be calculated if 0
+            reason: data.reason,
+            createdById: data.createdById,
+          });
+
+          // Ensure discount inheritance to challans
+          await this.ensureDiscountInheritanceToChallans(enrollmentFeeId);
+
+          results.push({
+            enrollmentFeeId,
+            success: true,
+            discountId: result.id,
+            amount: result.amount,
+          });
+          successCount++;
+
+        } catch (error) {
+          results.push({
+            enrollmentFeeId,
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+          errorCount++;
+        }
+      }
+
+      return {
+        success: true,
+        summary: {
+          total: data.enrollmentFeeIds.length,
+          successful: successCount,
+          failed: errorCount,
+          successRate: ((successCount / data.enrollmentFeeIds.length) * 100).toFixed(2) + '%',
+        },
+        results,
+      };
+
+    } catch (error) {
+      console.error('ERROR FeeService.applyBulkDiscount failed:', error);
+      handleError(error, "Failed to apply bulk discount");
+    }
   }
 }

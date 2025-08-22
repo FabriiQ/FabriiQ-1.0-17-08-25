@@ -10,16 +10,29 @@ import { ChevronLeft } from '@/components/ui/icons/custom-icons';
 import { FeeStructureForm, FeeStructureFormValues } from '@/components/shared/entities/fee';
 import { useToast } from '@/components/ui/use-toast';
 import { LoadingSpinner } from '@/components/ui/loading';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function NewFeeStructurePage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch data from API
-  const { data: programCampusesData, isLoading: programCampusesLoading } = api.programCampus.getAll.useQuery();
-  const { data: academicCyclesData, isLoading: academicCyclesLoading } = api.academicCycle.list.useQuery({});
-  const { data: termsData, isLoading: termsLoading } = api.term.list.useQuery({});
+  const { data: programCampusesData, isLoading: programCampusesLoading, error: programCampusesError } = api.programCampus.getAll.useQuery();
+
+  // Use a default institution ID if user doesn't have one (for system admin)
+  const institutionId = user?.institutionId || 'default';
+
+  const { data: academicCyclesData, isLoading: academicCyclesLoading, error: academicCyclesError } = api.academicCycle.list.useQuery(
+    { institutionId },
+    { enabled: !!institutionId }
+  );
+  const { data: termsData, isLoading: termsLoading, error: termsError } = api.term.list.useQuery({
+    page: 1,
+    pageSize: 100, // Get all terms
+    status: 'ACTIVE'
+  });
 
   // Process data
   const programCampuses = programCampusesData?.map(pc => ({
@@ -35,6 +48,29 @@ export default function NewFeeStructurePage() {
     id: term.id,
     name: term.name
   })) || [];
+
+  // Loading and error states
+  const isLoading = programCampusesLoading || academicCyclesLoading || termsLoading;
+  const hasError = programCampusesError || academicCyclesError || termsError;
+
+  // Debug logging
+  console.log('Fee Structure New Page Data:', {
+    user,
+    institutionId,
+    programCampusesData,
+    academicCyclesData,
+    termsData,
+    programCampuses,
+    academicCycles,
+    terms,
+    isLoading,
+    hasError,
+    errors: {
+      programCampusesError: programCampusesError?.message,
+      academicCyclesError: academicCyclesError?.message,
+      termsError: termsError?.message
+    }
+  });
 
   // Create fee structure mutation
   const utils = api.useUtils();
@@ -79,9 +115,6 @@ export default function NewFeeStructurePage() {
     } as any);
   };
 
-  // Loading state
-  const isLoading = programCampusesLoading || academicCyclesLoading || termsLoading;
-
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center space-x-4">
@@ -98,7 +131,32 @@ export default function NewFeeStructurePage() {
 
       <Separator />
 
-      {isLoading ? (
+      {hasError ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Error Loading Data</CardTitle>
+            <CardDescription>There was an error loading the required data for the form</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {programCampusesError && (
+                <p className="text-red-600">Program Campuses: {programCampusesError.message}</p>
+              )}
+              {academicCyclesError && (
+                <p className="text-red-600">Academic Cycles: {academicCyclesError.message}</p>
+              )}
+              {termsError && (
+                <p className="text-red-600">Terms: {termsError.message}</p>
+              )}
+            </div>
+            <div className="mt-4">
+              <Button onClick={() => window.location.reload()}>
+                Try Again
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : isLoading ? (
         <div className="flex justify-center items-center h-64">
           <LoadingSpinner />
         </div>

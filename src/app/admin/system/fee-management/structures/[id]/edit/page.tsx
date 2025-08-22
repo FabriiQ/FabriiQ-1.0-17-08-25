@@ -10,12 +10,14 @@ import { ChevronLeft } from '@/components/ui/icons/custom-icons';
 import { FeeStructureForm, FeeStructureFormValues, FeeComponent } from '@/components/shared/entities/fee';
 import { useToast } from '@/components/ui/use-toast';
 import { LoadingSpinner } from '@/components/ui/loading';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function EditFeeStructurePage() {
   const params = useParams();
   const id = params?.id as string;
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch fee structure data
@@ -26,7 +28,10 @@ export default function EditFeeStructurePage() {
 
   // Fetch related data
   const { data: programCampuses, isLoading: programCampusesLoading } = api.programCampus.getAll.useQuery();
-  const { data: academicCycles, isLoading: academicCyclesLoading } = api.academicCycle.list.useQuery({});
+  const { data: academicCycles, isLoading: academicCyclesLoading } = api.academicCycle.list.useQuery(
+    user?.institutionId ? { institutionId: user.institutionId } : undefined,
+    { enabled: !!user?.institutionId }
+  );
   const { data: terms, isLoading: termsLoading } = api.term.list.useQuery({});
 
   // Mock data for development
@@ -118,7 +123,6 @@ export default function EditFeeStructurePage() {
   const handleSubmit = (values: FeeStructureFormValues) => {
     updateFeeStructureMutation.mutate({
       id,
-      updatedById: "default", // TODO: Get from session
       ...values,
     });
   };

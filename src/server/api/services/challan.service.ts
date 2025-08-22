@@ -297,11 +297,10 @@ export class ChallanService {
       throw new Error("Challan not found");
     }
 
-    // In a real implementation, generate PDF for printing
-    // For now, just return the challan data
+    // Return the challan data with print URL
     return {
       challan,
-      printUrl: `/api/challan/print/${id}`, // This would be a real URL in production
+      printUrl: `/api/challan/${id}/print`,
     };
   }
 
