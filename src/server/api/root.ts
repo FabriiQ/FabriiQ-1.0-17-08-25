@@ -73,6 +73,7 @@ import { programCampusRouter } from "./routers/program-campus";
 import { financialReportsRouter } from "./routers/financial-reports";
 import { settingsRouter } from "./routers/settings";
 import { lateFeeRouter } from "./routers/late-fee";
+import { unifiedFeeManagementRouter } from "./routers/unified-fee-management";
 
 // Reward System Routers
 import { achievementRouter } from "./routers/achievement";
@@ -199,6 +200,7 @@ export const appRouter = createTRPCRouter({
   financialReports: financialReportsRouter,
   settings: settingsRouter,
   lateFee: lateFeeRouter,
+  unifiedFeeManagement: unifiedFeeManagementRouter,
 
   // Reward System Routers
   achievement: achievementRouter,

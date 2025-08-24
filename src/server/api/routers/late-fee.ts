@@ -468,4 +468,187 @@ export const lateFeeRouter = createTRPCRouter({
         });
       }
     }),
+
+  // ========================================================================
+  // LATE FEE WAIVER REQUESTS
+  // ========================================================================
+
+  createWaiverRequest: protectedProcedure
+    .input(z.object({
+      enrollmentFeeId: z.string(),
+      reason: z.string().min(10, "Reason must be at least 10 characters"),
+      requestedAmount: z.number().min(0),
+      supportingDocuments: z.array(z.string()).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        // Verify enrollment fee exists
+        const enrollmentFee = await ctx.prisma.enrollmentFee.findUnique({
+          where: { id: input.enrollmentFeeId },
+          include: {
+            enrollment: {
+              include: {
+                student: {
+                  include: {
+                    user: true
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        if (!enrollmentFee) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Enrollment fee not found",
+          });
+        }
+
+        // Create waiver request (using system config table for now)
+        const waiverRequest = await ctx.prisma.systemConfig.create({
+          data: {
+            key: `waiver_request_${Date.now()}`,
+            value: {
+              enrollmentFeeId: input.enrollmentFeeId,
+              studentId: enrollmentFee.enrollment.student.id,
+              studentName: enrollmentFee.enrollment.student.user?.name,
+              reason: input.reason,
+              requestedAmount: input.requestedAmount,
+              supportingDocuments: input.supportingDocuments || [],
+              status: 'PENDING',
+              requestedAt: new Date().toISOString(),
+            },
+            description: `Late fee waiver request for ${enrollmentFee.enrollment.student.user?.name}`,
+            category: 'waiver_requests',
+            createdById: ctx.session.user.id,
+          }
+        });
+
+        return {
+          success: true,
+          waiverRequest,
+          message: "Waiver request submitted successfully",
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create waiver request",
+        });
+      }
+    }),
+
+  // ========================================================================
+  // AUGMENTED (NON-BREAKING) ENDPOINTS
+  // ========================================================================
+
+  /**
+   * Preview calculation for a specific enrollment fee and policy without applying it
+   */
+  previewCalculation: protectedProcedure
+    .input(z.object({
+      enrollmentFeeId: z.string(),
+      policyId: z.string(),
+      asOfDate: z.date().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const service = new LateFeeService({ prisma: ctx.prisma });
+      const result = await service.calculateLateFee(
+        input.enrollmentFeeId,
+        input.policyId,
+        input.asOfDate || new Date()
+      );
+      return { success: true, result };
+    }),
+
+  /**
+   * Process automatic late fees with optional dryRun (no DB writes)
+   */
+  processAutomatic: protectedProcedure
+    .input(z.object({
+      institutionId: z.string().optional(),
+      campusId: z.string().optional(),
+      policyIds: z.array(z.string()).optional(),
+      asOfDate: z.date().optional(),
+      dryRun: z.boolean().default(true),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const service = new LateFeeService({ prisma: ctx.prisma });
+      const res = await service.processAutomaticLateFees({
+        institutionId: input.institutionId,
+        campusId: input.campusId,
+        policyIds: input.policyIds,
+        asOfDate: input.asOfDate,
+        dryRun: input.dryRun,
+      });
+      return res;
+    }),
+
+  /**
+   * Create waiver request using LateFeeWaiver model (v2)
+   */
+  createWaiverV2: protectedProcedure
+    .input(z.object({
+      lateFeeApplicationId: z.string(),
+      enrollmentFeeId: z.string(),
+      requestedAmount: z.number().min(0),
+      reason: z.string().min(10),
+      justification: z.string().optional(),
+      supportingDocuments: z.array(z.object({ name: z.string(), url: z.string(), type: z.string() })).optional(),
+      expiresAt: z.date().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const service = new LateFeeService({ prisma: ctx.prisma });
+      const waiver = await service.createWaiverRequest({
+        lateFeeApplicationId: input.lateFeeApplicationId,
+        enrollmentFeeId: input.enrollmentFeeId,
+        requestedAmount: input.requestedAmount,
+        reason: input.reason,
+        justification: input.justification,
+        supportingDocuments: input.supportingDocuments,
+        expiresAt: input.expiresAt,
+        requestedBy: ctx.session.user.id,
+      });
+      return waiver;
+    }),
+
+  /**
+   * Enhanced overdue listing via service for UI (uses same logic as service)
+   */
+  getOverdueFeesEnhanced: protectedProcedure
+    .input(z.object({
+      institutionId: z.string().optional(),
+      campusId: z.string().optional(),
+      programId: z.string().optional(),
+      asOfDate: z.date().optional(),
+      excludeProcessed: z.boolean().optional(),
+      limit: z.number().min(1).max(200).default(50),
+      offset: z.number().min(0).default(0),
+    }).optional())
+    .query(async ({ ctx, input }) => {
+      const service = new LateFeeService({ prisma: ctx.prisma });
+      const overdue = await service.getOverdueFees({
+        institutionId: input?.institutionId,
+        campusId: input?.campusId,
+        programId: input?.programId,
+        asOfDate: input?.asOfDate,
+        excludeProcessed: input?.excludeProcessed,
+      });
+
+      const total = overdue.length;
+      const sliced = overdue.slice(input?.offset || 0, (input?.offset || 0) + (input?.limit || 50));
+      return {
+        success: true,
+        fees: sliced,
+        pagination: {
+          total,
+          limit: input?.limit || 50,
+          offset: input?.offset || 0,
+          hasMore: ((input?.offset || 0) + sliced.length) < total,
+        }
+      };
+    }),
+
 });

@@ -52,10 +52,13 @@ export default function SystemEnrollmentFeePage() {
   // Fetch discount types
   const { data: discountTypes, isLoading: discountTypesLoading, error: discountTypesError } = api.discountType.getAll.useQuery();
 
+  // Get user's institution ID from session or enrollment
+  const institutionId = session?.user?.primaryCampusId || enrollment?.enrollment?.class?.programCampus?.id || enrollment?.enrollment?.class?.courseCampus?.id || "default";
+
   // Fetch challan templates - get user's institution ID
   const { data: challanTemplates, isLoading: challanTemplatesLoading, error: challanTemplatesError } = api.challan.getTemplatesByInstitution.useQuery(
-    { institutionId: "default" }, // TODO: Get from user context
-    { enabled: true }
+    { institutionId: institutionId || "default" },
+    { enabled: !!institutionId }
   );
 
   // Debug logging

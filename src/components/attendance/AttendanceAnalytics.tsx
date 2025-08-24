@@ -1,18 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "@/trpc/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/forms/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2 } from "lucide-react";
-import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Loader2, RefreshCw } from "lucide-react";
+import { format, subDays, startOfWeek, endOfWeek } from "date-fns";
 import { Progress } from "@/components/ui/progress";
 import { ResponsiveBar } from "@nivo/bar";
 import { ResponsiveLine } from "@nivo/line";
 import { ResponsivePie } from "@nivo/pie";
 import { FixedResponsiveHeatMap } from "@/components/charts/FixedHeatMap";
-import { AttendanceTrend, StudentComparison, PieChartData } from "@/types/attendance";
+// Define types locally since they may not be exported
+interface AttendanceTrend {
+  date: string;
+  present: number;
+  absent: number;
+  late: number;
+  excused: number;
+  rate: number;
+}
+
+interface StudentComparison {
+  studentId: string;
+  studentName: string;
+  presentRate: number;
+  absentRate: number;
+  lateRate: number;
+  excusedRate: number;
+}
+
+interface PieChartData {
+  id: string;
+  label: string;
+  value: number;
+  color: string;
+}
 
 interface Class {
   id: string;
@@ -36,6 +61,8 @@ export function AttendanceAnalytics({
   const [timeRange, setTimeRange] = useState<"week" | "month" | "term">("week");
   const [viewType, setViewType] = useState<"overview" | "students" | "trends">("overview");
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   // Get date range based on selected time range
   const getDateRange = () => {
@@ -49,8 +76,8 @@ export function AttendanceAnalytics({
         };
       case "month":
         return {
-          start: startOfMonth(today),
-          end: endOfMonth(today),
+          start: new Date(today.getFullYear(), today.getMonth(), 1),
+          end: new Date(today.getFullYear(), today.getMonth() + 1, 0),
         };
       case "term":
         // Assuming a term is roughly 3 months
@@ -73,47 +100,129 @@ export function AttendanceAnalytics({
   });
 
   // Fetch students in the class
-  const { data: students } = api.student.getStudentEnrollments.useQuery(
-    { classId, campusId },
-    { enabled: !!classId }
-  );
-
-  // Fetch attendance stats for the selected class
-  const { data: classStats, isLoading: isLoadingStats } = api.attendance.getByQuery.useQuery(
+  const { data: students } = api.class.getById.useQuery(
     { classId },
     { enabled: !!classId }
   );
 
-  // Mock data for attendance trends over time
+  // Fetch real attendance stats for the selected class
+  const { data: classStats, isLoading: isLoadingStats, refetch: refetchStats } = api.attendance.getClassStats.useQuery(
+    {
+      classId,
+      startDate: subDays(new Date(), 30), // Last 30 days
+      endDate: new Date()
+    },
+    {
+      enabled: !!classId,
+      refetchInterval: 30000, // Auto-refresh every 30 seconds
+      onSuccess: () => setLastUpdated(new Date())
+    }
+  );
+
+  // Fetch real attendance records for trend analysis
+  const { data: attendanceRecords, isLoading: isLoadingRecords, refetch: refetchRecords } = api.attendance.getRecords.useQuery(
+    {
+      classId,
+      startDate: subDays(new Date(), 14), // Last 14 days for trends
+      endDate: new Date()
+    },
+    {
+      enabled: !!classId,
+      refetchInterval: 30000, // Auto-refresh every 30 seconds
+      onSuccess: () => setLastUpdated(new Date())
+    }
+  );
+
+  // Process real data for attendance trends over time
   const getTrendData = (): AttendanceTrend[] => {
+    if (!attendanceRecords || attendanceRecords.length === 0) {
+      return [];
+    }
+
     const days = 14;
     const today = new Date();
+    const trendData: AttendanceTrend[] = [];
 
-    return Array.from({ length: days }).map((_, i) => {
+    for (let i = 0; i < days; i++) {
       const date = subDays(today, days - i - 1);
-      return {
+      const dateStr = format(date, "yyyy-MM-dd");
+
+      // Filter records for this specific date
+      const dayRecords = attendanceRecords.filter((record: any) =>
+        format(new Date(record.date), "yyyy-MM-dd") === dateStr
+      );
+
+      const present = dayRecords.filter((r: any) => r.status === 'PRESENT').length;
+      const absent = dayRecords.filter((r: any) => r.status === 'ABSENT').length;
+      const late = dayRecords.filter((r: any) => r.status === 'LATE').length;
+      const excused = dayRecords.filter((r: any) => r.status === 'EXCUSED').length;
+      const total = present + absent + late + excused;
+      const rate = total > 0 ? Math.round((present / total) * 100) : 0;
+
+      trendData.push({
         date: format(date, "MMM dd"),
-        present: 75 + Math.floor(Math.random() * 15),
-        absent: Math.floor(Math.random() * 10),
-        late: Math.floor(Math.random() * 8),
-        excused: Math.floor(Math.random() * 5),
-        rate: 75 + Math.floor(Math.random() * 20),
-      };
-    });
+        present,
+        absent,
+        late,
+        excused,
+        rate,
+      });
+    }
+
+    return trendData;
   };
 
-  // Mock data for student comparison
-  const getStudentComparisonData = (): StudentComparison[] => {
-    if (!students) return [];
+  // Manual refresh function
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        refetchStats(),
+        refetchRecords()
+      ]);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
-    return students.slice(0, 10).map((student: any) => ({
-      studentId: student.id,
-      studentName: student.name,
-      presentRate: 70 + Math.floor(Math.random() * 30),
-      absentRate: Math.floor(Math.random() * 15),
-      lateRate: Math.floor(Math.random() * 10),
-      excusedRate: Math.floor(Math.random() * 5),
-    }));
+  // Process real data for student comparison
+  const getStudentComparisonData = (): StudentComparison[] => {
+    if (!students || !attendanceRecords) return [];
+
+    return (students?.students || []).slice(0, 10).map((student: any) => {
+      // Filter attendance records for this student
+      const studentRecords = attendanceRecords.filter((record: any) =>
+        record.studentId === student.id
+      );
+
+      const total = studentRecords.length;
+      if (total === 0) {
+        return {
+          studentId: student.id,
+          studentName: student.name || 'Unknown Student',
+          presentRate: 0,
+          absentRate: 0,
+          lateRate: 0,
+          excusedRate: 0,
+        };
+      }
+
+      const present = studentRecords.filter((r: any) => r.status === 'PRESENT').length;
+      const absent = studentRecords.filter((r: any) => r.status === 'ABSENT').length;
+      const late = studentRecords.filter((r: any) => r.status === 'LATE').length;
+      const excused = studentRecords.filter((r: any) => r.status === 'EXCUSED').length;
+
+      return {
+        studentId: student.id,
+        studentName: student.name || 'Unknown Student',
+        presentRate: Math.round((present / total) * 100),
+        absentRate: Math.round((absent / total) * 100),
+        lateRate: Math.round((late / total) * 100),
+        excusedRate: Math.round((excused / total) * 100),
+      };
+    });
   };
 
   // Mock data for attendance heatmap
@@ -243,7 +352,24 @@ export function AttendanceAnalytics({
               <SelectItem value="term">This Term</SelectItem>
             </SelectContent>
           </Select>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isRefreshing || !classId}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
+
+        {lastUpdated && (
+          <div className="text-xs text-muted-foreground">
+            Last updated: {lastUpdated.toLocaleTimeString()}
+          </div>
+        )}
       </div>
 
       {!classId ? (
@@ -255,7 +381,7 @@ export function AttendanceAnalytics({
             </p>
           </div>
         </div>
-      ) : isLoading || isLoadingStats ? (
+      ) : isLoading || isLoadingStats || isLoadingRecords ? (
         <div className="flex h-[400px] items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin" />
           <span className="ml-2">Loading analytics...</span>

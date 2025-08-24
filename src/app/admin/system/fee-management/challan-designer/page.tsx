@@ -16,8 +16,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/ui/page-header";
 import { useToast } from "@/components/ui/use-toast";
 import { api } from "@/trpc/react";
-import { ChevronLeft, Save, Eye } from "lucide-react";
+import { ChevronLeft, Save, Eye, FileText, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { useSession } from "next-auth/react";
 
 // Simplified form schema for challan template
 const challanTemplateSchema = z.object({
@@ -66,8 +68,13 @@ const templates = {
 export default function SimpleChallanDesignerPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { data: session } = useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<keyof typeof templates>("standard");
+  const [showExistingTemplates, setShowExistingTemplates] = useState(false);
+
+  // Fetch existing templates
+  const { data: existingTemplates, isLoading: templatesLoading } = api.challan.getAllTemplates.useQuery();
 
   // Create template mutation
   const createTemplateMutation = api.challan.createTemplate.useMutation({
@@ -138,6 +145,17 @@ export default function SimpleChallanDesignerPage() {
       showPaymentInstructions: values.showPaymentInstructions,
     };
 
+    // Ensure we have a valid session
+    if (!session?.user?.id) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create a template.",
+        variant: "destructive" as const,
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     createTemplateMutation.mutate({
       name: values.name,
       description: values.description,
@@ -157,6 +175,59 @@ export default function SimpleChallanDesignerPage() {
           description="Create and customize fee challan templates"
         />
       </div>
+
+      {/* Existing Templates Section */}
+      <Card className="mb-6">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Existing Templates</CardTitle>
+              <CardDescription>Manage your existing challan templates</CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setShowExistingTemplates(!showExistingTemplates)}
+            >
+              {showExistingTemplates ? 'Hide Templates' : 'Show Templates'}
+            </Button>
+          </div>
+        </CardHeader>
+        {showExistingTemplates && (
+          <CardContent>
+            {templatesLoading ? (
+              <div className="flex items-center justify-center p-8">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <span className="ml-2">Loading templates...</span>
+              </div>
+            ) : existingTemplates && existingTemplates.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {existingTemplates.map((template) => (
+                  <div key={template.id} className="border rounded-lg p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">{template.name}</h4>
+                      <Badge variant="outline">{template.copies} copies</Badge>
+                    </div>
+                    {template.description && (
+                      <p className="text-sm text-muted-foreground">{template.description}</p>
+                    )}
+                    <div className="text-xs text-muted-foreground">
+                      Created by {template.createdBy?.name || 'Unknown'}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Institution: {template.institution?.name || 'Unknown'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center p-8 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No templates found. Create your first template below.</p>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Form Section */}

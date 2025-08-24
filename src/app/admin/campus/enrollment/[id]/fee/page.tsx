@@ -44,10 +44,13 @@ export default function EnrollmentFeePage() {
   // Fetch discount types
   const { data: discountTypes, isLoading: discountTypesLoading } = api.discountType.getAll.useQuery();
 
+  // Get user's institution ID from session or enrollment
+  const institutionId = enrollment?.enrollment?.class?.programCampus?.id || enrollment?.enrollment?.class?.courseCampus?.id || "default";
+
   // Fetch challan templates - get user's institution ID
   const { data: challanTemplates, isLoading: challanTemplatesLoading } = api.challan.getTemplatesByInstitution.useQuery(
-    { institutionId: "default" }, // TODO: Get from user context
-    { enabled: true }
+    { institutionId: institutionId || "default" },
+    { enabled: !!institutionId }
   );
 
   // Mutations with proper error handling and real-time updates

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { CurrencyProvider } from '@/contexts/currency-context';
 
 export default function SystemAdminLayout({
   children,
@@ -8,8 +9,10 @@ export default function SystemAdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex-1">
-      {children}
-    </div>
+    <CurrencyProvider>
+      <div className="flex-1">
+        {children}
+      </div>
+    </CurrencyProvider>
   );
-} 
+}

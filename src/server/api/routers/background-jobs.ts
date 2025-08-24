@@ -7,7 +7,6 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
-import { UserType } from "@prisma/client";
 import {
   getBackgroundJobSystem,
   getRewardJobManager,
@@ -16,11 +15,13 @@ import {
 } from "../../jobs";
 import { updateClassPerformanceMetrics, updateClassPerformanceMetricsForClass } from "../jobs/update-class-performance";
 import { JobStatus } from "../../jobs/background-job-system";
+import { CronService } from "../services/cron.service";
+import { feeAutomationStartup } from "../../startup/fee-automation-startup";
 
 // Define allowed admin roles
 const ADMIN_ROLES = [
-  UserType.SYSTEM_ADMIN,
-  UserType.SYSTEM_MANAGER,
+  'SYSTEM_ADMIN',
+  'CAMPUS_ADMIN',
 ] as const;
 
 export const backgroundJobsRouter = createTRPCRouter({
@@ -28,7 +29,7 @@ export const backgroundJobsRouter = createTRPCRouter({
   getAllJobs: protectedProcedure
     .query(async ({ ctx }) => {
       // Check permissions
-      if (!ADMIN_ROLES.includes(ctx.session.user.userType as UserType)) {
+      if (!ADMIN_ROLES.includes(ctx.session.user.userType as any)) {
         throw new TRPCError({ code: "UNAUTHORIZED" });
       }
 
@@ -62,7 +63,7 @@ export const backgroundJobsRouter = createTRPCRouter({
     }))
     .query(async ({ ctx, input }) => {
       // Check permissions
-      if (!ADMIN_ROLES.includes(ctx.session.user.userType as UserType)) {
+      if (!ADMIN_ROLES.includes(ctx.session.user.userType as any)) {
         throw new TRPCError({ code: "UNAUTHORIZED" });
       }
 
@@ -110,7 +111,7 @@ export const backgroundJobsRouter = createTRPCRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       // Check permissions
-      if (!ADMIN_ROLES.includes(ctx.session.user.userType as UserType)) {
+      if (!ADMIN_ROLES.includes(ctx.session.user.userType as any)) {
         throw new TRPCError({ code: "UNAUTHORIZED" });
       }
 
@@ -149,7 +150,7 @@ export const backgroundJobsRouter = createTRPCRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       // Check permissions
-      if (!ADMIN_ROLES.includes(ctx.session.user.userType as UserType)) {
+      if (!ADMIN_ROLES.includes(ctx.session.user.userType as any)) {
         throw new TRPCError({ code: "UNAUTHORIZED" });
       }
 
@@ -185,7 +186,7 @@ export const backgroundJobsRouter = createTRPCRouter({
   runAllRewardJobs: protectedProcedure
     .mutation(async ({ ctx }) => {
       // Check permissions
-      if (!ADMIN_ROLES.includes(ctx.session.user.userType as UserType)) {
+      if (!ADMIN_ROLES.includes(ctx.session.user.userType as any)) {
         throw new TRPCError({ code: "UNAUTHORIZED" });
       }
 
@@ -202,7 +203,7 @@ export const backgroundJobsRouter = createTRPCRouter({
   runAllSystemJobs: protectedProcedure
     .mutation(async ({ ctx }) => {
       // Check permissions
-      if (!ADMIN_ROLES.includes(ctx.session.user.userType as UserType)) {
+      if (!ADMIN_ROLES.includes(ctx.session.user.userType as any)) {
         throw new TRPCError({ code: "UNAUTHORIZED" });
       }
 
@@ -219,7 +220,7 @@ export const backgroundJobsRouter = createTRPCRouter({
   getRunningJobs: protectedProcedure
     .query(async ({ ctx }) => {
       // Check permissions
-      if (!ADMIN_ROLES.includes(ctx.session.user.userType as UserType)) {
+      if (!ADMIN_ROLES.includes(ctx.session.user.userType as any)) {
         throw new TRPCError({ code: "UNAUTHORIZED" });
       }
 
@@ -231,11 +232,11 @@ export const backgroundJobsRouter = createTRPCRouter({
 
       // Get details for each running job
       const runningJobs = runningJobIds.map(jobId => {
-        const status = jobSystem.getJobStatus(jobId);
+        const status = jobSystem.getJobStatus(typeof jobId === 'string' ? jobId : jobId.id);
         return {
-          id: jobId,
-          name: status.job?.name || jobId,
-          startTime: status.lastResult?.startTime,
+          id: typeof jobId === 'string' ? jobId : jobId.id,
+          name: status.job?.name || (typeof jobId === 'string' ? jobId : jobId.name),
+          startTime: status.lastResult?.startTime?.getTime(),
           duration: status.lastResult ?
             Date.now() - status.lastResult.startTime.getTime() :
             undefined,
@@ -249,7 +250,7 @@ export const backgroundJobsRouter = createTRPCRouter({
   updateClassPerformance: protectedProcedure
     .mutation(async ({ ctx }) => {
       // Check permissions
-      if (!ADMIN_ROLES.includes(ctx.session.user.userType as UserType)) {
+      if (!ADMIN_ROLES.includes(ctx.session.user.userType as any)) {
         throw new TRPCError({ code: "UNAUTHORIZED" });
       }
 
@@ -277,7 +278,7 @@ export const backgroundJobsRouter = createTRPCRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       // Check permissions
-      if (!ADMIN_ROLES.includes(ctx.session.user.userType as UserType)) {
+      if (!ADMIN_ROLES.includes(ctx.session.user.userType as any)) {
         throw new TRPCError({ code: "UNAUTHORIZED" });
       }
 
@@ -293,6 +294,128 @@ export const backgroundJobsRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: `Failed to start class performance update for class ${input.classId}`,
+          cause: error
+        });
+      }
+    }),
+
+  // Fee Automation Management
+  getFeeAutomationStatus: protectedProcedure
+    .query(async ({ ctx }) => {
+      // Check permissions
+      if (!ADMIN_ROLES.includes(ctx.session.user.userType as any)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have permission to view fee automation status",
+        });
+      }
+
+      try {
+        return feeAutomationStartup.getStatus();
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to get fee automation status",
+          cause: error
+        });
+      }
+    }),
+
+  initializeFeeAutomation: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      // Check permissions
+      if (!ADMIN_ROLES.includes(ctx.session.user.userType as any)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have permission to initialize fee automation",
+        });
+      }
+
+      try {
+        await feeAutomationStartup.initialize();
+        return {
+          success: true,
+          message: "Fee automation initialized successfully"
+        };
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to initialize fee automation",
+          cause: error
+        });
+      }
+    }),
+
+  shutdownFeeAutomation: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      // Check permissions
+      if (!ADMIN_ROLES.includes(ctx.session.user.userType as any)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have permission to shutdown fee automation",
+        });
+      }
+
+      try {
+        await feeAutomationStartup.shutdown();
+        return {
+          success: true,
+          message: "Fee automation shutdown successfully"
+        };
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to shutdown fee automation",
+          cause: error
+        });
+      }
+    }),
+
+  triggerLateFeeProcessing: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      // Check permissions
+      if (!ADMIN_ROLES.includes(ctx.session.user.userType as any)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have permission to trigger late fee processing",
+        });
+      }
+
+      try {
+        await feeAutomationStartup.triggerLateFeeProcessing();
+        return {
+          success: true,
+          message: "Late fee processing triggered successfully"
+        };
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to trigger late fee processing",
+          cause: error
+        });
+      }
+    }),
+
+  triggerDueDateReminders: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      // Check permissions
+      if (!ADMIN_ROLES.includes(ctx.session.user.userType as any)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have permission to trigger due date reminders",
+        });
+      }
+
+      try {
+        await feeAutomationStartup.triggerDueDateReminders();
+        return {
+          success: true,
+          message: "Due date reminders triggered successfully"
+        };
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to trigger due date reminders",
           cause: error
         });
       }

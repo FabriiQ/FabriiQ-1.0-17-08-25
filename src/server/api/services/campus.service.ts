@@ -350,9 +350,19 @@ export class CampusService {
     });
 
     if (!campus) {
+      console.error(`Campus not found with ID: ${campusId}`);
+
+      // List available campuses for debugging
+      const availableCampuses = await this.prisma.campus.findMany({
+        select: { id: true, name: true, code: true },
+        take: 5
+      });
+
+      console.log('Available campuses:', availableCampuses);
+
       throw new TRPCError({
         code: "NOT_FOUND",
-        message: "Campus not found",
+        message: `Campus not found with ID: ${campusId}. Available campuses: ${availableCampuses.map(c => `${c.name} (${c.id})`).join(', ')}`,
       });
     }
 

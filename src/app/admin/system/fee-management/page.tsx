@@ -16,7 +16,8 @@ import {
   Loader2,
   LayoutGrid,
   AlertCircle,
-  Bell
+  Bell,
+  Zap
 } from 'lucide-react';
 import { DollarSign } from '@/components/ui/icons/custom-icons';
 import { format } from 'date-fns';
@@ -180,6 +181,13 @@ export default function SystemFeeManagementPage() {
           description="Manage fee structures and student fees across all campuses"
         />
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => router.push('/admin/system/fee-management/unified')}
+          >
+            <Zap className="h-4 w-4 mr-2" />
+            Unified Settings
+          </Button>
           <Button onClick={() => router.push('/admin/system/fee-management/structures/new')}>
             <Plus className="h-4 w-4 mr-2" />
             New Fee Structure
@@ -197,6 +205,39 @@ export default function SystemFeeManagementPage() {
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-6">
+          {/* Unified Settings Highlight */}
+          <Card className="border-blue-200 bg-blue-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-800">
+                <Zap className="h-5 w-5" />
+                New: Unified Fee Management Settings
+              </CardTitle>
+              <CardDescription className="text-blue-700">
+                Streamlined configuration for all fee management operations in one place.
+                No more scattered settings or duplicate configurations.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => router.push('/admin/system/fee-management/unified')}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Zap className="h-4 w-4 mr-2" />
+                  Open Unified Settings
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/admin/system/fee-management/settings')}
+                  className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                >
+                  <Settings className="h-4 w-4 mr-2" />
+                  Legacy Settings
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardHeader className="pb-2">

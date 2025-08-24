@@ -67,7 +67,7 @@ export function AttendanceStudentView({
   );
 
   // Fetch attendance stats
-  const { data: attendanceStats, isLoading: isLoadingStats } = api.attendance.getStudentStats.useQuery(
+  const { data: attendanceStats, isLoading: isLoadingStats, error: statsError } = api.attendance.getStudentStats.useQuery(
     {
       studentId,
       classId: classId || '', // Provide a default empty string instead of undefined
@@ -77,7 +77,7 @@ export function AttendanceStudentView({
     {
       refetchOnWindowFocus: false,
       retry: 1,
-      enabled: !!studentId,
+      enabled: !!studentId && !!studentData, // Only fetch if student exists
     }
   );
 

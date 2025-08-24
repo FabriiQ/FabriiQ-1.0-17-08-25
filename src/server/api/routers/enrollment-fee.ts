@@ -10,6 +10,9 @@ import {
   addArrearSchema,
   addTransactionSchema
 } from "../services/fee.service";
+import { MultipleFeeAssignmentService } from "../services/multiple-fee-assignment.service";
+import { DueDateManagementService } from "../services/due-date-management.service";
+import { EnhancedFeeAnalyticsService } from "../services/enhanced-fee-analytics.service";
 
 export const enrollmentFeeRouter = createTRPCRouter({
   // Get fee collection statistics
@@ -284,5 +287,146 @@ export const enrollmentFeeRouter = createTRPCRouter({
           message: "Failed to fetch fee analytics",
         });
       }
+    }),
+
+  // Multiple Fee Assignment Endpoints
+  assignMultipleFees: protectedProcedure
+    .input(z.object({
+      enrollmentId: z.string(),
+      feeAssignments: z.array(z.object({
+        feeStructureId: z.string(),
+        dueDate: z.date().optional(),
+        notes: z.string().optional(),
+        discounts: z.array(z.object({
+          discountTypeId: z.string(),
+          amount: z.number().positive()
+        })).optional()
+      }))
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const multipleFeeService = new MultipleFeeAssignmentService(ctx.prisma);
+      return multipleFeeService.assignMultipleFees({
+        ...input,
+        createdById: ctx.session.user.id
+      });
+    }),
+
+  getEnrollmentFeeAssignments: protectedProcedure
+    .input(z.object({ enrollmentId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const multipleFeeService = new MultipleFeeAssignmentService(ctx.prisma);
+      return multipleFeeService.getEnrollmentFeeAssignments(input.enrollmentId);
+    }),
+
+  removeFeeAssignment: protectedProcedure
+    .input(z.object({ enrollmentFeeId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const multipleFeeService = new MultipleFeeAssignmentService(ctx.prisma);
+      return multipleFeeService.removeFeeAssignment(input.enrollmentFeeId, ctx.session.user.id);
+    }),
+
+  getAvailableFeeStructures: protectedProcedure
+    .input(z.object({ enrollmentId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const multipleFeeService = new MultipleFeeAssignmentService(ctx.prisma);
+      return multipleFeeService.getAvailableFeeStructures(input.enrollmentId);
+    }),
+
+  // Due Date Management Endpoints
+  setAutomatedDueDates: protectedProcedure
+    .input(z.object({
+      enrollmentFeeIds: z.array(z.string()).optional(),
+      campusId: z.string().optional(),
+      programId: z.string().optional(),
+      academicCycleId: z.string().optional(),
+      dueDatePolicy: z.object({
+        daysFromEnrollment: z.number().optional(),
+        daysFromTermStart: z.number().optional(),
+        specificDate: z.date().optional(),
+        installmentSchedule: z.array(z.object({
+          installmentNumber: z.number(),
+          daysOffset: z.number(),
+          percentage: z.number()
+        })).optional()
+      }).optional()
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const dueDateService = new DueDateManagementService(ctx.prisma);
+      return dueDateService.setAutomatedDueDates(input);
+    }),
+
+  getOverdueFees: protectedProcedure
+    .input(z.object({
+      campusId: z.string().optional(),
+      programId: z.string().optional(),
+      gracePeriodDays: z.number().optional(),
+      includeEscalationLevels: z.boolean().optional()
+    }))
+    .query(async ({ input, ctx }) => {
+      const dueDateService = new DueDateManagementService(ctx.prisma);
+      return dueDateService.getOverdueFees(input);
+    }),
+
+  getUpcomingDueDates: protectedProcedure
+    .input(z.object({
+      daysAhead: z.number().optional(),
+      campusId: z.string().optional(),
+      programId: z.string().optional(),
+      reminderTypes: z.array(z.enum(['EMAIL', 'SMS', 'PUSH'])).optional()
+    }))
+    .query(async ({ input, ctx }) => {
+      const dueDateService = new DueDateManagementService(ctx.prisma);
+      return dueDateService.getUpcomingDueDates(input);
+    }),
+
+  updatePaymentStatuses: protectedProcedure
+    .input(z.object({
+      enrollmentFeeIds: z.array(z.string()).optional()
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const dueDateService = new DueDateManagementService(ctx.prisma);
+      return dueDateService.updatePaymentStatuses(input.enrollmentFeeIds);
+    }),
+
+  // Enhanced Analytics Endpoints
+  getFeeCollectionDashboard: protectedProcedure
+    .input(z.object({
+      campusId: z.string().optional(),
+      programId: z.string().optional(),
+      academicCycleId: z.string().optional(),
+      dateRange: z.object({
+        startDate: z.date(),
+        endDate: z.date()
+      }).optional()
+    }))
+    .query(async ({ input, ctx }) => {
+      const analyticsService = new EnhancedFeeAnalyticsService(ctx.prisma);
+      return analyticsService.getFeeCollectionDashboard(input);
+    }),
+
+  getFinancialMetrics: protectedProcedure
+    .input(z.object({
+      campusId: z.string().optional(),
+      programId: z.string().optional(),
+      academicCycleId: z.string().optional(),
+      compareWithPrevious: z.boolean().optional()
+    }))
+    .query(async ({ input, ctx }) => {
+      const analyticsService = new EnhancedFeeAnalyticsService(ctx.prisma);
+      return analyticsService.getFinancialMetrics(input);
+    }),
+
+  getLateFeeAnalytics: protectedProcedure
+    .input(z.object({
+      campusId: z.string().optional(),
+      programId: z.string().optional(),
+      dateRange: z.object({
+        startDate: z.date(),
+        endDate: z.date()
+      }).optional()
+    }))
+    .query(async ({ input, ctx }) => {
+      const analyticsService = new EnhancedFeeAnalyticsService(ctx.prisma);
+      return analyticsService.getLateFeeAnalytics(input);
     }),
 });

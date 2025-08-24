@@ -304,6 +304,9 @@ export class FeeService {
       // Get monthly collection comparison
       const monthlyComparison = await this.getMonthlyCollectionComparison();
 
+      // Get total transaction count
+      const totalTransactions = await this.prisma.feeTransaction.count();
+
       return {
         totalCollected: totalCollected._sum.amount || 0,
         pendingFees,
@@ -314,6 +317,7 @@ export class FeeService {
         feeStructures,
         discountTypes,
         collectionRate: Math.round(collectionRate * 100) / 100,
+        totalTransactions,
         recentTransactions: mappedTransactions,
         collectionTrends,
         paymentMethods,

@@ -26,11 +26,15 @@ export function ClassAttendanceSelector({ campusId }: ClassAttendanceSelectorPro
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   // Fetch classes for this campus
-  const { data: classesData, isLoading: isLoadingClasses } = api.campus.getClasses.useQuery(
-    { campusId, status: 'ACTIVE', page: 1, pageSize: 100 },
+  const { data: classesData, isLoading: isLoadingClasses, error: classesError } = api.campus.getClasses.useQuery(
+    { campusId, status: 'ACTIVE' as any, page: 1, pageSize: 100 },
     {
       refetchOnWindowFocus: false,
       retry: 1,
+      enabled: !!campusId, // Only run query if campusId is provided
+      onError: (error) => {
+        console.error('Error fetching classes for campus:', campusId, error);
+      }
     }
   );
 
@@ -78,6 +82,21 @@ export function ClassAttendanceSelector({ campusId }: ClassAttendanceSelectorPro
       return matchesSearch && matchesProgram;
     }
   ) || [];
+
+  // Show error if classes failed to load
+  if (classesError) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h3 className="text-red-800 font-medium">Error Loading Classes</h3>
+          <p className="text-red-600 text-sm mt-1">
+            {classesError.message || 'Failed to load classes for this campus'}
+          </p>
+          <p className="text-red-500 text-xs mt-2">Campus ID: {campusId}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

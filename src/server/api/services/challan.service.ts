@@ -81,6 +81,31 @@ export class ChallanService {
     });
   }
 
+  async getAllChallanTemplates() {
+    return this.prisma.challanTemplate.findMany({
+      where: {
+        status: "ACTIVE",
+      },
+      include: {
+        institution: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
   async updateChallanTemplate(input: UpdateChallanTemplateInput) {
     const { id, ...data } = input;
 

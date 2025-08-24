@@ -19,6 +19,8 @@ import { ArrearForm, ArrearFormValues } from "./arrear-form";
 import { ChallanGenerationForm, ChallanFormValues } from "./challan-generation-form";
 import { TransactionForm, TransactionFormValues } from "../enrollment/transaction-form";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useCurrency } from "@/contexts/currency-context";
+import { LateFeeWaiverDialog } from "./late-fee-waiver-dialog";
 
 export interface Discount {
   id: string;
@@ -156,6 +158,7 @@ export function FeeDetailCard({
   isLoading = false,
   cardClassName,
 }: FeeDetailCardProps) {
+  const { formatCurrency } = useCurrency();
   const [activeTab, setActiveTab] = useState("details");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDiscountDialogOpen, setIsDiscountDialogOpen] = useState(false);
@@ -163,6 +166,7 @@ export function FeeDetailCard({
   const [isArrearDialogOpen, setIsArrearDialogOpen] = useState(false);
   const [isChallanDialogOpen, setIsChallanDialogOpen] = useState(false);
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
+  const [isWaiverDialogOpen, setIsWaiverDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ type: 'discount' | 'charge' | 'arrear', id: string } | null>(null);
 
   const handleUpdateFee = (values: EnrollmentFeeFormValues) => {
@@ -250,7 +254,7 @@ export function FeeDetailCard({
                     <DollarSign className="h-5 w-5 text-muted-foreground mr-2" />
                     <h3 className="text-sm font-medium text-muted-foreground">Base Amount</h3>
                   </div>
-                  <p className="text-lg font-medium">${fee.baseAmount.toFixed(2)}</p>
+                  <p className="text-lg font-medium">{formatCurrency(fee.baseAmount)}</p>
                 </div>
 
                 <div className="space-y-1">
@@ -258,7 +262,7 @@ export function FeeDetailCard({
                     <DollarSign className="h-5 w-5 text-muted-foreground mr-2" />
                     <h3 className="text-sm font-medium text-muted-foreground">Final Amount</h3>
                   </div>
-                  <p className="text-lg font-medium">${fee.finalAmount.toFixed(2)}</p>
+                  <p className="text-lg font-medium">{formatCurrency(fee.finalAmount)}</p>
                 </div>
 
                 {fee.dueDate && (
@@ -275,12 +279,12 @@ export function FeeDetailCard({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <h3 className="text-sm font-medium text-muted-foreground">Amount Paid</h3>
-                  <p className="text-lg font-medium text-green-600">${paidAmount.toFixed(2)}</p>
+                  <p className="text-lg font-medium text-green-600">{formatCurrency(paidAmount)}</p>
                 </div>
 
                 <div className="space-y-1">
                   <h3 className="text-sm font-medium text-muted-foreground">Remaining Balance</h3>
-                  <p className="text-lg font-medium text-amber-600">${remainingAmount.toFixed(2)}</p>
+                  <p className="text-lg font-medium text-amber-600">{formatCurrency(remainingAmount)}</p>
                 </div>
               </div>
 
@@ -366,7 +370,7 @@ export function FeeDetailCard({
 
                   <div className="flex justify-between items-center rounded-md border p-3 mt-4">
                     <p className="font-semibold">Total Discounts</p>
-                    <p className="font-semibold text-green-600">-${totalDiscounts.toFixed(2)}</p>
+                    <p className="font-semibold text-green-600">-{formatCurrency(totalDiscounts)}</p>
                   </div>
                 </div>
               )}
@@ -406,7 +410,7 @@ export function FeeDetailCard({
                     >
                       <div>
                         <p className="font-medium">{charge.name}</p>
-                        <p className="text-sm font-medium">${charge.amount.toFixed(2)}</p>
+                        <p className="text-sm font-medium">{formatCurrency(charge.amount)}</p>
                         {charge.dueDate && (
                           <p className="text-sm text-muted-foreground">Due: {formatDate(charge.dueDate)}</p>
                         )}
@@ -430,7 +434,7 @@ export function FeeDetailCard({
 
                   <div className="flex justify-between items-center rounded-md border p-3 mt-4">
                     <p className="font-semibold">Total Additional Charges</p>
-                    <p className="font-semibold">${totalAdditionalCharges.toFixed(2)}</p>
+                    <p className="font-semibold">{formatCurrency(totalAdditionalCharges)}</p>
                   </div>
                 </div>
               )}
@@ -470,7 +474,7 @@ export function FeeDetailCard({
                     >
                       <div>
                         <div className="flex items-center space-x-2">
-                          <p className="font-medium">${arrear.amount.toFixed(2)}</p>
+                          <p className="font-medium">{formatCurrency(arrear.amount)}</p>
                           <span className="px-2 py-1 text-xs font-semibold rounded bg-amber-100 text-amber-800">
                             Arrear
                           </span>
@@ -496,7 +500,7 @@ export function FeeDetailCard({
 
                   <div className="flex justify-between items-center rounded-md border p-3 mt-4">
                     <p className="font-semibold">Total Arrears</p>
-                    <p className="font-semibold text-amber-600">${totalArrears.toFixed(2)}</p>
+                    <p className="font-semibold text-amber-600">{formatCurrency(totalArrears)}</p>
                   </div>
                 </div>
               )}
@@ -540,7 +544,7 @@ export function FeeDetailCard({
                           <PaymentStatusBadge status={challan.paymentStatus} />
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          Amount: ${challan.totalAmount.toFixed(2)} • Paid: ${challan.paidAmount.toFixed(2)}
+                          Amount: {formatCurrency(challan.totalAmount)} • Paid: {formatCurrency(challan.paidAmount)}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           Issue Date: {formatDate(challan.issueDate)} • Due Date: {formatDate(challan.dueDate)}
@@ -581,6 +585,13 @@ export function FeeDetailCard({
               <Plus className="h-4 w-4 mr-2" />
               Add Payment
             </Button>
+            {/* Show waiver button if there are late fees */}
+            {additionalCharges?.some((charge: any) => charge.name.toLowerCase().includes('late')) && (
+              <Button variant="outline" onClick={() => setIsWaiverDialogOpen(true)}>
+                <FileText className="h-4 w-4 mr-2" />
+                Request Waiver
+              </Button>
+            )}
           </div>
         </CardFooter>
       </Card>
@@ -594,7 +605,7 @@ export function FeeDetailCard({
             initialData={{
               feeStructureId: fee.feeStructureId,
               dueDate: fee.dueDate ? new Date(fee.dueDate) : undefined,
-              paymentStatus: fee.paymentStatus,
+              paymentStatus: fee.paymentStatus === "OVERDUE" ? "PENDING" : fee.paymentStatus,
               paymentMethod: fee.paymentMethod,
               notes: fee.notes,
             }}
@@ -692,6 +703,28 @@ export function FeeDetailCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Late Fee Waiver Dialog */}
+      <LateFeeWaiverDialog
+        open={isWaiverDialogOpen}
+        onOpenChange={setIsWaiverDialogOpen}
+        enrollmentFeeId={fee.id}
+        lateFeeApplications={additionalCharges?.filter((charge: any) =>
+          charge.name.toLowerCase().includes('late')
+        ).map((charge: any) => ({
+          id: charge.id,
+          appliedAmount: charge.amount,
+          waivedAmount: 0,
+          status: "APPLIED",
+          applicationDate: new Date(charge.createdAt),
+          reason: charge.reason || "Late fee applied",
+          daysOverdue: 0,
+        })) || []}
+        onSuccess={() => {
+          // Refresh the fee data
+          window.location.reload();
+        }}
+      />
     </>
   );
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { api } from '@/trpc/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import Link from 'next/link';
+import { SystemAttendanceTaker } from './SystemAttendanceTaker';
 
 interface AttendanceClassViewProps {
   classId: string;
@@ -25,7 +26,10 @@ interface AttendanceClassViewProps {
   onBack: () => void;
 }
 
+type ViewMode = 'view' | 'take';
+
 export function AttendanceClassView({ classId, date, onBack }: AttendanceClassViewProps) {
+  const [viewMode, setViewMode] = useState<ViewMode>('view');
   // Fetch class details
   const { data: classData, isLoading: isLoadingClass } = api.class.getById.useQuery(
     { classId },
@@ -57,6 +61,17 @@ export function AttendanceClassView({ classId, date, onBack }: AttendanceClassVi
       enabled: !!classId,
     }
   );
+
+  // Show attendance taker if in take mode and date is selected
+  if (viewMode === 'take' && date) {
+    return (
+      <SystemAttendanceTaker
+        classId={classId}
+        date={date}
+        onBack={() => setViewMode('view')}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -158,10 +173,13 @@ export function AttendanceClassView({ classId, date, onBack }: AttendanceClassVi
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/admin/campus/attendance/take?classId=${classId}`}>
-                  <Clock className="mr-2 h-4 w-4" /> Take Attendance
-                </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setViewMode('take')}
+                disabled={!date}
+              >
+                <Clock className="mr-2 h-4 w-4" /> Take Attendance
               </Button>
               <Button variant="outline" size="sm">
                 <Download className="mr-2 h-4 w-4" /> Export

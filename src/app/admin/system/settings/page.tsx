@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/atoms/page-header';
 import { Button } from '@/components/ui/button';
-import { Cog, Award, BellRing, Globe, Lock, HardDrive, Palette } from 'lucide-react';
+import { Award, Globe } from 'lucide-react';
 import Link from 'next/link';
 import { BrandingSettings } from '@/components/admin/branding-settings';
 
@@ -47,9 +47,35 @@ export default function SystemSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-muted-foreground">
-                General settings will be implemented here.
-              </p>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">System Name</label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border rounded-md"
+                    defaultValue="FabriQ LXP"
+                    placeholder="Enter system name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">System Description</label>
+                  <textarea
+                    className="w-full p-2 border rounded-md"
+                    rows={3}
+                    defaultValue="Learning Experience Platform for Educational Institutions"
+                    placeholder="Enter system description"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Default Language</label>
+                  <select className="w-full p-2 border rounded-md">
+                    <option value="en">English</option>
+                    <option value="ur">Urdu</option>
+                    <option value="ar">Arabic</option>
+                  </select>
+                </div>
+                <Button className="w-full">Save General Settings</Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -115,9 +141,44 @@ export default function SystemSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-muted-foreground">
-                Notification settings will be implemented here.
-              </p>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium">Email Notifications</h4>
+                    <p className="text-sm text-muted-foreground">Send notifications via email</p>
+                  </div>
+                  <input type="checkbox" defaultChecked className="h-4 w-4" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium">SMS Notifications</h4>
+                    <p className="text-sm text-muted-foreground">Send notifications via SMS</p>
+                  </div>
+                  <input type="checkbox" className="h-4 w-4" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium">Push Notifications</h4>
+                    <p className="text-sm text-muted-foreground">Send browser push notifications</p>
+                  </div>
+                  <input type="checkbox" defaultChecked className="h-4 w-4" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium">Fee Due Reminders</h4>
+                    <p className="text-sm text-muted-foreground">Automatic fee payment reminders</p>
+                  </div>
+                  <input type="checkbox" defaultChecked className="h-4 w-4" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium">Attendance Alerts</h4>
+                    <p className="text-sm text-muted-foreground">Low attendance notifications</p>
+                  </div>
+                  <input type="checkbox" defaultChecked className="h-4 w-4" />
+                </div>
+                <Button className="w-full">Save Notification Settings</Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

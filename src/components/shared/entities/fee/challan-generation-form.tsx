@@ -5,11 +5,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/data-display/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/data-display/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar } from "lucide-react";
+import { Calendar, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -128,32 +128,70 @@ export function ChallanGenerationForm({
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle>Generate Fee Challan</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5" />
+          Generate Fee Challan
+        </CardTitle>
+        <CardDescription>
+          Create a payment challan for {enrollmentFeeData.studentName}
+        </CardDescription>
       </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)}>
           <CardContent>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-4">
+              <div className="space-y-6">
+                {/* Student Information */}
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <h3 className="font-medium mb-2">Student Information</h3>
+                  <div className="space-y-1 text-sm">
+                    <div><span className="font-medium">Name:</span> {enrollmentFeeData.studentName}</div>
+                    <div><span className="font-medium">Class:</span> {enrollmentFeeData.className}</div>
+                    <div><span className="font-medium">Program:</span> {enrollmentFeeData.programName}</div>
+                    <div><span className="font-medium">Total Amount:</span> {enrollmentFeeData.totalAmount.toLocaleString()}</div>
+                  </div>
+                </div>
+
+                {/* Template Selection */}
                 <FormField
                   control={form.control}
                   name="templateId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Challan Template <span className="text-destructive">*</span></FormLabel>
+                      <FormLabel className="text-base font-medium">
+                        Challan Template <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormDescription>
+                        Choose a template for the challan layout and design
+                      </FormDescription>
                       <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value}
                       >
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select template" />
+                          <SelectTrigger className="h-12">
+                            <SelectValue placeholder="Select a challan template" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {templates.map((template) => (
-                            <SelectItem key={template.id} value={template.id}>
-                              {template.name} ({template.copies} copies)
+                          {templates.length === 0 ? (
+                            <div className="p-4 text-center text-muted-foreground">
+                              <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                              <p>No templates available</p>
+                              <p className="text-xs">Please create a template first</p>
+                            </div>
+                          ) : (
+                            templates.map((template) => (
+                              <SelectItem key={template.id} value={template.id}>
+                                <div className="flex flex-col py-1">
+                                  <span className="font-medium">{template.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {template.description} • {template.copies} copies
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))
+                          )}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -163,13 +201,17 @@ export function ChallanGenerationForm({
                   )}
                 />
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="issueDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Issue Date <span className="text-destructive">*</span></FormLabel>
+                {/* Date Settings */}
+                <div className="space-y-4">
+                  <h3 className="text-base font-medium">Date Settings</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="issueDate"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Issue Date <span className="text-destructive">*</span></FormLabel>
+                          <FormDescription>When the challan is issued</FormDescription>
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -203,12 +245,13 @@ export function ChallanGenerationForm({
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="dueDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Due Date <span className="text-destructive">*</span></FormLabel>
+                    <FormField
+                      control={form.control}
+                      name="dueDate"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Due Date <span className="text-destructive">*</span></FormLabel>
+                          <FormDescription>Payment deadline</FormDescription>
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -241,12 +284,17 @@ export function ChallanGenerationForm({
                       </FormItem>
                     )}
                   />
+                  </div>
                 </div>
 
                 <Separator />
 
-                <h3 className="text-sm font-medium">Bank Details</h3>
+                {/* Bank Details */}
                 <div className="space-y-4">
+                  <h3 className="text-base font-medium">Bank Details</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Enter the bank account information for payment collection
+                  </p>
                   <FormField
                     control={form.control}
                     name="bankDetails.name"
@@ -312,10 +360,22 @@ export function ChallanGenerationForm({
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex justify-end space-x-2">
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Generating..." : "Generate Challan"}
-            </Button>
+          <CardFooter className="flex justify-between">
+            <div className="text-sm text-muted-foreground">
+              {templates.length === 0 ? (
+                <span className="text-destructive">⚠️ No templates available. Please create a template first.</span>
+              ) : (
+                <span>✓ Ready to generate challan</span>
+              )}
+            </div>
+            <div className="flex space-x-2">
+              <Button type="button" variant="outline" onClick={() => form.reset()}>
+                Reset Form
+              </Button>
+              <Button type="submit" disabled={isLoading || templates.length === 0}>
+                {isLoading ? "Generating..." : "Generate Challan"}
+              </Button>
+            </div>
           </CardFooter>
         </form>
       </Form>

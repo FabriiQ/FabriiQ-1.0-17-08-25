@@ -10,6 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DiscountBadge, DiscountType } from "@/components/core/fee/discount-badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { HelpCircle } from "lucide-react";
+import { useCurrency } from "@/contexts/currency-context";
 
 const discountFormSchema = z.object({
   discountTypeId: z.string().min(1, "Discount type is required"),
@@ -45,6 +48,7 @@ export function DiscountForm({
   isLoading = false,
   className,
 }: DiscountFormProps) {
+  const { formatCurrency } = useCurrency();
   const form = useForm<DiscountFormValues>({
     resolver: zodResolver(discountFormSchema),
     defaultValues: {
@@ -64,19 +68,40 @@ export function DiscountForm({
   };
 
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle>Add Discount</CardTitle>
-      </CardHeader>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleSubmit)}>
-          <CardContent className="space-y-4">
-            <FormField
-              control={form.control}
-              name="discountTypeId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Discount Type <span className="text-destructive">*</span></FormLabel>
+    <TooltipProvider>
+      <Card className={className}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            Add Discount
+            <Tooltip>
+              <TooltipTrigger>
+                <HelpCircle className="h-4 w-4 text-muted-foreground" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Apply discounts to reduce the fee amount for this enrollment</p>
+              </TooltipContent>
+            </Tooltip>
+          </CardTitle>
+        </CardHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)}>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="discountTypeId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2">
+                      Discount Type <span className="text-destructive">*</span>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Select the type of discount to apply. Each type has different rules and amounts.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </FormLabel>
                   <Select
                     onValueChange={(value) => {
                       field.onChange(value);
@@ -125,9 +150,9 @@ export function DiscountForm({
                 <p className="text-sm">
                   {selectedDiscountType.isPercentage
                     ? `${selectedDiscountType.discountValue}% discount`
-                    : `$${selectedDiscountType.discountValue.toFixed(2)} fixed discount`}
+                    : `${formatCurrency(selectedDiscountType.discountValue)} fixed discount`}
                   {selectedDiscountType.maxAmount && selectedDiscountType.isPercentage
-                    ? ` (Maximum: $${selectedDiscountType.maxAmount.toFixed(2)})`
+                    ? ` (Maximum: ${formatCurrency(selectedDiscountType.maxAmount)})`
                     : ""}
                 </p>
               </div>
@@ -138,7 +163,17 @@ export function DiscountForm({
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Amount <span className="text-destructive">*</span></FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    Amount <span className="text-destructive">*</span>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Enter the discount amount. For percentage discounts, this should be the calculated amount.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </FormLabel>
                   {selectedDiscountType?.isPercentage && (
                     <FormDescription>
                       Enter the calculated discount amount based on the percentage
@@ -190,5 +225,6 @@ export function DiscountForm({
         </form>
       </Form>
     </Card>
+    </TooltipProvider>
   );
 }

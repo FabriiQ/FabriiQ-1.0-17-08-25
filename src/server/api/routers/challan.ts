@@ -12,53 +12,61 @@ import { TRPCError } from "@trpc/server";
 export const challanRouter = createTRPCRouter({
   // Challan Template Endpoints
   createTemplate: protectedProcedure
-    .input(createChallanTemplateSchema)
+    .input(createChallanTemplateSchema.omit({ institutionId: true, createdById: true }))
     .mutation(async ({ ctx, input }) => {
-      // Get user's institution ID from session
-      const user = await ctx.prisma.user.findUnique({
-        where: { id: ctx.session.user.id },
-        select: { institutionId: true, primaryCampusId: true }
-      });
-
-      let institutionId = user?.institutionId;
-
-      // If no institutionId, try to get it from the primary campus
-      if (!institutionId && user?.primaryCampusId) {
-        const campus = await ctx.prisma.campus.findUnique({
-          where: { id: user.primaryCampusId },
-          select: { institutionId: true }
-        });
-        institutionId = campus?.institutionId;
-      }
-
-      // If still no institutionId, use a default one or create one
-      if (!institutionId) {
-        // Try to find any institution or create a default one
-        let defaultInstitution = await ctx.prisma.institution.findFirst({
-          select: { id: true }
+      try {
+        // Get user's institution ID from session
+        const user = await ctx.prisma.user.findUnique({
+          where: { id: ctx.session.user.id },
+          select: { institutionId: true, primaryCampusId: true }
         });
 
-        if (!defaultInstitution) {
-          // Create a default institution if none exists
-          defaultInstitution = await ctx.prisma.institution.create({
-            data: {
-              name: "Default Institution",
-              code: "DEFAULT",
-              status: "ACTIVE"
-            },
-            select: { id: true }
+        let institutionId = user?.institutionId;
+
+        // If no institutionId, try to get it from the primary campus
+        if (!institutionId && user?.primaryCampusId) {
+          const campus = await ctx.prisma.campus.findUnique({
+            where: { id: user.primaryCampusId },
+            select: { institutionId: true }
           });
+          institutionId = campus?.institutionId;
         }
 
-        institutionId = defaultInstitution.id;
-      }
+        // If still no institutionId, use a default one or create one
+        if (!institutionId) {
+          // Try to find any institution or create a default one
+          let defaultInstitution = await ctx.prisma.institution.findFirst({
+            select: { id: true }
+          });
 
-      const challanService = new ChallanService();
-      return challanService.createChallanTemplate({
-        ...input,
-        institutionId,
-        createdById: ctx.session.user.id,
-      });
+          if (!defaultInstitution) {
+            // Create a default institution if none exists
+            defaultInstitution = await ctx.prisma.institution.create({
+              data: {
+                name: "Default Institution",
+                code: "DEFAULT",
+                status: "ACTIVE"
+              },
+              select: { id: true }
+            });
+          }
+
+          institutionId = defaultInstitution.id;
+        }
+
+        const challanService = new ChallanService();
+        return challanService.createChallanTemplate({
+          ...input,
+          institutionId,
+          createdById: ctx.session.user.id,
+        });
+      } catch (error) {
+        console.error('Error creating challan template:', error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create challan template",
+        });
+      }
     }),
 
   getTemplateById: protectedProcedure
@@ -73,6 +81,20 @@ export const challanRouter = createTRPCRouter({
     .query(async ({ input }) => {
       const challanService = new ChallanService();
       return challanService.getChallanTemplatesByInstitution(input.institutionId);
+    }),
+
+  getAllTemplates: protectedProcedure
+    .query(async ({ ctx }) => {
+      // Only allow system admins to get all templates
+      if (!['SYSTEM_ADMIN', 'SYSTEM_MANAGER'].includes(ctx.session.user.userType)) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You don't have permission to view all templates",
+        });
+      }
+
+      const challanService = new ChallanService();
+      return challanService.getAllChallanTemplates();
     }),
 
   updateTemplate: protectedProcedure

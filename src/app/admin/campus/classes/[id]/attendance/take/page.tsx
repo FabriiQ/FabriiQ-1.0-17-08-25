@@ -50,15 +50,31 @@ export default function TakeAttendancePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Fetch class data with correct parameter name
-  const { data: classData, isLoading: isLoadingClass } = api.class.getById.useQuery({
+  const { data: classData, isLoading: isLoadingClass, error: classError } = api.class.getById.useQuery({
     classId
-  }, { enabled: !!classId });
+  }, {
+    enabled: !!classId,
+    onError: (error) => {
+      console.error('Error fetching class data:', error);
+    },
+    onSuccess: (data) => {
+      console.log('Class data:', data);
+    }
+  });
   
   // Fetch enrolled students with the correct endpoint
-  const { data: enrolledStudents, isLoading: isLoadingStudents } =
+  const { data: enrolledStudents, isLoading: isLoadingStudents, error: studentsError } =
     api.student.getClassEnrollments.useQuery({
       classId
-    }, { enabled: !!classId });
+    }, {
+      enabled: !!classId,
+      onError: (error) => {
+        console.error('Error fetching enrolled students:', error);
+      },
+      onSuccess: (data) => {
+        console.log('Enrolled students data:', data);
+      }
+    });
   
   // Get the attendance hook for creating records
   const { bulkCreateAttendance } = useAttendance();
@@ -66,6 +82,7 @@ export default function TakeAttendancePage() {
   // Initialize attendance records when students are loaded
   useEffect(() => {
     if (enrolledStudents && enrolledStudents.length > 0) {
+      console.log('Setting up attendance records for', enrolledStudents.length, 'students');
       const initialRecords = enrolledStudents.map((enrollment: EnrollmentWithStudent) => ({
         studentId: enrollment.studentId,
         studentName: enrollment.student?.user?.name || 'Unknown',
@@ -73,8 +90,11 @@ export default function TakeAttendancePage() {
         status: AttendanceStatusType.PRESENT,
         notes: '',
       }));
-      
+
       setAttendanceRecords(initialRecords);
+    } else if (enrolledStudents && enrolledStudents.length === 0) {
+      console.log('No students enrolled in this class');
+      setAttendanceRecords([]);
     }
   }, [enrolledStudents]);
   
@@ -170,10 +190,31 @@ export default function TakeAttendancePage() {
     }
   };
   
-  if (isLoadingClass || isLoadingStudents) {
+  if (classError) {
+    return (
+      <PageLayout
+        title="Error Loading Class"
+        description="Failed to load class information"
+      >
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h3 className="text-red-800 font-medium">Error Loading Class</h3>
+          <p className="text-red-600 text-sm mt-1">
+            {classError.message || 'Failed to load class information'}
+          </p>
+          <p className="text-red-500 text-xs mt-2">Class ID: {classId}</p>
+          <Button className="mt-4" onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </div>
+      </PageLayout>
+    );
+  }
+
+  if (isLoadingClass) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading class information...</span>
       </div>
     );
   }
@@ -264,7 +305,23 @@ export default function TakeAttendancePage() {
           </div>
         </CardHeader>
         <CardContent>
-          {attendanceRecords.length > 0 ? (
+          {studentsError ? (
+            <div className="text-center py-8">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <h3 className="text-red-800 font-medium">Error Loading Students</h3>
+                <p className="text-red-600 text-sm mt-1">
+                  {studentsError.message || 'Failed to load students for this class'}
+                </p>
+              </div>
+              <Button onClick={() => window.location.reload()}>
+                Try Again
+              </Button>
+            </div>
+          ) : isLoadingStudents ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">Loading students...</p>
+            </div>
+          ) : attendanceRecords.length > 0 ? (
             <div className="overflow-hidden rounded-md border">
               <table className="w-full">
                 <thead>

@@ -249,7 +249,20 @@ export default function FeeSettingsPage() {
                 </div>
 
                 <div className="space-y-4">
-                  <Label>Current Currency Preview</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Current Currency Preview</Label>
+                    <Button
+                      onClick={() => {
+                        if (currencySettings) {
+                          updateCurrencyMutation.mutate({ currency: currencySettings });
+                        }
+                      }}
+                      disabled={updateCurrencyMutation.isLoading}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      {updateCurrencyMutation.isLoading ? 'Saving...' : 'Save Currency'}
+                    </Button>
+                  </div>
                   {currencySettings && (
                     <div className="p-4 border rounded-lg bg-muted/50">
                       <div className="space-y-2">

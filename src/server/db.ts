@@ -152,18 +152,19 @@ function getDatabaseUrlWithPooling(): string {
   const url = new URL(baseUrl);
 
   // Production-optimized connection pooling parameters for performance
-  // Reduced connection limit to prevent connection thrashing
+  // Increased connection limits and timeouts to handle high load
   const poolingParams = {
-    'connection_limit': process.env.DATABASE_CONNECTION_LIMIT || '50',    // Reduced from 100 to prevent thrashing
-    'pool_timeout': process.env.DATABASE_POOL_TIMEOUT || '10',            // Reduced from 15s for faster failures
-    'connect_timeout': process.env.DATABASE_CONNECT_TIMEOUT || '20',      // Reduced from 30s for faster failures
-    'pool_max_idle_time': process.env.DATABASE_MAX_IDLE_TIME || '180',    // Reduced from 300s (3 minutes)
-    'statement_timeout': process.env.DATABASE_STATEMENT_TIMEOUT || '30000', // Reduced from 60s to 30s for faster failures
-    'idle_in_transaction_session_timeout': '15000',                       // Reduced from 30s to 15s
+    'connection_limit': process.env.DATABASE_CONNECTION_LIMIT || '100',   // Increased for better concurrency
+    'pool_timeout': process.env.DATABASE_POOL_TIMEOUT || '30',            // Increased timeout for stability
+    'connect_timeout': process.env.DATABASE_CONNECT_TIMEOUT || '60',      // Increased for better reliability
+    'pool_max_idle_time': process.env.DATABASE_MAX_IDLE_TIME || '300',    // Standard 5 minutes
+    'statement_timeout': process.env.DATABASE_STATEMENT_TIMEOUT || '60000', // Standard 60s timeout
+    'idle_in_transaction_session_timeout': '30000',                       // Standard 30s timeout
     // Additional pooling optimizations
-    'pool_min_size': '2',                                                 // Minimum connections to maintain
-    'pool_max_size': process.env.DATABASE_CONNECTION_LIMIT || '50',       // Maximum connections
-    'pool_acquire_timeout': '10000',                                      // 10s timeout to acquire connection
+    'pool_min_size': '5',                                                 // Higher minimum connections
+    'pool_max_size': process.env.DATABASE_CONNECTION_LIMIT || '100',      // Maximum connections
+    'pool_acquire_timeout': '30000',                                      // 30s timeout to acquire connection
+    'pool_validation_timeout': '5000',                                    // 5s validation timeout
   };
 
   // Add connection pooling parameters if not already present
@@ -206,18 +207,22 @@ if (process.env.NODE_ENV === 'development' || process.env.ENABLE_PERFORMANCE_MON
 let isConnected = false;
 
 // Connect to database with retry logic and timeout protection
-async function connectWithRetry(retries = 3): Promise<void> {
+async function connectWithRetry(retries = 5): Promise<void> {
   for (let i = 0; i < retries; i++) {
     try {
-      // Add timeout protection for database connection
+      // Add timeout protection for database connection with longer timeout
       const connectPromise = prisma.$connect();
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Database connection timeout')), 10000); // 10 second timeout
+        setTimeout(() => reject(new Error('Database connection timeout')), 30000); // 30 second timeout
       });
 
       await Promise.race([connectPromise, timeoutPromise]);
       isConnected = true;
       console.log('Database connected successfully');
+
+      // Test the connection with a simple query
+      await prisma.$queryRaw`SELECT 1`;
+      console.log('Database connection verified');
       return;
     } catch (error) {
       console.error(`Database connection attempt ${i + 1} failed:`, error);
@@ -230,7 +235,9 @@ async function connectWithRetry(retries = 3): Promise<void> {
         }
         throw error;
       }
-      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
+      // Exponential backoff with jitter
+      const delay = Math.min(1000 * Math.pow(2, i) + Math.random() * 1000, 10000);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 }

@@ -36,9 +36,11 @@ import { toast } from 'sonner';
 import { exportData, REPORT_COLUMNS } from '@/utils/export-utils';
 import { FeeImportDialog } from '@/components/admin/system/fee-management/FeeImportDialog';
 import { SimpleBarChart, SimplePieChart, SimpleLineChart } from '@/components/ui/charts/SimpleChart';
+import { useCurrency } from '@/contexts/currency-context';
 
 export default function FeeReportsPage() {
   const router = useRouter();
+  const { formatCurrency } = useCurrency();
   const [activeTab, setActiveTab] = useState('overview');
   const [dateRange, setDateRange] = useState({
     from: formatDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'),
@@ -50,6 +52,17 @@ export default function FeeReportsPage() {
 
   // Fetch data
   const { data: feeStats, isLoading: loadingStats, refetch: refetchStats } = api.enrollmentFee.getFeeCollectionStats.useQuery();
+
+  // Fetch fee analytics data
+  const { data: feeAnalytics, isLoading: analyticsLoading } = api.enrollmentFee.getFeeAnalytics.useQuery({
+    timeframe: 'month',
+  });
+
+  // Fetch enrollment fees for reports
+  const { data: enrollmentFees, isLoading: feesLoading } = api.enrollmentFee.getAllByEnrollment.useQuery(
+    { enrollmentId: '' }, // This would need to be dynamic based on filters
+    { enabled: false } // Disable by default, enable based on filters
+  );
   const { data: institutionReport, isLoading: loadingInstitution } = api.financialReports.getInstitutionReport.useQuery();
   const { data: campusReport, isLoading: loadingCampusReport } = api.financialReports.getCampusReport.useQuery();
   const { data: programReport, isLoading: loadingProgramReport } = api.financialReports.getProgramReport.useQuery();
@@ -71,14 +84,25 @@ export default function FeeReportsPage() {
 
       switch (reportType) {
         case 'collection-trends':
-          // Mock data for collection trends
-          data = Array.from({ length: 12 }, (_, i) => ({
-            month: formatDate(new Date(2024, i, 1), 'MMM yyyy'),
-            totalCollected: Math.floor(Math.random() * 500000) + 100000,
-            targetAmount: 400000,
-            collectionRate: Math.floor(Math.random() * 30) + 70,
-            transactionCount: Math.floor(Math.random() * 200) + 50,
-          }));
+          // Use real analytics data if available
+          if (feeAnalytics && feeAnalytics.collectionTrends) {
+            data = feeAnalytics.collectionTrends.map(trend => ({
+              month: trend.period,
+              totalCollected: trend.amount,
+              targetAmount: feeStats?.pendingFees || 0,
+              collectionRate: feeStats?.collectionRate || 0,
+              transactionCount: feeStats?.totalTransactions || 0,
+            }));
+          } else {
+            // Fallback to basic structure if no data
+            data = [{
+              month: formatDate(new Date(), 'MMM yyyy'),
+              totalCollected: feeStats?.totalCollected || 0,
+              targetAmount: feeStats?.pendingFees || 0,
+              collectionRate: feeStats?.collectionRate || 0,
+              transactionCount: feeStats?.totalTransactions || 0,
+            }];
+          }
           columns = [
             { key: 'month', label: 'Month', width: 15 },
             { key: 'totalCollected', label: 'Total Collected', width: 18, format: 'currency' },
@@ -988,7 +1012,7 @@ export default function FeeReportsPage() {
                       <div>
                         <h4 className="font-medium">{program.programName}</h4>
                         <p className="text-sm text-muted-foreground">
-                          {program.programType} • {program.studentCount} students
+                          Program • {program.studentCount} students
                         </p>
                       </div>
                       <div className="flex items-center gap-4">
@@ -1210,7 +1234,7 @@ export default function FeeReportsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-600">
-                  {studentReport?.filter(s => s.paymentStatus === 'PAID').length || 0}
+                  {studentReport?.filter(s => s.totalCollected >= s.totalPending).length || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">Complete payments</p>
               </CardContent>
@@ -1222,7 +1246,7 @@ export default function FeeReportsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-orange-600">
-                  {studentReport?.filter(s => s.paymentStatus === 'PARTIAL').length || 0}
+                  {studentReport?.filter(s => s.totalCollected > 0 && s.totalCollected < s.totalPending).length || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">Pending balance</p>
               </CardContent>
@@ -1234,7 +1258,7 @@ export default function FeeReportsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-red-600">
-                  {studentReport?.filter(s => s.paymentStatus === 'OVERDUE').length || 0}
+                  {studentReport?.filter(s => s.totalPending > s.totalCollected).length || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">Past due date</p>
               </CardContent>
@@ -1259,17 +1283,17 @@ export default function FeeReportsPage() {
                     data={[
                       {
                         label: 'Fully Paid',
-                        value: studentReport?.filter(s => s.paymentStatus === 'PAID').length || 25,
+                        value: studentReport?.filter(s => s.totalCollected >= s.totalPending).length || 25,
                         color: '#10b981'
                       },
                       {
                         label: 'Partial',
-                        value: studentReport?.filter(s => s.paymentStatus === 'PARTIAL').length || 15,
+                        value: studentReport?.filter(s => s.totalCollected > 0 && s.totalCollected < s.totalPending).length || 15,
                         color: '#f59e0b'
                       },
                       {
                         label: 'Pending',
-                        value: studentReport?.filter(s => s.paymentStatus === 'PENDING').length || 8,
+                        value: studentReport?.filter(s => s.totalCollected === 0).length || 8,
                         color: '#6b7280'
                       },
                       {
@@ -1356,16 +1380,17 @@ export default function FeeReportsPage() {
                           <div className="text-sm text-muted-foreground">Pending</div>
                         </div>
                         <div className="text-right">
-                          <div className="font-medium text-red-600">Rs. {(student.totalOverdue ?? 0).toLocaleString()}</div>
+                          <div className="font-medium text-red-600">Rs. {Math.max(0, (student.totalPending ?? 0) - (student.totalCollected ?? 0)).toLocaleString()}</div>
                           <div className="text-sm text-muted-foreground">Overdue</div>
                         </div>
                         <div className="text-right">
                           <Badge className={
-                            student.paymentStatus === 'PAID' ? 'bg-green-100 text-green-800' :
-                            student.paymentStatus === 'PARTIAL' ? 'bg-yellow-100 text-yellow-800' :
-                            student.paymentStatus === 'OVERDUE' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+                            student.totalCollected >= student.totalPending ? 'bg-green-100 text-green-800' :
+                            student.totalCollected > 0 ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
                           }>
-                            {student.paymentStatus}
+                            {student.totalCollected >= student.totalPending ? 'PAID' :
+                             student.totalCollected > 0 ? 'PARTIAL' : 'PENDING'}
                           </Badge>
                         </div>
                         <div className="flex gap-2">
