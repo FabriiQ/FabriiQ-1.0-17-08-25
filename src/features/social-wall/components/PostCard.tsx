@@ -239,19 +239,19 @@ export function PostCard({ post, classId, onUpdate, onDelete, className }: PostC
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
             <Avatar className="w-10 h-10">
-              <AvatarImage src={post.author.avatar} />
+              <AvatarImage src={post.author?.avatar || ''} />
               <AvatarFallback>
-                {post.author.name?.charAt(0)?.toUpperCase() || 'U'}
+                {post.author?.name?.charAt(0)?.toUpperCase() || 'U'}
               </AvatarFallback>
             </Avatar>
-            
+
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2">
                 <p className="text-sm font-medium truncate">
-                  {post.author.name || 'Unknown User'}
+                  {post.author?.name || 'Unknown User'}
                 </p>
                 <Badge variant="outline" className="text-xs">
-                  {post.author.userType.replace('_', ' ').toLowerCase()}
+                  {post.author?.userType?.replace('_', ' ').toLowerCase() || 'user'}
                 </Badge>
                 {post.postType !== 'REGULAR' && (
                   <Badge 

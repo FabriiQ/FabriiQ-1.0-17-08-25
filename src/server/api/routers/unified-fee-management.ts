@@ -424,4 +424,74 @@ export const unifiedFeeManagementRouter = createTRPCRouter({
         });
       }
     }),
+
+  // ========================================================================
+  // LATE FEE POLICY MANAGEMENT
+  // ========================================================================
+
+  /**
+   * Get late fee policy
+   */
+  getLateFeePolicy: protectedProcedure
+    .input(z.object({
+      institutionId: z.string().optional(),
+      campusId: z.string().optional(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const service = new UnifiedFeeManagementService(ctx.prisma);
+      return service.getLateFeePolicy(input);
+    }),
+
+  /**
+   * Create late fee policy
+   */
+  createLateFeePolicy: protectedProcedure
+    .input(z.object({
+      name: z.string().min(1),
+      description: z.string().optional(),
+      calculationType: z.enum(['FIXED', 'PERCENTAGE', 'TIERED', 'COMPOUND']),
+      configuration: z.record(z.any()),
+      institutionId: z.string().optional(),
+      campusId: z.string().optional(),
+      isActive: z.boolean().default(true),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const service = new UnifiedFeeManagementService(ctx.prisma);
+      return service.createLateFeePolicy({
+        ...input,
+        createdById: ctx.session.user.id,
+      });
+    }),
+
+  /**
+   * Update late fee policy
+   */
+  updateLateFeePolicy: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+      name: z.string().min(1).optional(),
+      description: z.string().optional(),
+      calculationType: z.enum(['FIXED', 'PERCENTAGE', 'TIERED', 'COMPOUND']).optional(),
+      configuration: z.record(z.any()).optional(),
+      isActive: z.boolean().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const service = new UnifiedFeeManagementService(ctx.prisma);
+      return service.updateLateFeePolicy({
+        ...input,
+        updatedById: ctx.session.user.id,
+      });
+    }),
+
+  /**
+   * Delete late fee policy
+   */
+  deleteLateFeePolicy: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const service = new UnifiedFeeManagementService(ctx.prisma);
+      return service.deleteLateFeePolicy(input.id);
+    }),
 });

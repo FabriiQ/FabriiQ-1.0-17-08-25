@@ -30,11 +30,12 @@ import {
   Bell,
   Save,
 } from 'lucide-react';
-import { Currency, CURRENCY_REGIONS, formatCurrency } from '@/data/currencies';
+import { Currency, CURRENCY_REGIONS, formatCurrency, getAllRegions } from '@/data/currencies';
 import { toast } from 'sonner';
 import { LateFeePolicy } from '@/components/admin/system/fee-management/late-fees/LateFeePolicy';
 import { LateFeeSettings } from '@/components/admin/system/fee-management/settings/LateFeeSettings';
 import { useAuth } from '@/hooks/useAuth';
+import { useSession } from 'next-auth/react';
 
 export default function FeeSettingsPage() {
   const router = useRouter();
@@ -47,6 +48,15 @@ export default function FeeSettingsPage() {
   const { data: feeSettings, isLoading: loadingSettings, refetch: refetchSettings } = api.settings.getFeeSettings.useQuery();
   const { data: allCurrencies, isLoading: loadingCurrencies } = api.settings.getAllCurrencies.useQuery();
   const { data: currencyData } = api.settings.getCurrenciesByRegion.useQuery({});
+  const { data: session } = useSession();
+
+  // Fetch late fee policies
+  const { data: policiesData } = api.lateFee.getPolicies.useQuery({
+    institutionId: user?.institutionId,
+    campusId: session?.user?.primaryCampusId || undefined,
+  });
+
+
 
   // Local state for form data
   const [currencySettings, setCurrencySettings] = useState<Currency | null>(null);
@@ -178,18 +188,14 @@ export default function FeeSettingsPage() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="currency" className="flex items-center gap-2">
             <Globe className="h-4 w-4" />
             Currency
           </TabsTrigger>
-          <TabsTrigger value="due-dates" className="flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            Due Dates
-          </TabsTrigger>
           <TabsTrigger value="late-fees" className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
-            Late Fees
+            Late Fees & Due Dates
           </TabsTrigger>
           <TabsTrigger value="receipts" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
@@ -228,7 +234,7 @@ export default function FeeSettingsPage() {
                       <SelectValue placeholder="Select currency" />
                     </SelectTrigger>
                     <SelectContent>
-                      {CURRENCY_REGIONS.map(region => (
+                      {getAllRegions().map(region => (
                         <div key={region}>
                           <div className="px-2 py-1 text-sm font-medium text-muted-foreground">
                             {region}
@@ -365,7 +371,7 @@ export default function FeeSettingsPage() {
                               <SelectValue placeholder="Select region" />
                             </SelectTrigger>
                             <SelectContent>
-                              {CURRENCY_REGIONS.map(region => (
+                              {getAllRegions().map(region => (
                                 <SelectItem key={region} value={region}>
                                   {region}
                                 </SelectItem>
@@ -397,123 +403,11 @@ export default function FeeSettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Due Date Settings Tab */}
-        <TabsContent value="due-dates" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Due Date Settings
-              </CardTitle>
-              <CardDescription>
-                Configure default due dates, grace periods, and late fee policies
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {dueDateSettings && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="default-due-days">Default Due Days</Label>
-                      <Input
-                        id="default-due-days"
-                        type="number"
-                        min="1"
-                        max="365"
-                        value={dueDateSettings.defaultDueDays}
-                        onChange={(e) => setDueDateSettings(prev => ({ ...prev, defaultDueDays: parseInt(e.target.value) }))}
-                      />
-                      <p className="text-sm text-muted-foreground">
-                        Number of days from fee assignment to due date
-                      </p>
-                    </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="grace-period">Grace Period (Days)</Label>
-                      <Input
-                        id="grace-period"
-                        type="number"
-                        min="0"
-                        max="30"
-                        value={dueDateSettings.gracePeriodDays}
-                        onChange={(e) => setDueDateSettings(prev => ({ ...prev, gracePeriodDays: parseInt(e.target.value) }))}
-                      />
-                      <p className="text-sm text-muted-foreground">
-                        Additional days before late fees are applied
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="space-y-4">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label>Late Fees</Label>
-                          <p className="text-sm text-muted-foreground">
-                            Enable late fees for overdue payments
-                          </p>
-                        </div>
-                        <Switch
-                          checked={dueDateSettings.lateFeesEnabled}
-                          onCheckedChange={(checked) => setDueDateSettings(prev => ({ ...prev, lateFeesEnabled: checked }))}
-                        />
-                      </div>
-
-                      {dueDateSettings.lateFeesEnabled && (
-                        <div className="space-y-4 pl-4 border-l-2 border-muted">
-                          <div className="space-y-2">
-                            <Label htmlFor="late-fee-type">Late Fee Type</Label>
-                            <Select
-                              value={dueDateSettings.lateFeeType}
-                              onValueChange={(value) => setDueDateSettings(prev => ({ ...prev, lateFeeType: value }))}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="FIXED">Fixed Amount</SelectItem>
-                                <SelectItem value="PERCENTAGE">Percentage</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label htmlFor="late-fee-amount">
-                              Late Fee {dueDateSettings.lateFeeType === 'PERCENTAGE' ? 'Percentage' : 'Amount'}
-                            </Label>
-                            <Input
-                              id="late-fee-amount"
-                              type="number"
-                              min="0"
-                              value={dueDateSettings.lateFeeAmount}
-                              onChange={(e) => setDueDateSettings(prev => ({ ...prev, lateFeeAmount: parseFloat(e.target.value) }))}
-                            />
-                            <p className="text-sm text-muted-foreground">
-                              {dueDateSettings.lateFeeType === 'PERCENTAGE'
-                                ? 'Percentage of the total fee amount'
-                                : `Fixed amount in ${currencySettings?.symbol || '$'}`
-                              }
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-end">
-                <Button onClick={handleSaveDueDate} disabled={updateDueDateMutation.isLoading}>
-                  <Save className="h-4 w-4 mr-2" />
-                  {updateDueDateMutation.isLoading ? 'Saving...' : 'Save Due Date Settings'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Late Fee Management Tab */}
+        {/* Late Fee Management & Due Dates Tab */}
         <TabsContent value="late-fees" className="space-y-6">
+          {/* Consolidated Late Fee Management */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -521,22 +415,97 @@ export default function FeeSettingsPage() {
                 Late Fee Management
               </CardTitle>
               <CardDescription>
-                Configure late fee policies and settings for overdue payments
+                Configure due dates, late fee policies, and automated rules for overdue payments
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                {/* Late Fee Settings */}
-                <LateFeeSettings
-                  institutionId={user?.institutionId || undefined}
-                  campusId={user?.primaryCampusId || undefined}
-                />
+              <div className="space-y-8">
+                {/* Basic Due Date Configuration */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Clock className="h-5 w-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold">Due Date Configuration</h3>
+                  </div>
+
+                  {dueDateSettings && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="space-y-2">
+                        <Label htmlFor="default-due-days">Default Due Days</Label>
+                        <Input
+                          id="default-due-days"
+                          type="number"
+                          min="1"
+                          max="365"
+                          value={dueDateSettings.defaultDueDays}
+                          onChange={(e) => setDueDateSettings(prev => ({ ...prev, defaultDueDays: parseInt(e.target.value) }))}
+                          className="border-blue-300 dark:border-blue-700"
+                        />
+                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                          Days from fee assignment to due date
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="grace-period">Grace Period (Days)</Label>
+                        <Input
+                          id="grace-period"
+                          type="number"
+                          min="0"
+                          max="30"
+                          value={dueDateSettings.gracePeriodDays}
+                          onChange={(e) => setDueDateSettings(prev => ({ ...prev, gracePeriodDays: parseInt(e.target.value) }))}
+                          className="border-blue-300 dark:border-blue-700"
+                        />
+                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                          Additional days before late fees apply
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label>Enable Late Fees</Label>
+                          <Switch
+                            checked={dueDateSettings.lateFeesEnabled}
+                            onCheckedChange={(checked) => setDueDateSettings(prev => ({ ...prev, lateFeesEnabled: checked }))}
+                          />
+                        </div>
+                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                          Automatically apply late fees for overdue payments
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end">
+                    <Button onClick={handleSaveDueDate} disabled={updateDueDateMutation.isLoading}>
+                      <Save className="h-4 w-4 mr-2" />
+                      {updateDueDateMutation.isLoading ? 'Saving...' : 'Save Due Date Settings'}
+                    </Button>
+                  </div>
+                </div>
 
                 <Separator />
 
                 {/* Late Fee Policies */}
-                <div>
-                  <h4 className="text-lg font-medium mb-4">Late Fee Policies</h4>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <FileText className="h-5 w-5 text-green-600" />
+                    <h3 className="text-lg font-semibold">Late Fee Policies</h3>
+                    <Badge className="ml-2 border border-gray-200 text-gray-800">
+                      {policiesData?.policies?.length || 0} Policies Available
+                    </Badge>
+                  </div>
+
+                  <div className="p-4 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5" />
+                      <div className="text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Policy Assignment:</strong> Late fee policies must be manually assigned to specific fee types, programs, or classes.
+                        Multiple policies can be created, but only assigned policies will be applied to calculate overdue amounts.
+                      </div>
+                    </div>
+                  </div>
+
                   <LateFeePolicy
                     institutionId={user?.institutionId || undefined}
                     campusId={user?.primaryCampusId || undefined}

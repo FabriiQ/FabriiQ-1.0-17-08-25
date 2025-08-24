@@ -18,6 +18,7 @@ import { seedBulkStudents } from './bulk-students-seed';
 import { seedTeacherAssignments } from './teacher-assignments';
 import { seedTeacherAttendance } from './teacher-attendance';
 import { seedLateFeePolicies } from './late-fee-policies';
+import { seedChallanTemplates } from './challan-templates';
 
 const prisma = new PrismaClient();
 
@@ -113,6 +114,10 @@ export async function seedNewData() {
     // Step 18: Seed late fee policies
     await seedLateFeePolicies(prisma, Object.values(users).flat());
     console.log('Late fee policies seeded successfully');
+
+    // Step 19: Seed challan templates
+    await seedChallanTemplates(prisma);
+    console.log('Challan templates seeded successfully');
 
     console.log('New database seeding completed successfully!');
     return {

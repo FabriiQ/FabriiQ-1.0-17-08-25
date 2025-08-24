@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/data-display/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,15 +32,25 @@ interface LateFeeSettingsSectionProps {
   campusId?: string;
 }
 
-export function LateFeeSettingsSection({ 
-  config, 
-  onUpdate, 
-  onReset, 
-  institutionId, 
-  campusId 
+export function LateFeeSettingsSection({
+  config,
+  onUpdate,
+  onReset,
+  institutionId,
+  campusId
 }: LateFeeSettingsSectionProps) {
   const [previewAmount, setPreviewAmount] = useState(1000);
   const [previewDays, setPreviewDays] = useState(30);
+  const [showPolicyEditor, setShowPolicyEditor] = useState(false);
+  const [editingPolicy, setEditingPolicy] = useState<any>(null);
+
+  // Form state for policy editor
+  const [policyForm, setPolicyForm] = useState({
+    name: '',
+    calculationType: 'PERCENTAGE' as 'FIXED' | 'PERCENTAGE' | 'TIERED' | 'COMPOUND',
+    description: '',
+    configuration: {}
+  });
 
   // Late fee calculation preview
   const { data: calculationPreview, refetch: refetchPreview } = api.unifiedFeeManagement.calculateLateFee.useQuery({
@@ -49,6 +59,65 @@ export function LateFeeSettingsSection({
     institutionId,
     campusId,
   });
+
+  // Late fee policies management
+  const { data: lateFeePolicy, refetch: refetchPolicies } = api.unifiedFeeManagement.getLateFeePolicy.useQuery({
+    institutionId,
+    campusId,
+  });
+
+  const createPolicyMutation = api.unifiedFeeManagement.createLateFeePolicy.useMutation({
+    onSuccess: () => {
+      toast.success("Late fee policy created successfully");
+      refetchPolicies();
+      setShowPolicyEditor(false);
+      setEditingPolicy(null);
+    },
+    onError: (error) => {
+      toast.error(`Failed to create policy: ${error.message}`);
+    },
+  });
+
+  const updatePolicyMutation = api.unifiedFeeManagement.updateLateFeePolicy.useMutation({
+    onSuccess: () => {
+      toast.success("Late fee policy updated successfully");
+      refetchPolicies();
+      setShowPolicyEditor(false);
+      setEditingPolicy(null);
+    },
+    onError: (error) => {
+      toast.error(`Failed to update policy: ${error.message}`);
+    },
+  });
+
+  const deletePolicyMutation = api.unifiedFeeManagement.deleteLateFeePolicy.useMutation({
+    onSuccess: () => {
+      toast.success("Late fee policy deleted successfully");
+      refetchPolicies();
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete policy: ${error.message}`);
+    },
+  });
+
+  // Initialize form when editing policy changes
+  useEffect(() => {
+    if (editingPolicy) {
+      setPolicyForm({
+        name: editingPolicy.name || '',
+        calculationType: editingPolicy.calculationType || 'PERCENTAGE',
+        description: editingPolicy.description || '',
+        configuration: editingPolicy.configuration || {}
+      });
+    } else {
+      setPolicyForm({
+        name: '',
+        calculationType: 'PERCENTAGE',
+        description: '',
+        configuration: {}
+      });
+    }
+  }, [editingPolicy]);
 
   const handleGracePeriodUpdate = (field: string, value: any) => {
     onUpdate({
@@ -493,10 +562,24 @@ export function LateFeeSettingsSection({
                 </div>
               </div>
 
-              <Button onClick={() => refetchPreview()}>
-                <Play className="h-4 w-4 mr-2" />
-                Calculate Preview
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={() => refetchPreview()}>
+                  <Play className="h-4 w-4 mr-2" />
+                  Calculate Preview
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setPreviewAmount(5000);
+                    setPreviewDays(15);
+                    refetchPreview();
+                  }}
+                >
+                  <CalculatorIcon className="h-4 w-4 mr-2" />
+                  Test Scenario
+                </Button>
+              </div>
 
               {calculationPreview?.calculation && (
                 <div className="p-4 bg-muted rounded-lg">
@@ -670,6 +753,199 @@ export function LateFeeSettingsSection({
           </Card>
         </>
       )}
+
+      {/* Late Fee Policy Management */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Late Fee Policy Management
+          </CardTitle>
+          <CardDescription>
+            Create, edit, and configure late fee policies for different scenarios
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-medium">Current Policy</h4>
+              <p className="text-sm text-muted-foreground">
+                {lateFeePolicy ? `Policy: ${lateFeePolicy.name}` : 'No policy configured'}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditingPolicy(lateFeePolicy);
+                  setShowPolicyEditor(true);
+                }}
+                disabled={!lateFeePolicy}
+              >
+                Edit Policy
+              </Button>
+              <Button
+                onClick={() => {
+                  setEditingPolicy(null);
+                  setShowPolicyEditor(true);
+                }}
+              >
+                Create New Policy
+              </Button>
+            </div>
+          </div>
+
+          {lateFeePolicy && (
+            <div className="p-4 bg-muted rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Policy Name</Label>
+                  <p className="text-sm">{lateFeePolicy.name}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Calculation Type</Label>
+                  <p className="text-sm">{lateFeePolicy.calculationType}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Status</Label>
+                  <Badge variant={lateFeePolicy.isActive ? "default" : "secondary"}>
+                    {lateFeePolicy.isActive ? "Active" : "Inactive"}
+                  </Badge>
+                </div>
+              </div>
+
+              {lateFeePolicy.description && (
+                <div className="mt-3">
+                  <Label className="text-sm font-medium">Description</Label>
+                  <p className="text-sm text-muted-foreground">{lateFeePolicy.description}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEditingPolicy(lateFeePolicy);
+                    setShowPolicyEditor(true);
+                  }}
+                >
+                  Edit
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    if (confirm('Are you sure you want to delete this policy?')) {
+                      deletePolicyMutation.mutate({ id: lateFeePolicy.id });
+                    }
+                  }}
+                  disabled={deletePolicyMutation.isLoading}
+                >
+                  {deletePolicyMutation.isLoading ? 'Deleting...' : 'Delete'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {showPolicyEditor && (
+            <div className="p-4 border rounded-lg space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">
+                  {editingPolicy ? 'Edit Policy' : 'Create New Policy'}
+                </h4>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowPolicyEditor(false);
+                    setEditingPolicy(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Policy Name</Label>
+                  <Input
+                    placeholder="Enter policy name"
+                    value={policyForm.name}
+                    onChange={(e) => setPolicyForm(prev => ({ ...prev, name: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Calculation Type</Label>
+                  <Select
+                    value={policyForm.calculationType}
+                    onValueChange={(value) => setPolicyForm(prev => ({ ...prev, calculationType: value as 'FIXED' | 'PERCENTAGE' | 'TIERED' | 'COMPOUND' }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FIXED">Fixed Amount</SelectItem>
+                      <SelectItem value="PERCENTAGE">Percentage</SelectItem>
+                      <SelectItem value="TIERED">Tiered Rates</SelectItem>
+                      <SelectItem value="COMPOUND">Compound Interest</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Input
+                  placeholder="Policy description (optional)"
+                  value={policyForm.description}
+                  onChange={(e) => setPolicyForm(prev => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    // Validate required fields
+                    if (!policyForm.name.trim()) {
+                      toast.error("Policy name is required");
+                      return;
+                    }
+
+                    // Handle policy save
+                    if (editingPolicy) {
+                      updatePolicyMutation.mutate({
+                        id: editingPolicy.id,
+                        name: policyForm.name,
+                        calculationType: policyForm.calculationType,
+                        description: policyForm.description,
+                        configuration: policyForm.configuration,
+                      });
+                    } else {
+                      createPolicyMutation.mutate({
+                        name: policyForm.name,
+                        calculationType: policyForm.calculationType,
+                        description: policyForm.description,
+                        configuration: policyForm.configuration,
+                        institutionId,
+                        campusId,
+                        isActive: true,
+                      });
+                    }
+                  }}
+                  disabled={createPolicyMutation.isLoading || updatePolicyMutation.isLoading}
+                >
+                  {createPolicyMutation.isLoading || updatePolicyMutation.isLoading
+                    ? 'Saving...'
+                    : editingPolicy
+                    ? 'Update Policy'
+                    : 'Create Policy'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

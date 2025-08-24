@@ -80,11 +80,14 @@ export function LateFeePolicy({ institutionId, campusId }: LateFeeProps) {
   const [selectedPolicy, setSelectedPolicy] = useState<LateFeePolicy | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch policies
+  // Fetch policies and currency settings
   const { data: policiesData, refetch } = api.lateFee.getPolicies.useQuery({
     institutionId: institutionId || undefined,
     campusId: campusId || undefined,
   });
+
+  const { data: feeSettings } = api.settings.getFeeSettings.useQuery();
+  const currencySymbol = feeSettings?.currency?.symbol || '$';
 
   const createPolicyMutation = api.lateFee.createPolicy.useMutation({
     onSuccess: () => {
@@ -259,12 +262,13 @@ export function LateFeePolicy({ institutionId, campusId }: LateFeeProps) {
       case LateFeeCalculationType.TIERED_PERCENTAGE:
         return `${policy.amount}%`;
       default:
-        return `$${policy.amount.toFixed(2)}`;
+        return `${currencySymbol}${policy.amount.toFixed(2)}`;
     }
   };
 
   return (
-    <div className="space-y-6">
+    <TooltipProvider>
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
@@ -343,7 +347,7 @@ export function LateFeePolicy({ institutionId, campusId }: LateFeeProps) {
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="amount">
-                    {formData.calculationType.includes('PERCENTAGE') ? 'Percentage (%)' : 'Amount ($)'}
+                    {formData.calculationType.includes('PERCENTAGE') ? 'Percentage (%)' : `Amount (${currencySymbol})`}
                   </Label>
                   <Input
                     id="amount"
@@ -367,7 +371,7 @@ export function LateFeePolicy({ institutionId, campusId }: LateFeeProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="maxAmount">Max Amount ($)</Label>
+                  <Label htmlFor="maxAmount">Max Amount ({currencySymbol})</Label>
                   <Input
                     id="maxAmount"
                     type="number"
@@ -384,43 +388,55 @@ export function LateFeePolicy({ institutionId, campusId }: LateFeeProps) {
               </div>
 
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Auto Apply</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Automatically apply this policy when fees become overdue
-                    </p>
+                <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-3">Policy Assignment</h4>
+                  <p className="text-sm text-blue-800 dark:text-blue-200 mb-4">
+                    This policy will only apply to fees when manually assigned to specific fee types, programs, or classes.
+                    Multiple policies can exist, but assignment determines which one calculates overdue amounts.
+                  </p>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label>Auto Apply</Label>
+                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                          Automatically apply this policy when assigned fees become overdue
+                        </p>
+                      </div>
+                      <Switch
+                        checked={formData.autoApply}
+                        onCheckedChange={(checked) => setFormData(prev => ({ ...prev, autoApply: checked }))}
+                      />
+                    </div>
                   </div>
-                  <Switch
-                    checked={formData.autoApply}
-                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, autoApply: checked }))}
-                  />
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Apply on Weekends</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Include weekends in late fee calculations
-                    </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Apply on Weekends</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Include weekends in late fee calculations
+                      </p>
+                    </div>
+                    <Switch
+                      checked={formData.applyOnWeekends}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, applyOnWeekends: checked }))}
+                    />
                   </div>
-                  <Switch
-                    checked={formData.applyOnWeekends}
-                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, applyOnWeekends: checked }))}
-                  />
-                </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Apply on Holidays</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Include holidays in late fee calculations
-                    </p>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Apply on Holidays</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Include holidays in late fee calculations
+                      </p>
+                    </div>
+                    <Switch
+                      checked={formData.applyOnHolidays}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, applyOnHolidays: checked }))}
+                    />
                   </div>
-                  <Switch
-                    checked={formData.applyOnHolidays}
-                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, applyOnHolidays: checked }))}
-                  />
                 </div>
               </div>
 
@@ -585,14 +601,27 @@ export function LateFeePolicy({ institutionId, campusId }: LateFeeProps) {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditPolicy(policy)}
+                              title="Edit Policy"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => {
+                                // TODO: Implement policy assignment dialog
+                                toast.info("Policy assignment feature coming soon");
+                              }}
+                              title="Assign to Fee Types/Programs/Classes"
+                            >
+                              <Settings className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleDeactivatePolicy(policy.id)}
                               disabled={!policy.isActive}
+                              title="Deactivate Policy"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -678,7 +707,7 @@ export function LateFeePolicy({ institutionId, campusId }: LateFeeProps) {
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-amount">
-                  {formData.calculationType.includes('PERCENTAGE') ? 'Percentage (%)' : 'Amount ($)'}
+                  {formData.calculationType.includes('PERCENTAGE') ? 'Percentage (%)' : `Amount (${currencySymbol})`}
                 </Label>
                 <Input
                   id="edit-amount"
@@ -702,7 +731,7 @@ export function LateFeePolicy({ institutionId, campusId }: LateFeeProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="edit-maxAmount">Max Amount ($)</Label>
+                <Label htmlFor="edit-maxAmount">Max Amount ({currencySymbol})</Label>
                 <Input
                   id="edit-maxAmount"
                   type="number"
@@ -827,5 +856,6 @@ export function LateFeePolicy({ institutionId, campusId }: LateFeeProps) {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 }

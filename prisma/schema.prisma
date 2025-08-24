@@ -148,6 +148,8 @@ model User {
   updatedLateFeeApplication  LateFeeApplication[]        @relation("UpdatedLateFeeApplication")
   requestedWaivers           LateFeeWaiver[]             @relation("RequestedWaivers")
   reviewedWaivers            LateFeeWaiver[]             @relation("ReviewedWaivers")
+  performedCalculations      FeeCalculationAudit[]       @relation("PerformedCalculations")
+  resolvedReconciliations    PaymentReconciliation[]     @relation("ResolvedReconciliations")
   approvedWaivers            LateFeeWaiver[]             @relation("ApprovedWaivers")
   performedLateFeeActions    LateFeeHistory[]            @relation("PerformedLateFeeActions")
 
@@ -651,7 +653,7 @@ model StudentEnrollment {
   createdById String
   updatedById String?
   status      EnrollmentStatus    @default(ACTIVE)
-  fee         EnrollmentFee?
+  fees        EnrollmentFee[]
   history     EnrollmentHistory[]
   class       Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
   createdBy   User                @relation("CreatedEnrollments", fields: [createdById], references: [id])
@@ -1572,10 +1574,19 @@ model EnrollmentFee {
   baseAmount        Float
   discountedAmount  Float
   finalAmount       Float
+  computedLateFee   Float              @default(0)
+
   dueDate           DateTime?
   paymentStatus     PaymentStatusType
   paymentMethod     String?
   notes             String?
+  lastLateFeeCalculation DateTime?
+  lastNotificationSent   DateTime?
+  reminderCount     Int                @default(0)
+  version           Int                @default(1)
+  lastChangeReason  String?
+  statusSyncedAt    DateTime           @default(now())
+  lockVersion       Int                @default(0)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   createdById       String
@@ -1592,11 +1603,17 @@ model EnrollmentFee {
   lateFeeApplications LateFeeApplication[]
   lateFeeWaivers    LateFeeWaiver[]
   lateFeeHistory    LateFeeHistory[]
+  notifications     FeeNotification[]
+  calculationAudits FeeCalculationAudit[]
+  reconciliations   PaymentReconciliation[]
 
   @@index([enrollmentId])
   @@index([paymentStatus])
   @@index([dueDate])
-  @@index([enrollmentId, feeStructureId])
+
+  @@index([paymentStatus, dueDate])
+  @@index([computedLateFee])
+  @@index([lastNotificationSent])
   @@map("enrollment_fees")
 }
 
@@ -1722,6 +1739,7 @@ model LateFeeApplication {
   waivedBy            String?
   waivedDate          DateTime?
   waiverReason        String?
+  batchId             String?
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
   createdById         String
@@ -1740,6 +1758,7 @@ model LateFeeApplication {
   @@index([dueDate])
   @@index([calculationDate])
   @@index([daysOverdue])
+  @@index([batchId])
   @@map("late_fee_applications")
 }
 
@@ -1819,6 +1838,7 @@ model FeeChallan {
   challanData     Json
   bankDetails     Json?
   status          SystemStatus      @default(ACTIVE)
+  statusSyncedAt  DateTime          @default(now())
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   createdById     String
@@ -1868,6 +1888,7 @@ model FeeTransaction {
   notes           String?
   receiptUrl      String?
   status          SystemStatus  @default(ACTIVE)
+  isAutomated     Boolean       @default(false)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   createdById     String
@@ -1880,7 +1901,68 @@ model FeeTransaction {
   @@index([enrollmentFeeId])
   @@index([challanId])
   @@index([date])
+  @@index([method])
+  @@index([status])
+  @@index([enrollmentFeeId, date, status])
   @@map("fee_transactions")
+}
+
+model FeeNotification {
+  id               String        @id @default(cuid())
+  enrollmentFeeId  String
+  notificationType String        // 'OVERDUE', 'REMINDER', 'LATE_FEE_APPLIED'
+  recipientEmail   String
+  recipientName    String
+  subject          String
+  message          String
+  sentAt           DateTime      @default(now())
+  status           String        @default("SENT") // 'SENT', 'FAILED', 'BOUNCED'
+  metadata         Json?
+  createdAt        DateTime      @default(now())
+  enrollmentFee    EnrollmentFee @relation(fields: [enrollmentFeeId], references: [id], onDelete: Cascade)
+
+  @@index([enrollmentFeeId])
+  @@index([notificationType, sentAt])
+  @@map("fee_notifications")
+}
+
+model FeeCalculationAudit {
+  id                  String        @id @default(cuid())
+  enrollmentFeeId     String
+  calculationType     String        // 'INITIAL', 'RECALCULATION', 'LATE_FEE', 'DISCOUNT', 'CHARGE'
+  previousAmount      Float?
+  newAmount           Float?
+  changeAmount        Float?
+  reason              String?
+  calculationDetails  Json?
+  performedBy         String
+  performedAt         DateTime      @default(now())
+  isAutomated         Boolean       @default(false)
+  enrollmentFee       EnrollmentFee @relation(fields: [enrollmentFeeId], references: [id], onDelete: Cascade)
+  performedByUser     User          @relation("PerformedCalculations", fields: [performedBy], references: [id])
+
+  @@index([enrollmentFeeId, performedAt])
+  @@index([calculationType, performedAt])
+  @@map("fee_calculation_audit")
+}
+
+model PaymentReconciliation {
+  id                  String        @id @default(cuid())
+  enrollmentFeeId     String
+  expectedAmount      Float
+  actualPaidAmount    Float
+  discrepancyAmount   Float?        // Computed in database
+  reconciliationDate  DateTime      @default(now())
+  status              String        @default("PENDING") // 'PENDING', 'RESOLVED', 'ESCALATED'
+  notes               String?
+  resolvedBy          String?
+  resolvedAt          DateTime?
+  createdAt           DateTime      @default(now())
+  enrollmentFee       EnrollmentFee @relation(fields: [enrollmentFeeId], references: [id], onDelete: Cascade)
+  resolvedByUser      User?         @relation("ResolvedReconciliations", fields: [resolvedBy], references: [id])
+
+  @@index([status, reconciliationDate])
+  @@map("payment_reconciliation")
 }
 
 model EnrollmentHistory {

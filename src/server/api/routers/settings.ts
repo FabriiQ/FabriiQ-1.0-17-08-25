@@ -196,18 +196,18 @@ export const settingsRouter = createTRPCRouter({
       region: z.string().optional(),
     }))
     .query(async ({ input }) => {
-      const { CURRENCIES, CURRENCY_REGIONS, getCurrenciesByRegion } = await import('@/data/currencies');
-      
+      const { CURRENCIES, CURRENCY_REGIONS, getCurrenciesByRegion, getAllRegions } = await import('@/data/currencies');
+
       if (input.region) {
         return {
           currencies: getCurrenciesByRegion(input.region),
-          regions: CURRENCY_REGIONS,
+          regions: getAllRegions(),
         };
       }
 
       return {
         currencies: CURRENCIES,
-        regions: CURRENCY_REGIONS,
+        regions: getAllRegions(),
       };
     }),
 

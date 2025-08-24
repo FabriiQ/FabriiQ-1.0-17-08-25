@@ -13,6 +13,7 @@ import { InstitutionProvider } from "@/providers/institution-provider";
 import { DynamicHead } from "@/components/branding/dynamic-head";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import dynamic from 'next/dynamic';
+import { CurrencyProvider } from '@/contexts/currency-context';
 
 // Dynamically import ViewTransitionProvider with error handling
 const ViewTransitionProvider = dynamic(
@@ -41,7 +42,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                       <ViewTransitionProvider>
                         <ConditionalActivityProvider>
                           <DynamicHead />
-                          {children}
+                          <CurrencyProvider>
+                            {children}
+                          </CurrencyProvider>
                         </ConditionalActivityProvider>
                       </ViewTransitionProvider>
                     </InstitutionProvider>

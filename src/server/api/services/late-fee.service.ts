@@ -7,6 +7,7 @@ import { PrismaClient, LateFeeCalculationType, LateFeeStatus, WaiverStatus, Comp
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { ServiceBase } from "./service-base";
+import { EnhancedFeeIntegrationService } from "./enhanced-fee-integration.service";
 
 // ============================================================================
 // VALIDATION SCHEMAS
@@ -120,7 +121,17 @@ export interface OverdueFeeInfo {
 // ============================================================================
 
 export class LateFeeService extends ServiceBase {
-  
+  private feeIntegrationService: EnhancedFeeIntegrationService;
+
+  constructor(options: { prisma: PrismaClient }) {
+    super(options);
+    this.feeIntegrationService = new EnhancedFeeIntegrationService({
+      prisma: options.prisma,
+      enableAutomaticSync: true,
+      enableAuditTrail: true
+    });
+  }
+
   // ========================================================================
   // POLICY MANAGEMENT
   // ========================================================================
@@ -597,62 +608,74 @@ export class LateFeeService extends ServiceBase {
   // ========================================================================
 
   /**
-   * Apply late fee to an enrollment fee
+   * Apply late fee to an enrollment fee with proper integration
    */
   async applyLateFee(data: z.infer<typeof createLateFeeApplication>) {
     try {
-      const application = await this.prisma.lateFeeApplication.create({
-        data: {
-          ...data,
-          status: LateFeeStatus.APPLIED,
-          applicationDate: new Date(),
-        },
-        include: {
-          enrollmentFee: {
-            include: {
-              enrollment: {
-                include: {
-                  student: {
-                    include: {
-                      user: { select: { id: true, name: true, email: true } }
+      return await this.prisma.$transaction(async (tx) => {
+        // Create late fee application
+        const application = await tx.lateFeeApplication.create({
+          data: {
+            ...data,
+            status: LateFeeStatus.APPLIED,
+            applicationDate: new Date(),
+          },
+          include: {
+            enrollmentFee: {
+              include: {
+                enrollment: {
+                  include: {
+                    student: {
+                      include: {
+                        user: { select: { id: true, name: true, email: true } }
+                      }
                     }
                   }
                 }
               }
-            }
-          },
-          policy: { select: { id: true, name: true } },
-          createdBy: { select: { id: true, name: true, email: true } }
-        }
-      });
+            },
+            policy: { select: { id: true, name: true } },
+            createdBy: { select: { id: true, name: true, email: true } }
+          }
+        });
 
-      // Create history record
-      await this.prisma.lateFeeHistory.create({
-        data: {
+        // Use enhanced integration service to apply late fee and sync
+        const integrationResult = await this.feeIntegrationService.applyLateFeeWithIntegration({
           enrollmentFeeId: data.enrollmentFeeId,
           lateFeeApplicationId: application.id,
-          action: 'APPLIED',
-          newStatus: LateFeeStatus.APPLIED,
-          amount: data.appliedAmount,
-          performedBy: data.createdById,
-          systemGenerated: false,
-          details: {
-            policyId: data.policyId,
-            daysOverdue: data.daysOverdue,
-            calculatedAmount: data.calculatedAmount,
-            appliedAmount: data.appliedAmount,
-          }
-        }
-      });
+          performedBy: data.createdById
+        });
 
-      return {
-        success: true,
-        application,
-      };
+        // Create history record
+        await tx.lateFeeHistory.create({
+          data: {
+            enrollmentFeeId: data.enrollmentFeeId,
+            lateFeeApplicationId: application.id,
+            action: 'APPLIED',
+            newStatus: LateFeeStatus.APPLIED,
+            amount: data.appliedAmount,
+            performedBy: data.createdById,
+            systemGenerated: false,
+            details: {
+              policyId: data.policyId,
+              daysOverdue: data.daysOverdue,
+              calculatedAmount: data.calculatedAmount,
+              appliedAmount: data.appliedAmount,
+              integrationResult: JSON.parse(JSON.stringify(integrationResult))
+            }
+          }
+        });
+
+        return {
+          success: true,
+          application,
+          integrationResult
+        };
+      });
     } catch (error) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to apply late fee",
+        message: "Failed to apply late fee with integration",
         cause: error,
       });
     }

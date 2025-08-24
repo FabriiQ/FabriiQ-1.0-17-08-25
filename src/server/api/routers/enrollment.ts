@@ -256,6 +256,193 @@ export const enrollmentRouter = createTRPCRouter({
       return enrollmentService.transferStudentToCampus(input);
     }),
 
+  // Get comprehensive enrollment history
+  getEnrollmentHistory: protectedProcedure
+    .input(
+      z.object({
+        enrollmentId: z.string(),
+        limit: z.number().min(1).max(100).optional().default(50),
+        offset: z.number().min(0).optional().default(0),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        // Validate input
+        if (!input.enrollmentId) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Enrollment ID is required',
+          });
+        }
+
+        // Verify enrollment exists
+        const enrollment = await ctx.prisma.studentEnrollment.findUnique({
+          where: { id: input.enrollmentId },
+          select: { id: true },
+        });
+
+        if (!enrollment) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Enrollment not found',
+          });
+        }
+
+        // Get enrollment history entries
+        const enrollmentHistory = await ctx.prisma.enrollmentHistory.findMany({
+          where: {
+            enrollmentId: input.enrollmentId,
+          },
+          include: {
+            createdBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                userType: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: input.limit,
+          skip: input.offset,
+        });
+
+        // Get fee payment history for this enrollment
+        const feeHistory = await ctx.prisma.enrollmentFee.findMany({
+          where: {
+            enrollmentId: input.enrollmentId,
+          },
+          include: {
+            feeStructure: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+              },
+            },
+            transactions: {
+              include: {
+                createdBy: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    userType: true,
+                  },
+                },
+              },
+              orderBy: {
+                createdAt: 'desc',
+              },
+            },
+            createdBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                userType: true,
+              },
+            },
+            updatedBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                userType: true,
+              },
+            },
+          },
+        });
+
+        // Combine and format all history entries
+        const allHistory: any[] = [];
+
+        // Add enrollment history entries
+        enrollmentHistory.forEach(entry => {
+          allHistory.push({
+            id: entry.id,
+            type: 'ENROLLMENT_HISTORY',
+            action: entry.action,
+            description: entry.action,
+            details: entry.details,
+            createdAt: entry.createdAt,
+            createdBy: entry.createdBy,
+          });
+        });
+
+        // Add fee-related history
+        feeHistory.forEach(fee => {
+          // Add fee creation
+          allHistory.push({
+            id: `fee-created-${fee.id}`,
+            type: 'FEE_CREATED',
+            action: 'Fee Assigned',
+            description: `Fee structure assigned: ${fee.feeStructure?.name || 'Unknown'}`,
+            details: {
+              feeId: fee.id,
+              amount: fee.finalAmount,
+              dueDate: fee.dueDate,
+            },
+            createdAt: fee.createdAt,
+            createdBy: fee.createdBy,
+          });
+
+          // Add payment transactions
+          fee.transactions?.forEach(transaction => {
+            allHistory.push({
+              id: transaction.id,
+              type: 'PAYMENT_TRANSACTION',
+              action: `Payment ${transaction.type}`,
+              description: `${transaction.type}: ${transaction.amount} via ${transaction.paymentMethod}`,
+              details: {
+                transactionId: transaction.id,
+                amount: transaction.amount,
+                paymentMethod: transaction.paymentMethod,
+                reference: transaction.reference,
+                status: transaction.status,
+              },
+              createdAt: transaction.createdAt,
+              createdBy: transaction.createdBy,
+            });
+          });
+
+          // Add payment status changes
+          if (fee.paymentStatus !== 'PENDING') {
+            allHistory.push({
+              id: `fee-status-${fee.id}`,
+              type: 'PAYMENT_STATUS_CHANGE',
+              action: 'Payment Status Updated',
+              description: `Payment status changed to ${fee.paymentStatus}`,
+              details: {
+                feeId: fee.id,
+                status: fee.paymentStatus,
+                amount: fee.finalAmount,
+              },
+              createdAt: fee.updatedAt,
+              createdBy: fee.updatedBy,
+            });
+          }
+        });
+
+        // Sort all history by date (newest first)
+        allHistory.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        return {
+          history: allHistory.slice(0, input.limit),
+          totalCount: allHistory.length,
+        };
+      } catch (error) {
+        console.error('Error fetching enrollment history:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch enrollment history',
+        });
+      }
+    }),
+
   // Get transfer history for a campus
   getTransferHistory: protectedProcedure
     .input(

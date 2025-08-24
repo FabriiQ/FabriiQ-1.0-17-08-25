@@ -25,7 +25,10 @@ import {
   Plus,
   Eye,
   CheckCircle,
-  Download
+  Download,
+  RefreshCw,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 import {
   Building2,
@@ -33,13 +36,15 @@ import {
   DollarSign
 } from '@/components/ui/icons/lucide-icons';
 import { api } from '@/trpc/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/use-toast';
 import { StudentTransferDialog } from '@/components/shared/entities/students/StudentTransferDialog';
 import { FeeAssignmentDialog } from '@/components/admin/system/enrollment/FeeAssignmentDialog';
 import { DiscountApplicationDialog } from '@/components/admin/system/enrollment/DiscountApplicationDialog';
 import { ChallanGenerationDialog } from '@/components/admin/system/enrollment/ChallanGenerationDialog';
 import { DocumentUploadDialog } from '@/components/admin/system/enrollment/DocumentUploadDialog';
-import { FeePaymentStatusDialog } from '@/components/admin/system/enrollment/FeePaymentStatusDialog';
+import { LateFeeWaiverDialog } from '@/components/shared/entities/fee/late-fee-waiver-dialog';
+
 import { PaymentStatusUpdateDialog } from '@/components/admin/system/enrollment/PaymentStatusUpdateDialog';
 import { StudentProfileView } from '@/components/shared/entities/students/StudentProfileView';
 import { UserRole, StudentTab } from '@/components/shared/entities/students/types';
@@ -60,6 +65,7 @@ export default function EnrollmentDetailPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
   const enrollmentId = params?.id as string;
 
   // Dialog states
@@ -67,8 +73,9 @@ export default function EnrollmentDetailPage() {
   const [discountApplicationOpen, setDiscountApplicationOpen] = useState(false);
   const [challanGenerationOpen, setChallanGenerationOpen] = useState(false);
   const [documentUploadOpen, setDocumentUploadOpen] = useState(false);
-  const [feePaymentStatusOpen, setFeePaymentStatusOpen] = useState(false);
+
   const [paymentStatusUpdateOpen, setPaymentStatusUpdateOpen] = useState(false);
+  const [lateFeeWaiverOpen, setLateFeeWaiverOpen] = useState(false);
 
   // Fetch enrollment details
   const { data: enrollmentData, isLoading, error, refetch: refetchEnrollment } = api.enrollment.getEnrollment.useQuery(
@@ -91,11 +98,14 @@ export default function EnrollmentDetailPage() {
 
   const { data: availableCampuses } = api.campus.getAllCampuses.useQuery();
 
-  // Fee management queries
-  const { data: enrollmentFee, refetch: refetchFee } = api.enrollmentFee.getByEnrollment.useQuery(
+  // Fee management queries - get all fees for this enrollment
+  const { data: enrollmentFees, refetch: refetchFees } = api.enrollmentFee.getAllByEnrollment.useQuery(
     { enrollmentId },
     { enabled: !!enrollmentId }
   );
+
+  // For backward compatibility, get the first fee
+  const enrollmentFee = enrollmentFees && enrollmentFees.length > 0 ? enrollmentFees[0] : null;
 
   const { data: feeStructures, isLoading: feeStructuresLoading, error: feeStructuresError } = api.feeStructure.getByProgramCampus.useQuery(
     { programCampusId: enrollment?.class?.programCampusId || '' },
@@ -113,9 +123,18 @@ export default function EnrollmentDetailPage() {
 
   const { data: discountTypes } = api.discountType.getAll.useQuery();
 
-  const { data: challanTemplates } = api.challan.getTemplatesByInstitution.useQuery(
-    { institutionId: 'default' }
+  // Get institution ID from enrollment or session
+  const institutionId = enrollment?.class?.programCampusId ||
+                       enrollment?.class?.courseCampus?.id ||
+                       session?.user?.primaryCampusId ||
+                       'default';
+
+  const { data: challanTemplates, isLoading: challanTemplatesLoading, error: challanTemplatesError } = api.challan.getTemplatesByInstitution.useQuery(
+    { institutionId },
+    { enabled: !!institutionId }
   );
+
+
 
   // Invoice queries
   const { data: invoicesData, refetch: refetchInvoices } = api.invoice.getByStudent.useQuery(
@@ -123,24 +142,55 @@ export default function EnrollmentDetailPage() {
     { enabled: !!enrollment?.student?.id }
   );
 
-  // Enrollment history query
-  const { data: enrollmentHistory } = api.enrollment.getTransferHistory.useQuery(
+  // Comprehensive enrollment history query
+  const { data: enrollmentHistoryData } = api.enrollment.getEnrollmentHistory.useQuery(
     {
-      campusId: enrollment?.class?.programCampus?.id || '',
-      limit: 10
+      enrollmentId: enrollmentId,
+      limit: 50
     },
-    { enabled: !!enrollment?.class?.programCampus?.id }
+    { enabled: !!enrollmentId }
   );
 
   // Fee management mutations
   const assignFeeMutation = api.enrollmentFee.create.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Fee Assigned",
         description: "Fee structure has been successfully assigned.",
       });
-      refetchFee();
       setFeeAssignmentOpen(false);
+
+      // Invalidate and refetch related queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['enrollmentFee'] }),
+        queryClient.invalidateQueries({ queryKey: ['enrollment'] }),
+        refetchFees(),
+        refetchEnrollment(),
+      ]);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const recalculateFeeMutation = api.enrollmentFee.recalculateFee.useMutation({
+    onSuccess: async () => {
+      toast({
+        title: "Success",
+        description: "Fee amounts recalculated successfully.",
+      });
+
+      // Invalidate and refetch related queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['enrollmentFee'] }),
+        queryClient.invalidateQueries({ queryKey: ['enrollment'] }),
+        refetchFees(),
+        refetchEnrollment(),
+      ]);
     },
     onError: (error) => {
       toast({
@@ -152,20 +202,20 @@ export default function EnrollmentDetailPage() {
   });
 
   const applyDiscountMutation = api.enrollmentFee.addDiscount.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Discount Applied",
         description: "Discount has been successfully applied.",
       });
-      // Refresh multiple queries to ensure data consistency
-      refetchFee();
-      refetchEnrollment();
       setDiscountApplicationOpen(false);
 
-      // Force a page reload after a short delay to ensure all data is fresh
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      // Invalidate and refetch related queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['enrollmentFee'] }),
+        queryClient.invalidateQueries({ queryKey: ['enrollment'] }),
+        refetchFees(),
+        refetchEnrollment(),
+      ]);
     },
     onError: (error) => {
       console.error('Discount application error:', error);
@@ -183,7 +233,7 @@ export default function EnrollmentDetailPage() {
         title: "Challan Generated",
         description: "Fee challan has been successfully generated.",
       });
-      refetchFee();
+      refetchFees();
       setChallanGenerationOpen(false);
     },
     onError: (error) => {
@@ -228,21 +278,23 @@ export default function EnrollmentDetailPage() {
   });
 
   const updateFeePaymentStatusMutation = api.enrollmentFee.updatePaymentStatus.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Payment Status Updated",
         description: "Fee payment status has been successfully updated.",
       });
-      // Refresh multiple queries to ensure data consistency
-      refetchFee();
-      refetchEnrollment();
-      setFeePaymentStatusOpen(false);
+
+      // Close the dialog first
       setPaymentStatusUpdateOpen(false);
 
-      // Force a page reload after a short delay to ensure all data is fresh
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      // Invalidate and refetch all related queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['enrollmentFee'] }),
+        queryClient.invalidateQueries({ queryKey: ['enrollment'] }),
+        queryClient.invalidateQueries({ queryKey: ['feeTransaction'] }),
+        refetchFees(),
+        refetchEnrollment(),
+      ]);
     },
     onError: (error) => {
       toast({
@@ -374,13 +426,14 @@ export default function EnrollmentDetailPage() {
   const handleUpdateFeePaymentStatus = (data: any) => {
     updateFeePaymentStatusMutation.mutate(data, {
       onSuccess: () => {
-        // Auto-generate invoice when fee is marked as paid
+        // Note: Automatic invoice generation disabled due to missing Invoice table
+        // TODO: Enable after running database migration to create Invoice table
         if (data.paymentStatus === 'PAID' && enrollmentFee) {
           toast({
             title: "Payment Status Updated",
-            description: "Fee marked as paid. Generating invoice automatically...",
+            description: "Fee marked as paid. You can manually generate an invoice from the Invoices tab.",
           });
-          handleGenerateInvoice();
+          // handleGenerateInvoice(); // Disabled temporarily
         }
       }
     });
@@ -446,30 +499,8 @@ export default function EnrollmentDetailPage() {
     transactions: enrollmentFee.transactions || []
   } : null;
 
-  // Use real enrollment history data
-  const history = enrollmentHistory?.transfers?.filter(transfer =>
-    transfer.enrollment.id === enrollmentId
-  ).map(transfer => ({
-    id: transfer.id,
-    enrollmentId: transfer.enrollmentId,
-    action: transfer.action,
-    notes: JSON.stringify(transfer.details),
-    createdAt: transfer.createdAt,
-    createdBy: {
-      name: transfer.createdBy?.name || 'System',
-    }
-  })) || [
-    {
-      id: 'default-history-1',
-      enrollmentId,
-      action: 'Enrollment Created',
-      notes: 'Initial enrollment',
-      createdAt: new Date(),
-      createdBy: {
-        name: 'System Admin',
-      }
-    }
-  ];
+  // Use comprehensive enrollment history data
+  const history = enrollmentHistoryData?.history || [];
 
   // Mock enrollment documents (would be replaced with real API call)
   const documents = [
@@ -718,16 +749,28 @@ export default function EnrollmentDetailPage() {
                     </div>
                   )}
                 </CardContent>
-                {enrollmentFee && (
-                  <CardFooter>
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => setPaymentStatusUpdateOpen(true)}
-                    >
-                      <DollarSign className="mr-2 h-4 w-4" />
-                      Update Payment Status
-                    </Button>
+
+                {/* Show action buttons when there are existing fees */}
+                {enrollmentFees && enrollmentFees.length > 0 && (
+                  <CardFooter className="border-t bg-gray-50 dark:bg-gray-900">
+                    <div className="flex gap-2 w-full">
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setFeeAssignmentOpen(true)}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Assign Additional Fee
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setPaymentStatusUpdateOpen(true)}
+                      >
+                        <DollarSign className="mr-2 h-4 w-4" />
+                        Update Payment Status
+                      </Button>
+                    </div>
                   </CardFooter>
                 )}
               </Card>
@@ -861,7 +904,7 @@ export default function EnrollmentDetailPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Enrollment History</CardTitle>
-                  <CardDescription>History of changes to this enrollment</CardDescription>
+                  <CardDescription>Complete history of enrollment activities, payments, and changes</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {history && history.length > 0 ? (
@@ -869,23 +912,49 @@ export default function EnrollmentDetailPage() {
                       {history.map((entry) => (
                         <div key={entry.id} className="border-l-2 border-primary pl-4 pb-4">
                           <div className="flex items-center justify-between">
-                            <p className="font-medium">{entry.action}</p>
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                entry.type === 'PAYMENT_TRANSACTION' ? 'bg-green-100 text-green-800' :
+                                entry.type === 'FEE_CREATED' ? 'bg-blue-100 text-blue-800' :
+                                entry.type === 'PAYMENT_STATUS_CHANGE' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {entry.type?.replace('_', ' ') || 'ACTIVITY'}
+                              </span>
+                              <p className="font-medium">{entry.action}</p>
+                            </div>
                             <p className="text-sm text-muted-foreground">
                               {format(new Date(entry.createdAt), "MMM d, yyyy 'at' h:mm a")}
                             </p>
                           </div>
                           <p className="text-sm text-muted-foreground mt-1">
-                            by {entry.createdBy.name}
+                            by {entry.createdBy?.name || 'System'}
                           </p>
-                          {entry.notes && (
-                            <p className="text-sm mt-2">{entry.notes}</p>
+                          <p className="text-sm mt-2">
+                            {entry.description}
+                          </p>
+                          {entry.details && Object.keys(entry.details).length > 0 && (
+                            <div className="text-xs mt-2 p-2 bg-muted rounded">
+                              <strong>Details:</strong>
+                              <div className="mt-1 space-y-1">
+                                {Object.entries(entry.details).map(([key, value]) => (
+                                  <div key={key} className="flex justify-between">
+                                    <span className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
+                                    <span>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
                           )}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-6">
-                      <p className="text-muted-foreground">No history records available</p>
+                    <div className="text-center py-8">
+                      <div className="text-muted-foreground">
+                        <p className="mb-2">No history available</p>
+                        <p className="text-sm">Activity history will appear here as actions are performed on this enrollment.</p>
+                      </div>
                     </div>
                   )}
                 </CardContent>
@@ -1047,7 +1116,7 @@ export default function EnrollmentDetailPage() {
                         </div>
 
                         {/* Fee Actions */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                           <Button
                             variant="outline"
                             className="h-auto p-4"
@@ -1108,26 +1177,51 @@ export default function EnrollmentDetailPage() {
                             </div>
                           </Button>
 
-                          <Button
-                            variant="outline"
-                            className="h-auto p-4"
-                            onClick={() => setFeePaymentStatusOpen(true)}
-                          >
-                            <div className="flex flex-col items-center space-y-2">
-                              <DollarSign className="h-6 w-6" />
-                              <div className="text-center">
-                                <div className="font-medium">Update Payment</div>
-                                <div className="text-xs text-muted-foreground">
-                                  Update payment status
+
+
+                          {/* Show Waive Late Fee button if fee is overdue */}
+                          {enrollmentFee.paymentStatus === 'OVERDUE' && (
+                            <Button
+                              variant="outline"
+                              className="h-auto p-4 border-orange-200 hover:bg-orange-50"
+                              onClick={() => setLateFeeWaiverOpen(true)}
+                            >
+                              <div className="flex flex-col items-center space-y-2">
+                                <AlertTriangle className="h-6 w-6 text-orange-600" />
+                                <div className="text-center">
+                                  <div className="font-medium text-orange-700">Waive Late Fee</div>
+                                  <div className="text-xs text-orange-600">
+                                    Request fee waiver
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </Button>
+                            </Button>
+                          )}
                         </div>
 
                         {/* Fee Details */}
                         <div className="space-y-3">
-                          <h4 className="font-medium">Fee Structure Details</h4>
+                          <div className="flex justify-between items-center">
+                            <h4 className="font-medium">Fee Structure Details</h4>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => recalculateFeeMutation.mutate({ enrollmentFeeId: enrollmentFee.id })}
+                              disabled={recalculateFeeMutation.isLoading}
+                            >
+                              {recalculateFeeMutation.isLoading ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Recalculating...
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCw className="mr-2 h-4 w-4" />
+                                  Recalculate
+                                </>
+                              )}
+                            </Button>
+                          </div>
                           <div className="rounded-lg border p-4">
                             <div className="flex justify-between items-center mb-2">
                               <span className="font-medium">{enrollmentFee.feeStructure?.name}</span>
@@ -1280,7 +1374,7 @@ export default function EnrollmentDetailPage() {
           baseAmount: (fs.feeComponents as any)?.reduce((sum: number, comp: any) => sum + comp.amount, 0) || 0
         })) || []}
         onAssign={handleAssignFee}
-        isLoading={assignFeeMutation.isPending || assignFeeMutation.isLoading}
+        isLoading={assignFeeMutation.isLoading}
       />
 
       <DiscountApplicationDialog
@@ -1342,27 +1436,7 @@ export default function EnrollmentDetailPage() {
         }}
       />
 
-      {enrollmentFee && (
-        <FeePaymentStatusDialog
-          open={feePaymentStatusOpen}
-          onOpenChange={setFeePaymentStatusOpen}
-          enrollmentFee={{
-            id: enrollmentFee.id,
-            baseAmount: enrollmentFee.baseAmount,
-            discountedAmount: enrollmentFee.discountedAmount,
-            finalAmount: enrollmentFee.finalAmount,
-            paymentStatus: enrollmentFee.paymentStatus,
-            dueDate: enrollmentFee.dueDate || undefined,
-            paidAmount: enrollmentFee.transactions?.reduce((sum, t) => sum + t.amount, 0) || undefined,
-            paymentMethod: enrollmentFee.paymentMethod || undefined,
-            transactionReference: enrollmentFee.transactions?.[0]?.reference || undefined,
-            notes: enrollmentFee.notes || undefined,
-          }}
-          studentName={enrollment?.student?.user?.name || 'Student'}
-          onUpdate={handleUpdateFeePaymentStatus}
-          isLoading={updateFeePaymentStatusMutation.isLoading}
-        />
-      )}
+
 
       {enrollmentFee && (
         <PaymentStatusUpdateDialog
@@ -1380,6 +1454,31 @@ export default function EnrollmentDetailPage() {
           studentName={enrollment?.student?.user?.name || 'Student'}
           onUpdate={handleUpdateFeePaymentStatus}
           isLoading={updateFeePaymentStatusMutation.isLoading}
+        />
+      )}
+
+      {/* Late Fee Waiver Dialog */}
+      {enrollmentFee && (
+        <LateFeeWaiverDialog
+          open={lateFeeWaiverOpen}
+          onOpenChange={setLateFeeWaiverOpen}
+          enrollmentFeeId={enrollmentFee.id}
+          lateFeeApplications={(enrollmentFee as any)?.lateFeeApplications?.map(lf => ({
+            id: lf.id,
+            appliedAmount: lf.appliedAmount,
+            waivedAmount: lf.waivedAmount || 0,
+            status: lf.status,
+            applicationDate: lf.applicationDate,
+            reason: lf.reason || 'Late payment',
+            daysOverdue: lf.daysOverdue || 0,
+          })) || []}
+          onSuccess={() => {
+            refetchFees();
+            toast({
+              title: "Success",
+              description: "Late fee waiver request submitted successfully.",
+            });
+          }}
         />
       )}
     </div>

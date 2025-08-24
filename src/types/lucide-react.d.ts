@@ -95,4 +95,6 @@ declare module 'lucide-react' {
   export const AlertTriangle: Icon;
   export const DollarSign: Icon;
   export const Cog: Icon;
+  export const Calculator: Icon;
+  export const Play: Icon;
 }

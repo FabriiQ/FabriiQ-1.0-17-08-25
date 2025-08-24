@@ -17,8 +17,9 @@ import { AttendanceStudentView } from './AttendanceStudentView';
 
 // Define types for the data structures
 interface SystemStudent {
-  id: string;
+  id: string; // user id
   userId: string;
+  studentProfileId?: string; // add profile id for attendance APIs
   name: string;
   email: string;
   status: string;
@@ -26,11 +27,11 @@ interface SystemStudent {
   campus?: {
     id: string;
     name: string;
-  };
+  } | null;
   program?: {
     id: string;
     name: string;
-  };
+  } | null;
   classCount: number;
 }
 
@@ -216,7 +217,7 @@ export function SystemStudentAttendanceSelector() {
                 <Card
                   key={student.id}
                   className="cursor-pointer hover:border-primary/50 transition-colors"
-                  onClick={() => setSelectedStudent(student.id)}
+                  onClick={() => setSelectedStudent(student.studentProfileId || student.id)}
                 >
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">

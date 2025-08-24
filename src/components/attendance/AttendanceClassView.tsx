@@ -19,6 +19,10 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { SystemAttendanceTaker } from './SystemAttendanceTaker';
+import { CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { AttendanceStatusType } from '@/server/api/constants';
+import { toast } from 'sonner';
+import Link from 'next/link';
 
 interface AttendanceClassViewProps {
   classId: string;
@@ -30,6 +34,18 @@ type ViewMode = 'view' | 'take';
 
 export function AttendanceClassView({ classId, date, onBack }: AttendanceClassViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('view');
+
+  // Mark individual attendance mutation
+  const markAttendanceMutation = api.attendance.create.useMutation({
+    onSuccess: () => {
+      toast.success('Attendance marked successfully');
+      // Refetch attendance data
+      refetchAttendance();
+    },
+    onError: (error) => {
+      toast.error(`Failed to mark attendance: ${error.message}`);
+    },
+  });
   // Fetch class details
   const { data: classData, isLoading: isLoadingClass } = api.class.getById.useQuery(
     { classId },
@@ -40,7 +56,7 @@ export function AttendanceClassView({ classId, date, onBack }: AttendanceClassVi
   );
 
   // Fetch attendance records
-  const { data: attendanceData, isLoading: isLoadingAttendance } = api.attendance.getByQuery.useQuery(
+  const { data: attendanceData, isLoading: isLoadingAttendance, refetch: refetchAttendance } = api.attendance.getByQuery.useQuery(
     {
       classId,
       date: date ?? undefined,
@@ -72,6 +88,31 @@ export function AttendanceClassView({ classId, date, onBack }: AttendanceClassVi
       />
     );
   }
+
+  // Handle individual attendance marking
+  const handleMarkAttendance = (studentId: string, status: AttendanceStatusType) => {
+    if (!date) {
+      toast.error('Please select a date first');
+      return;
+    }
+
+    markAttendanceMutation.mutate({
+      studentId,
+      classId,
+      date,
+      status,
+      remarks: `Marked via quick action`,
+    });
+  };
+
+  // Get students from class data
+  const students = classData?.students || [];
+
+  // Get existing attendance for the selected date
+  const existingAttendance = attendanceData?.attendanceRecords || [];
+  const attendanceMap = new Map(
+    existingAttendance.map((record: any) => [record.student?.id, record])
+  );
 
   return (
     <div className="space-y-6">
@@ -160,6 +201,84 @@ export function AttendanceClassView({ classId, date, onBack }: AttendanceClassVi
           </CardContent>
         </Card>
       </div>
+
+      {/* Quick Attendance Marking Section */}
+      {date && students.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick Attendance Marking</CardTitle>
+            <CardDescription>
+              Mark attendance for individual students on {format(date, 'PPP')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {students.map((student: any) => {
+                const existingRecord = attendanceMap.get(student.id);
+                const currentStatus = existingRecord?.status;
+
+                return (
+                  <div key={student.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback>
+                          {student.user?.name?.charAt(0) || 'S'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium">{student.user?.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {student.enrollmentNumber}
+                        </div>
+                      </div>
+                      {currentStatus && (
+                        <Badge
+                          variant={
+                            currentStatus === 'PRESENT' ? 'default' :
+                            currentStatus === 'ABSENT' ? 'destructive' :
+                            currentStatus === 'LATE' ? 'secondary' : 'outline'
+                          }
+                        >
+                          {currentStatus}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant={currentStatus === 'PRESENT' ? 'default' : 'outline'}
+                        onClick={() => handleMarkAttendance(student.id, AttendanceStatusType.PRESENT)}
+                        disabled={markAttendanceMutation.isLoading}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Present
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={currentStatus === 'ABSENT' ? 'destructive' : 'outline'}
+                        onClick={() => handleMarkAttendance(student.id, AttendanceStatusType.ABSENT)}
+                        disabled={markAttendanceMutation.isLoading}
+                      >
+                        <XCircle className="h-4 w-4 mr-1" />
+                        Absent
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={currentStatus === 'LATE' ? 'secondary' : 'outline'}
+                        onClick={() => handleMarkAttendance(student.id, AttendanceStatusType.LATE)}
+                        disabled={markAttendanceMutation.isLoading}
+                      >
+                        <AlertTriangle className="h-4 w-4 mr-1" />
+                        Late
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

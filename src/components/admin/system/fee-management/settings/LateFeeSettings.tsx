@@ -35,11 +35,14 @@ interface LateFeeSettingsState {
 export function LateFeeSettings({ institutionId, campusId }: LateFeeSettingsProps) {
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch current settings
+  // Fetch current settings and currency
   const { data: settingsData, refetch, isLoading: isLoadingSettings } = api.lateFee.getSettings.useQuery({
     institutionId,
     campusId,
   });
+
+  const { data: feeSettings } = api.settings.getFeeSettings.useQuery();
+  const currencySymbol = feeSettings?.currency?.symbol || '$';
 
   const updateSettingsMutation = api.lateFee.updateSettings.useMutation({
     onSuccess: () => {
@@ -92,7 +95,8 @@ export function LateFeeSettings({ institutionId, campusId }: LateFeeSettingsProp
   }
 
   return (
-    <div className="space-y-6">
+    <TooltipProvider>
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
@@ -259,7 +263,7 @@ export function LateFeeSettings({ institutionId, campusId }: LateFeeSettingsProp
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                       <Label htmlFor="lateFeeAmount" className="font-medium">
-                        {settings.lateFeeType === 'PERCENTAGE' ? 'Late Fee Percentage (%)' : 'Late Fee Amount ($)'}
+                        {settings.lateFeeType === 'PERCENTAGE' ? 'Late Fee Percentage (%)' : `Late Fee Amount (${currencySymbol})`}
                       </Label>
                       <Tooltip>
                         <TooltipTrigger>
@@ -269,7 +273,7 @@ export function LateFeeSettings({ institutionId, campusId }: LateFeeSettingsProp
                           <p className="max-w-xs">
                             {settings.lateFeeType === 'PERCENTAGE'
                               ? 'Enter the percentage to charge (e.g., 5 for 5%). This will be calculated as a percentage of the overdue amount.'
-                              : 'Enter the fixed dollar amount to charge for late fees (e.g., 50 for $50).'
+                              : `Enter the fixed amount to charge for late fees (e.g., 50 for ${currencySymbol}50).`
                             }
                           </p>
                         </TooltipContent>
@@ -291,30 +295,47 @@ export function LateFeeSettings({ institutionId, campusId }: LateFeeSettingsProp
                     <p className="text-sm text-purple-700 dark:text-purple-300">
                       {settings.lateFeeType === 'PERCENTAGE'
                         ? `${settings.lateFeeAmount}% of overdue amount`
-                        : `$${settings.lateFeeAmount} flat fee`
+                        : `${currencySymbol}${settings.lateFeeAmount} flat fee`
                       }
                     </p>
                   </div>
 
-                {settings.maxLateFeeAmount !== undefined && (
-                  <div className="space-y-2">
-                    <Label htmlFor="maxLateFeeAmount">Maximum Late Fee Amount ($)</Label>
+                  <div className="space-y-3 p-4 bg-indigo-50 dark:bg-indigo-950 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                      <Label htmlFor="maxLateFeeAmount" className="font-medium">Maximum Late Fee Amount ({currencySymbol})</Label>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">
+                            Optional maximum limit for late fees. Leave empty for no limit.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     <Input
                       id="maxLateFeeAmount"
                       type="number"
                       min="0"
                       step="0.01"
-                      value={settings.maxLateFeeAmount}
+                      value={settings.maxLateFeeAmount || ""}
                       onChange={(e) => setSettings(prev => ({
                         ...prev,
-                        maxLateFeeAmount: parseFloat(e.target.value) || undefined
+                        maxLateFeeAmount: e.target.value ? parseFloat(e.target.value) : undefined
                       }))}
+                      className="border-indigo-300 dark:border-indigo-700"
+                      placeholder="Optional maximum limit"
                     />
-                    <p className="text-sm text-muted-foreground">
-                      Optional maximum limit for late fees
+                    <p className="text-sm text-indigo-700 dark:text-indigo-300">
+                      {settings.maxLateFeeAmount
+                        ? `Maximum late fee capped at ${currencySymbol}${settings.maxLateFeeAmount}`
+                        : 'No maximum limit set'
+                      }
                     </p>
                   </div>
-                )}
+                </div>
               </div>
 
               <div className="flex items-center justify-between">
@@ -348,11 +369,11 @@ export function LateFeeSettings({ institutionId, campusId }: LateFeeSettingsProp
                   }))}
                 />
               </div>
-              </div>
             </React.Fragment>
           )}
         </CardContent>
       </Card>
     </div>
+    </TooltipProvider>
   );
 }

@@ -249,6 +249,10 @@ function UnifiedActivityCreatorCore({
         variant: 'error',
       });
     },
+    onSettled: () => {
+      // Ensure loading state is always cleared, regardless of success or error
+      stopSubmissionLoading();
+    },
   });
 
   // Fetch subjects for the class with performance optimization

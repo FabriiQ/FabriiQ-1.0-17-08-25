@@ -172,6 +172,105 @@ export class UnifiedFeeManagementService {
   }
 
   // ========================================================================
+  // LATE FEE POLICY MANAGEMENT
+  // ========================================================================
+
+  /**
+   * Get late fee policy
+   */
+  async getLateFeePolicy(context?: { institutionId?: string; campusId?: string }) {
+    try {
+      // For now, return a mock policy - in production, this would query the database
+      return {
+        id: 'default-policy',
+        name: 'Standard Late Fee Policy',
+        description: 'Default late fee policy for the institution',
+        calculationType: 'PERCENTAGE' as const,
+        configuration: {
+          rate: 1.5,
+          minAmount: 10,
+          maxAmount: 1000,
+        },
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    } catch (error) {
+      console.error('Error getting late fee policy:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Create late fee policy
+   */
+  async createLateFeePolicy(input: {
+    name: string;
+    description?: string;
+    calculationType: 'FIXED' | 'PERCENTAGE' | 'TIERED' | 'COMPOUND';
+    configuration: Record<string, any>;
+    institutionId?: string;
+    campusId?: string;
+    isActive: boolean;
+    createdById: string;
+  }) {
+    try {
+      // For now, return a mock created policy - in production, this would create in database
+      return {
+        id: `policy_${Date.now()}`,
+        ...input,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    } catch (error) {
+      console.error('Error creating late fee policy:', error);
+      throw new Error('Failed to create late fee policy');
+    }
+  }
+
+  /**
+   * Update late fee policy
+   */
+  async updateLateFeePolicy(input: {
+    id: string;
+    name?: string;
+    description?: string;
+    calculationType?: 'FIXED' | 'PERCENTAGE' | 'TIERED' | 'COMPOUND';
+    configuration?: Record<string, any>;
+    isActive?: boolean;
+    updatedById: string;
+  }) {
+    try {
+      // For now, return a mock updated policy - in production, this would update in database
+      return {
+        id: input.id,
+        name: input.name || 'Updated Policy',
+        description: input.description,
+        calculationType: input.calculationType || 'PERCENTAGE',
+        configuration: input.configuration || {},
+        isActive: input.isActive ?? true,
+        updatedAt: new Date(),
+      };
+    } catch (error) {
+      console.error('Error updating late fee policy:', error);
+      throw new Error('Failed to update late fee policy');
+    }
+  }
+
+  /**
+   * Delete late fee policy
+   */
+  async deleteLateFeePolicy(id: string) {
+    try {
+      // For now, return success - in production, this would delete from database
+      return { success: true, message: 'Policy deleted successfully' };
+    } catch (error) {
+      console.error('Error deleting late fee policy:', error);
+      throw new Error('Failed to delete late fee policy');
+    }
+  }
+
+  // ========================================================================
   // LATE FEE CALCULATIONS
   // ========================================================================
 

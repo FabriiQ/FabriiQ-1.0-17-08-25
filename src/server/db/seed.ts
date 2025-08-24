@@ -9,6 +9,7 @@ import { seedCourses } from "./seed-data/courses";
 import { seedHolidays } from "./seed-data/holidays";
 import { seedPermissions } from "./seed-data/permissions";
 import { seedCampus } from "./seed-data/campus-seed";
+import { seedChallanTemplates } from "./seed-data/challan-templates";
 import { seedSubjects } from "./seed-data/subjects";
 import { seedNewData } from "./seed-data/index";
 

@@ -31,6 +31,16 @@ export const enrollmentFeeRouter = createTRPCRouter({
       });
     }),
 
+  assignAdditionalFee: protectedProcedure
+    .input(createEnrollmentFeeSchema)
+    .mutation(async ({ ctx, input }) => {
+      const feeService = new FeeService({ prisma: ctx.prisma });
+      return feeService.assignAdditionalFee({
+        ...input,
+        createdById: ctx.session.user.id,
+      });
+    }),
+
   getByEnrollment: protectedProcedure
     .input(z.object({ enrollmentId: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -43,6 +53,13 @@ export const enrollmentFeeRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const feeService = new FeeService({ prisma: ctx.prisma });
       return feeService.getEnrollmentFeesByEnrollment(input.enrollmentId);
+    }),
+
+  getAvailableFeeStructures: protectedProcedure
+    .input(z.object({ enrollmentId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const feeService = new FeeService({ prisma: ctx.prisma });
+      return feeService.getAvailableFeeStructuresForEnrollment(input.enrollmentId);
     }),
 
   update: protectedProcedure
@@ -145,6 +162,13 @@ export const enrollmentFeeRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const feeService = new FeeService({ prisma: ctx.prisma });
       return feeService.generateReceipt(input.transactionId);
+    }),
+
+  recalculateFee: protectedProcedure
+    .input(z.object({ enrollmentFeeId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const feeService = new FeeService({ prisma: ctx.prisma });
+      return feeService.recalculateEnrollmentFee(input.enrollmentFeeId);
     }),
 
   // Get fee analytics for campus admin

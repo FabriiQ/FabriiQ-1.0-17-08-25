@@ -79,16 +79,16 @@ export const CURRENCIES: Currency[] = [
   { code: 'GBP', name: 'British Pound', symbol: '£', country: 'United Kingdom', region: 'Europe' },
 ];
 
-export const CURRENCY_REGIONS = [
-  'Middle East',
-  'South Asia',
-  'East Asia',
-  'Southeast Asia',
-  'Central Asia',
-  'Western Asia',
-  'North America',
-  'Europe'
-];
+export const CURRENCY_REGIONS = {
+  'Middle East': CURRENCIES.filter(c => c.region === 'Middle East'),
+  'South Asia': CURRENCIES.filter(c => c.region === 'South Asia'),
+  'East Asia': CURRENCIES.filter(c => c.region === 'East Asia'),
+  'Southeast Asia': CURRENCIES.filter(c => c.region === 'Southeast Asia'),
+  'Central Asia': CURRENCIES.filter(c => c.region === 'Central Asia'),
+  'Western Asia': CURRENCIES.filter(c => c.region === 'Western Asia'),
+  'North America': CURRENCIES.filter(c => c.region === 'North America'),
+  'Europe': CURRENCIES.filter(c => c.region === 'Europe')
+};
 
 export const DEFAULT_CURRENCY: Currency = {
   code: 'PKR',
@@ -106,10 +106,17 @@ export function getCurrencyByCode(code: string): Currency | undefined {
 }
 
 /**
+ * Get all region names
+ */
+export function getAllRegions(): string[] {
+  return Object.keys(CURRENCY_REGIONS);
+}
+
+/**
  * Get currencies by region
  */
 export function getCurrenciesByRegion(region: string): Currency[] {
-  return CURRENCIES.filter(currency => currency.region === region);
+  return CURRENCY_REGIONS[region] || [];
 }
 
 /**

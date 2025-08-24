@@ -226,16 +226,24 @@ export function ChallanGenerationDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {challanTemplates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{template.name}</span>
-                              <span className="text-sm text-muted-foreground">
-                                {template.description} • {template.copies} copies
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
+                        {challanTemplates.length === 0 ? (
+                          <div className="p-4 text-center text-muted-foreground">
+                            <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No challan templates available</p>
+                            <p className="text-xs mt-1">Create templates in Challan Designer first</p>
+                          </div>
+                        ) : (
+                          challanTemplates.map((template) => (
+                            <SelectItem key={template.id} value={template.id}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{template.name}</span>
+                                <span className="text-sm text-muted-foreground">
+                                  {template.description} • {template.copies} copies
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />

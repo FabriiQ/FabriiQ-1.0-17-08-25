@@ -124,6 +124,7 @@ export interface FeeDetailCardProps {
   onPrintChallan: (challanId: string) => void;
   onEmailChallan: (challanId: string, email: string) => void;
   onAddTransaction: (values: TransactionFormValues) => void;
+  onAssignAdditionalFee?: () => void;
   isLoading?: boolean;
   cardClassName?: string;
 }
@@ -155,6 +156,7 @@ export function FeeDetailCard({
   onPrintChallan,
   onEmailChallan,
   onAddTransaction,
+  onAssignAdditionalFee,
   isLoading = false,
   cardClassName,
 }: FeeDetailCardProps) {
@@ -579,6 +581,12 @@ export function FeeDetailCard({
               <Edit className="h-4 w-4 mr-2" />
               Edit Fee
             </Button>
+            {onAssignAdditionalFee && (
+              <Button variant="outline" onClick={onAssignAdditionalFee}>
+                <Plus className="h-4 w-4 mr-2" />
+                Assign Additional Fee
+              </Button>
+            )}
           </div>
           <div className="flex space-x-2">
             <Button onClick={() => setIsTransactionDialogOpen(true)}>

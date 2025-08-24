@@ -19,26 +19,10 @@ export function SystemAttendanceSelector() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="classes" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="classes" className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4" />
-                By Classes
-              </TabsTrigger>
-              <TabsTrigger value="students" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                By Students
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="classes" className="mt-6">
-              <SystemClassAttendanceSelector />
-            </TabsContent>
-
-            <TabsContent value="students" className="mt-6">
-              <SystemStudentAttendanceSelector />
-            </TabsContent>
-          </Tabs>
+          <div className="mt-2">
+            {/* Simplified: Class-based workflow only */}
+            <SystemClassAttendanceSelector />
+          </div>
         </CardContent>
       </Card>
     </div>

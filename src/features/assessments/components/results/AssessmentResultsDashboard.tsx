@@ -17,6 +17,8 @@ import {
 } from '@/components/ui/table';
 import {
   BarChart,
+  BarChart3,
+  Brain,
   Activity,
   Target,
   TrendingUp,

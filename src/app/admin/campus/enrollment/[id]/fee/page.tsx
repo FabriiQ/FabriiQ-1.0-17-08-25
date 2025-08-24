@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/feedback/al
 import { AlertCircle, ChevronLeft } from "lucide-react";
 import { FeeDetailCard } from "@/components/shared/entities/fee/fee-detail-card";
 import { EnrollmentFeeForm } from "@/components/shared/entities/fee/enrollment-fee-form";
+import { EnhancedFeeAssignmentDialog } from "@/components/shared/entities/fee/enhanced-fee-assignment-dialog";
 import { api } from "@/trpc/react";
 import { useToast } from "@/components/ui/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading";
@@ -22,6 +23,7 @@ export default function EnrollmentFeePage() {
   const { toast } = useToast();
   const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState("details");
+  const [showEnhancedDialog, setShowEnhancedDialog] = useState(false);
 
   // Fetch enrollment data
   const { data: enrollment, isLoading: enrollmentLoading } = api.enrollment.getEnrollment.useQuery(
@@ -277,6 +279,11 @@ export default function EnrollmentFeePage() {
     });
   };
 
+  const handleEnhancedFeeAssignmentSuccess = () => {
+    refetchFee();
+    setActiveTab("details");
+  };
+
   const handleUpdateFee = (values: any) => {
     if (!fee) return;
     updateEnrollmentFeeMutation.mutate({
@@ -498,6 +505,7 @@ export default function EnrollmentFeePage() {
               onPrintChallan={handlePrintChallan}
               onEmailChallan={handleEmailChallan}
               onAddTransaction={handleAddTransaction}
+              onAssignAdditionalFee={() => setShowEnhancedDialog(true)}
             />
           ) : (
             <Card>
@@ -508,7 +516,7 @@ export default function EnrollmentFeePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button onClick={() => setActiveTab("assign")}>
+                <Button onClick={() => setShowEnhancedDialog(true)}>
                   Assign Fee
                 </Button>
               </CardContent>
@@ -532,6 +540,24 @@ export default function EnrollmentFeePage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Enhanced Fee Assignment Dialog */}
+      <EnhancedFeeAssignmentDialog
+        open={showEnhancedDialog}
+        onOpenChange={setShowEnhancedDialog}
+        enrollmentId={id}
+        studentName={enrollmentData.student?.user?.name || "Student"}
+        className={enrollmentData.class?.name}
+        feeStructures={(feeStructures || []).map(fs => ({
+          id: fs.id,
+          name: fs.name,
+          description: fs.description || undefined,
+          components: (fs.feeComponents as any) || [],
+          baseAmount: (fs.feeComponents as any)?.reduce((sum: number, comp: any) => sum + comp.amount, 0) || 0
+        }))}
+        existingFeeStructures={fee ? [fee.feeStructureId] : []}
+        onSuccess={handleEnhancedFeeAssignmentSuccess}
+      />
     </div>
   );
 }

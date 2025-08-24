@@ -153,7 +153,7 @@ export class EnrollmentService extends ServiceBase {
               },
             },
           },
-          fee: true,
+          fees: true,
         },
         orderBy: [
           {
@@ -180,7 +180,7 @@ export class EnrollmentService extends ServiceBase {
         startDate: enrollment.startDate,
         endDate: enrollment.endDate,
         status: enrollment.status,
-        hasFee: !!enrollment.fee,
+        hasFee: enrollment.fees && enrollment.fees.length > 0,
       }));
 
       return formattedEnrollments;
@@ -338,6 +338,14 @@ export class EnrollmentService extends ServiceBase {
    */
   async getEnrollment(id: string) {
     try {
+      // Validate input
+      if (!id || typeof id !== 'string') {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Valid enrollment ID is required",
+        });
+      }
+
       const enrollment = await this.prisma.studentEnrollment.findUnique({
         where: { id },
         include: {
@@ -408,7 +416,7 @@ export class EnrollmentService extends ServiceBase {
       if (!enrollment) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Enrollment not found",
+          message: `Enrollment with ID ${id} not found`,
         });
       }
 
@@ -417,11 +425,21 @@ export class EnrollmentService extends ServiceBase {
         enrollment,
       };
     } catch (error) {
+      console.error('Error fetching enrollment:', error);
+
       if (error instanceof TRPCError) throw error;
+
+      // Handle specific database errors
+      if (error.code === 'P2025') {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Enrollment not found",
+        });
+      }
 
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to get enrollment",
+        message: `Failed to get enrollment: ${error.message || 'Unknown error'}`,
         cause: error,
       });
     }
@@ -596,8 +614,10 @@ export class EnrollmentService extends ServiceBase {
     try {
       const enrollments = await this.prisma.studentEnrollment.findMany({
         where: {
-          fee: {
-            feeStructureId: feeStructureId,
+          fees: {
+            some: {
+              feeStructureId: feeStructureId,
+            },
           },
         },
         include: {
@@ -622,7 +642,7 @@ export class EnrollmentService extends ServiceBase {
               },
             },
           },
-          fee: true,
+          fees: true,
         },
         orderBy: {
           student: {
@@ -647,7 +667,7 @@ export class EnrollmentService extends ServiceBase {
         status: enrollment.status,
         startDate: enrollment.startDate,
         endDate: enrollment.endDate,
-        hasFee: !!enrollment.fee,
+        hasFee: enrollment.fees && enrollment.fees.length > 0,
       }));
     } catch (error) {
       throw new TRPCError({

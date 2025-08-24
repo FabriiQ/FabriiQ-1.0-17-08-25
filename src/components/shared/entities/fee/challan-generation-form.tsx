@@ -192,8 +192,6 @@ export function ChallanGenerationForm({
                               </SelectItem>
                             ))
                           )}
-                            </SelectItem>
-                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />

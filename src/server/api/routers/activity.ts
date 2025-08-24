@@ -506,54 +506,86 @@ export const activityRouter = createTRPCRouter({
           activity = await service.createActivity(activityInput);
         }
 
-        // Create ActivityGrade records for all students, regardless of whether the activity is gradable
-        try {
-          // First, ensure a gradebook exists for this class if the activity is gradable
-          if (activity && input.isGradable) {
-            const classService = new ClassService({ prisma: ctx.prisma });
-            await classService.initializeGradebook(input.classId, ctx.session.user.id);
-          }
+        logger.debug('Activity created successfully', {
+          activityId: activity.id,
+          title: activity.title,
+          classId: input.classId
+        });
 
-          // Get all students enrolled in the class
-          const enrollments = await ctx.prisma.studentEnrollment.findMany({
-            where: {
+        // Create ActivityGrade records for all students asynchronously (non-blocking)
+        // This ensures that activity creation succeeds even if grade record creation fails
+        setImmediate(async () => {
+          try {
+            // First, ensure a gradebook exists for this class if the activity is gradable
+            if (activity && input.isGradable) {
+              const classService = new ClassService({ prisma: ctx.prisma });
+              await classService.initializeGradebook(input.classId, ctx.session.user.id);
+            }
+
+            // Get all students enrolled in the class
+            const enrollments = await ctx.prisma.studentEnrollment.findMany({
+              where: {
+                classId: input.classId,
+                status: 'ACTIVE',
+              },
+              select: {
+                studentId: true,
+              },
+            });
+
+            logger.debug('Found enrollments for ActivityGrade creation', {
               classId: input.classId,
-              status: 'ACTIVE',
-            },
-            select: {
-              studentId: true,
-            },
-          });
+              enrollmentCount: enrollments.length,
+              activityId: activity.id
+            });
 
-          // Create ActivityGrade entries for all students with UNATTEMPTED status
-          if (enrollments.length > 0) {
-            // Cast the status to any to avoid type errors with Prisma
-            const gradeData = enrollments.map(enrollment => ({
-              studentId: enrollment.studentId,
-              activityId: activity.id,
-              score: null,
-              status: SubmissionStatus.DRAFT as any, // Will be updated to UNATTEMPTED after schema migration
-              submittedAt: new Date(),
-            }));
+            // Create ActivityGrade entries for all students with UNATTEMPTED status
+            if (enrollments.length > 0) {
+              // Use UNATTEMPTED status for newly created activities
+              const gradeData = enrollments.map(enrollment => ({
+                studentId: enrollment.studentId,
+                activityId: activity.id,
+                score: null,
+                status: SubmissionStatus.UNATTEMPTED as any,
+                submittedAt: new Date(),
+              }));
 
-            // Batch insert the grade records
-            if (gradeData.length > 0) {
-              await ctx.prisma.activityGrade.createMany({
-                data: gradeData,
-                skipDuplicates: true,
-              });
-
-              logger.debug('Created ActivityGrade records for all students', {
+              logger.debug('Attempting to create ActivityGrade records', {
                 activityId: activity.id,
                 studentCount: gradeData.length,
-                status: SubmissionStatus.UNATTEMPTED
+                sampleData: gradeData[0]
+              });
+
+              // Batch insert the grade records
+              if (gradeData.length > 0) {
+                await ctx.prisma.activityGrade.createMany({
+                  data: gradeData,
+                  skipDuplicates: true,
+                });
+
+                logger.debug('Successfully created ActivityGrade records', {
+                  activityId: activity.id,
+                  studentCount: gradeData.length,
+                  status: SubmissionStatus.UNATTEMPTED
+                });
+              }
+            } else {
+              logger.debug('No active enrollments found for class', {
+                classId: input.classId,
+                activityId: activity.id
               });
             }
+          } catch (error) {
+            // Log the detailed error for debugging
+            logger.error('Error creating ActivityGrade records (async):', {
+              error: error,
+              errorMessage: error instanceof Error ? error.message : 'Unknown error',
+              errorName: error instanceof Error ? error.name : 'Unknown',
+              activityId: activity.id,
+              classId: input.classId
+            });
           }
-        } catch (error) {
-          // Log the error but don't fail the activity creation
-          logger.error('Error creating ActivityGrade records:', error);
-        }
+        });
 
         return activity;
       } catch (error) {

@@ -53,6 +53,35 @@ export class InvoiceService {
    */
   async createInvoice(input: CreateInvoiceInput & { createdById: string }): Promise<any> {
     try {
+      // Validate required fields
+      if (!input.studentId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Student ID is required'
+        });
+      }
+
+      if (!input.title) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Invoice title is required'
+        });
+      }
+
+      if (!input.lineItems || input.lineItems.length === 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'At least one line item is required'
+        });
+      }
+
+      if (!input.dueDate) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Due date is required'
+        });
+      }
+
       // Generate invoice number if not provided
       const invoiceNumber = input.invoiceNumber || await this.generateInvoiceNumber(input.invoiceType);
 
@@ -68,10 +97,10 @@ export class InvoiceService {
         });
       }
 
-      // Validate student exists using raw SQL since Prisma models might not be available
+      // Validate student exists using raw SQL (note: model is StudentProfile)
       const student = await this.prisma.$queryRaw<any[]>`
         SELECT s.id, u.name, u.email
-        FROM "Student" s
+        FROM "StudentProfile" s
         LEFT JOIN "User" u ON s."userId" = u.id
         WHERE s.id = ${input.studentId}
       `;
@@ -83,9 +112,27 @@ export class InvoiceService {
         });
       }
 
+      // Validate enrollment if provided
+      if (input.enrollmentId) {
+        const enrollment = await this.prisma.$queryRaw<any[]>`
+          SELECT id FROM "StudentEnrollment" WHERE id = ${input.enrollmentId}
+        `;
+
+        if (enrollment.length === 0) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Enrollment not found'
+          });
+        }
+      }
+
       // Create invoice using raw SQL for better performance and partitioning support
       const invoiceId = `inv_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
       const partitionKey = `${new Date().getFullYear()}_${Math.floor(new Date().getMonth() / 3) + 1}`; // Quarterly partitions
+
+      // Ensure dates are properly formatted
+      const issueDate = input.issueDate || new Date();
+      const dueDate = input.dueDate;
 
       await this.prisma.$executeRaw`
         INSERT INTO "Invoice" (
@@ -97,15 +144,38 @@ export class InvoiceService {
           status, "createdById", "partitionKey", "createdAt", "updatedAt"
         ) VALUES (
           ${invoiceId}, ${invoiceNumber}, ${input.studentId}, ${input.enrollmentId || null},
-          ${input.feeStructureId || null}, ${input.invoiceType}, ${input.priority},
+          ${input.feeStructureId || null}, ${input.invoiceType}, ${input.priority || 'NORMAL'},
           ${input.title}, ${input.description || null}, ${JSON.stringify(input.lineItems)},
           ${input.subtotal}, ${input.discountAmount || 0}, ${input.taxAmount || 0}, ${input.totalAmount},
-          ${input.issueDate}, ${input.dueDate}, ${input.paymentTerms || null}, ${input.lateFeePenalty || 0},
+          ${issueDate}, ${dueDate}, ${input.paymentTerms || null}, ${input.lateFeePenalty || 0},
           ${input.notes || null}, ${input.termsAndConditions || null}, ${JSON.stringify(input.metadata || {})},
           ${input.templateId || null}, ${JSON.stringify(input.customBranding || {})},
-          ${InvoiceStatus.DRAFT}, ${input.createdById}, ${partitionKey}, NOW(), NOW()
+          'DRAFT', ${input.createdById}, ${partitionKey}, NOW(), NOW()
         )
       `;
+
+      // Create audit trail entry
+      if (input.enrollmentId) {
+        try {
+          await this.prisma.enrollmentHistory.create({
+            data: {
+              enrollmentId: input.enrollmentId,
+              action: 'INVOICE_CREATED',
+              details: {
+                invoiceId,
+                invoiceNumber,
+                invoiceType: input.invoiceType,
+                totalAmount: input.totalAmount,
+                dueDate: dueDate,
+              },
+              createdById: input.createdById,
+            },
+          });
+        } catch (historyError) {
+          console.warn('Failed to create enrollment history entry:', historyError);
+          // Don't fail the invoice creation if history fails
+        }
+      }
 
       // Fetch and return the created invoice
       const createdInvoice = await this.getInvoiceById(invoiceId);
@@ -116,9 +186,25 @@ export class InvoiceService {
       if (error instanceof TRPCError) {
         throw error;
       }
+
+      // Provide more specific error messages based on the error type
+      if (error.message?.includes('foreign key constraint')) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Invalid reference to student, enrollment, or fee structure'
+        });
+      }
+
+      if (error.message?.includes('unique constraint')) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'Invoice number already exists'
+        });
+      }
+
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to create invoice'
+        message: `Failed to create invoice: ${error.message || 'Unknown error'}`
       });
     }
   }
@@ -128,14 +214,14 @@ export class InvoiceService {
    */
   async getInvoiceById(id: string): Promise<any> {
     const invoice = await this.prisma.$queryRaw<any[]>`
-      SELECT 
+      SELECT
         i.*,
         s."enrollmentNumber",
         u.name as "studentName",
         u.email as "studentEmail",
         c.name as "createdByName"
       FROM "Invoice" i
-      LEFT JOIN "Student" s ON i."studentId" = s.id
+      LEFT JOIN "StudentProfile" s ON i."studentId" = s.id
       LEFT JOIN "User" u ON s."userId" = u.id
       LEFT JOIN "User" c ON i."createdById" = c.id
       WHERE i.id = ${id}
@@ -150,16 +236,24 @@ export class InvoiceService {
     }
 
     const result = invoice[0];
-    
-    // Parse JSON fields
-    if (result.lineItems) {
-      result.lineItems = JSON.parse(result.lineItems);
-    }
-    if (result.metadata) {
-      result.metadata = JSON.parse(result.metadata);
-    }
-    if (result.customBranding) {
-      result.customBranding = JSON.parse(result.customBranding);
+
+    // Parse JSON fields safely
+    try {
+      if (result.lineItems && typeof result.lineItems === 'string') {
+        result.lineItems = JSON.parse(result.lineItems);
+      }
+      if (result.metadata && typeof result.metadata === 'string') {
+        result.metadata = JSON.parse(result.metadata);
+      }
+      if (result.customBranding && typeof result.customBranding === 'string') {
+        result.customBranding = JSON.parse(result.customBranding);
+      }
+    } catch (parseError) {
+      console.error('Error parsing JSON fields in invoice:', parseError);
+      // Set defaults if parsing fails
+      result.lineItems = result.lineItems || [];
+      result.metadata = result.metadata || {};
+      result.customBranding = result.customBranding || {};
     }
 
     return result;
