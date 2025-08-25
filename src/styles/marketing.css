@@ -1,0 +1,531 @@
+/* Marketing Website Styles - FabriiQ Brand Design */
+
+/* FabriiQ Brand Colors */
+:root {
+  --fabriiq-primary-green: #1F504B;
+  --fabriiq-medium-teal: #5A8A84;
+  --fabriiq-light-mint: #D8E3E0;
+  --fabriiq-white: #FFFFFF;
+  --fabriiq-light-gray: #F5F5F5;
+  --fabriiq-medium-gray: #E0E0E0;
+  --fabriiq-dark-gray: #757575;
+  --fabriiq-black: #212121;
+  --fabriiq-red: #D92632;
+  --fabriiq-orange: #FF9852;
+  --fabriiq-purple: #6126AE;
+  --fabriiq-dark-blue: #004EB2;
+  --fabriiq-light-blue: #2F96F4;
+}
+
+/* Base styles */
+.marketing-main {
+  min-height: calc(100vh - 80px);
+}
+
+/* Typography */
+.marketing-heading-xl {
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: #111827;
+  line-height: 1.1;
+}
+
+@media (min-width: 640px) {
+  .marketing-heading-xl {
+    font-size: 3.75rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .marketing-heading-xl {
+    font-size: 4.5rem;
+  }
+}
+
+.marketing-heading-lg {
+  font-size: 1.875rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: #111827;
+  line-height: 1.2;
+}
+
+@media (min-width: 640px) {
+  .marketing-heading-lg {
+    font-size: 2.25rem;
+  }
+}
+
+.marketing-heading-md {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: #111827;
+  line-height: 1.3;
+}
+
+@media (min-width: 640px) {
+  .marketing-heading-md {
+    font-size: 1.875rem;
+  }
+}
+
+.marketing-body-lg {
+  font-size: 1.125rem;
+  line-height: 2;
+  color: #4b5563;
+}
+
+@media (min-width: 640px) {
+  .marketing-body-lg {
+    font-size: 1.25rem;
+  }
+}
+
+.marketing-body {
+  font-size: 1rem;
+  line-height: 1.75;
+  color: #4b5563;
+}
+
+.marketing-body-sm {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #4b5563;
+}
+
+/* Buttons */
+.marketing-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 2rem;
+  border: none;
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: 0.75rem;
+  color: white;
+  background-color: var(--fabriiq-primary-green);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(31, 80, 75, 0.15);
+  text-decoration: none;
+}
+
+.marketing-btn-primary:hover {
+  background-color: var(--fabriiq-medium-teal);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(31, 80, 75, 0.25);
+}
+
+.marketing-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 2rem;
+  border: 2px solid var(--fabriiq-primary-green);
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: 0.75rem;
+  color: var(--fabriiq-primary-green);
+  background-color: white;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(31, 80, 75, 0.1);
+  text-decoration: none;
+}
+
+.marketing-btn-secondary:hover {
+  background-color: var(--fabriiq-primary-green);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(31, 80, 75, 0.25);
+}
+
+.marketing-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--fabriiq-medium-teal);
+  transition: all 0.3s ease;
+  text-decoration: none;
+  border-radius: 0.5rem;
+}
+
+.marketing-btn-ghost:hover {
+  color: var(--fabriiq-primary-green);
+  background-color: var(--fabriiq-light-mint);
+}
+
+/* Cards */
+.marketing-card {
+  background-color: white;
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 20px rgba(31, 80, 75, 0.08);
+  border: 1px solid var(--fabriiq-light-mint);
+  padding: 2rem;
+  transition: all 0.3s ease;
+}
+
+.marketing-card:hover {
+  box-shadow: 0 8px 30px rgba(31, 80, 75, 0.15);
+  transform: translateY(-4px);
+  border-color: var(--fabriiq-medium-teal);
+}
+
+.marketing-card-feature {
+  background-color: white;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.marketing-card-feature:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border-color: #bfdbfe;
+}
+
+/* Sections */
+.marketing-section {
+  padding: 6rem 0;
+}
+
+@media (min-width: 640px) {
+  .marketing-section {
+    padding: 8rem 0;
+  }
+}
+
+.marketing-section-sm {
+  padding: 4rem 0;
+}
+
+@media (min-width: 640px) {
+  .marketing-section-sm {
+    padding: 5rem 0;
+  }
+}
+
+.marketing-container {
+  margin: 0 auto;
+  max-width: 80rem;
+  padding: 0 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .marketing-container {
+    padding: 0 2rem;
+  }
+}
+
+.marketing-container-sm {
+  margin: 0 auto;
+  max-width: 56rem;
+  padding: 0 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .marketing-container-sm {
+    padding: 0 2rem;
+  }
+}
+
+/* Gradients */
+.marketing-gradient-bg {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.marketing-gradient-text {
+  background: linear-gradient(to right, #2563eb, #9333ea);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Animations */
+.marketing-fade-in {
+  animation: fadeIn 0.6s ease-out;
+}
+
+.marketing-slide-up {
+  animation: slideUp 0.8s ease-out;
+}
+
+.marketing-scale-in {
+  animation: scaleIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Interactive elements */
+.marketing-interactive-demo {
+  background-color: #f9fafb;
+  border-radius: 0.75rem;
+  border: 2px dashed #d1d5db;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.marketing-interactive-demo:hover {
+  border-color: #60a5fa;
+  background-color: #eff6ff;
+}
+
+.marketing-metric-tile {
+  background-color: white;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
+  text-align: center;
+}
+
+.marketing-feature-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+}
+
+@media (min-width: 640px) {
+  .marketing-feature-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 1024px) {
+  .marketing-feature-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+.marketing-solution-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+}
+
+@media (min-width: 1024px) {
+  .marketing-solution-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Navigation */
+.marketing-nav-link {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #111827;
+  transition: color 0.2s ease;
+}
+
+.marketing-nav-link:hover {
+  color: #2563eb;
+}
+
+.marketing-nav-link-active {
+  color: #2563eb;
+}
+
+/* Footer */
+.marketing-footer {
+  background-color: #111827;
+  color: white;
+}
+
+.marketing-footer-section > * + * {
+  margin-top: 1rem;
+}
+
+.marketing-footer-heading {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #d1d5db;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.marketing-footer-link {
+  color: #9ca3af;
+  transition: color 0.2s ease;
+}
+
+.marketing-footer-link:hover {
+  color: white;
+}
+
+/* Improved component layouts */
+.marketing-showcase-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  max-width: 100%;
+}
+
+@media (min-width: 768px) {
+  .marketing-showcase-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .marketing-showcase-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 2.5rem;
+  }
+}
+
+.marketing-feature-card {
+  background: white;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e5e7eb;
+  transition: all 0.3s ease;
+  height: fit-content;
+}
+
+.marketing-feature-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.marketing-compact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  max-width: 100%;
+}
+
+/* Responsive utilities */
+@media (max-width: 640px) {
+  .marketing-heading-xl {
+    font-size: 1.875rem;
+  }
+
+  .marketing-heading-lg {
+    font-size: 1.5rem;
+  }
+
+  .marketing-section {
+    padding: 4rem 0;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .marketing-card {
+    background-color: #1f2937;
+    border-color: #374151;
+    color: white;
+  }
+
+  .marketing-card-feature {
+    background-color: #1f2937;
+    border-color: #374151;
+    color: white;
+  }
+
+  .marketing-card-feature:hover {
+    border-color: #60a5fa;
+  }
+}
+
+/* Print styles */
+@media print {
+  .marketing-btn-primary,
+  .marketing-btn-secondary,
+  .marketing-btn-ghost {
+    box-shadow: none;
+  }
+
+  .marketing-card,
+  .marketing-card-feature {
+    box-shadow: none;
+    border-color: #9ca3af;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .marketing-fade-in,
+  .marketing-slide-up,
+  .marketing-scale-in {
+    animation: none;
+  }
+
+  .marketing-btn-primary:hover,
+  .marketing-btn-secondary:hover {
+    transform: scale(1);
+  }
+
+  .marketing-card:hover,
+  .marketing-card-feature:hover {
+    transform: scale(1);
+  }
+}
+
+/* Focus styles for keyboard navigation */
+.marketing-btn-primary:focus,
+.marketing-btn-secondary:focus,
+.marketing-btn-ghost:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #3b82f6, 0 0 0 4px rgba(59, 130, 246, 0.5);
+}
+
+.marketing-nav-link:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #3b82f6, 0 0 0 4px rgba(59, 130, 246, 0.5);
+  border-radius: 0.25rem;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .marketing-card,
+  .marketing-card-feature {
+    border: 2px solid #111827;
+  }
+
+  .marketing-btn-primary {
+    border: 2px solid #1e40af;
+  }
+
+  .marketing-btn-secondary {
+    border: 2px solid #1f2937;
+  }
+}
