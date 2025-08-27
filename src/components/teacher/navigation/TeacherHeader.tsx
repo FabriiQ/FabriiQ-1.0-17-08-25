@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Users } from 'lucide-react';
 import Link from 'next/link';
 import { NotificationBell } from '@/features/notifications/components/NotificationBell';
+import { MessageIcon } from '@/features/messaging/components/MessageIcon';
 
 interface TeacherHeaderProps {
   teacherId: string;
@@ -62,6 +63,12 @@ export function TeacherHeader({
               {!isMobile && <span>Classes</span>}
             </Button>
           </Link>
+
+          {/* Message Icon */}
+          <MessageIcon
+            role="teacher"
+            size={isMobile ? 'sm' : 'md'}
+          />
 
           {/* Notification Bell */}
           <NotificationBell size={isMobile ? 'sm' : 'md'} />

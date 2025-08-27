@@ -151,20 +151,23 @@ function getDatabaseUrlWithPooling(): string {
   // Parse existing URL to check if pooling parameters are already present
   const url = new URL(baseUrl);
 
-  // Production-optimized connection pooling parameters for performance
-  // Increased connection limits and timeouts to handle high load
+  // Correct Prisma connection pooling parameters for PostgreSQL
+  // These are the actual parameters that Prisma recognizes for connection pooling
   const poolingParams = {
-    'connection_limit': process.env.DATABASE_CONNECTION_LIMIT || '100',   // Increased for better concurrency
-    'pool_timeout': process.env.DATABASE_POOL_TIMEOUT || '30',            // Increased timeout for stability
-    'connect_timeout': process.env.DATABASE_CONNECT_TIMEOUT || '60',      // Increased for better reliability
-    'pool_max_idle_time': process.env.DATABASE_MAX_IDLE_TIME || '300',    // Standard 5 minutes
-    'statement_timeout': process.env.DATABASE_STATEMENT_TIMEOUT || '60000', // Standard 60s timeout
-    'idle_in_transaction_session_timeout': '30000',                       // Standard 30s timeout
-    // Additional pooling optimizations
-    'pool_min_size': '5',                                                 // Higher minimum connections
-    'pool_max_size': process.env.DATABASE_CONNECTION_LIMIT || '100',      // Maximum connections
-    'pool_acquire_timeout': '30000',                                      // 30s timeout to acquire connection
-    'pool_validation_timeout': '5000',                                    // 5s validation timeout
+    // Connection pool size
+    'connection_limit': process.env.DATABASE_CONNECTION_LIMIT || '50',
+    'pool_timeout': process.env.DATABASE_POOL_TIMEOUT || '60',
+
+    // PostgreSQL-specific connection parameters
+    'connect_timeout': process.env.DATABASE_CONNECT_TIMEOUT || '60',
+    'statement_timeout': process.env.DATABASE_STATEMENT_TIMEOUT || '60000',
+    'idle_in_transaction_session_timeout': '60000',
+
+    // Additional PostgreSQL optimizations
+    'application_name': 'fabriiq-lxp',
+    'tcp_keepalives_idle': '600',
+    'tcp_keepalives_interval': '30',
+    'tcp_keepalives_count': '3',
   };
 
   // Add connection pooling parameters if not already present

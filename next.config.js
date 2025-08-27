@@ -21,33 +21,21 @@ const nextConfig = {
     ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === 'true',
   },
   
-  // Memory optimization settings
+  // Memory optimization settings - simplified for stability
   experimental: {
     // Enable worker threads for faster compilation
-    workerThreads: true,
-    // Optimize package imports to reduce bundle size
+    workerThreads: false, // Disabled to prevent chunk loading issues
+    // Optimize package imports to reduce bundle size - reduced list
     optimizePackageImports: [
-      'socket.io', 
-      'socket.io-client', 
-      'lucide-react', 
-      '@radix-ui/react-dialog', 
+      'lucide-react',
+      '@radix-ui/react-dialog',
       '@radix-ui/react-select',
-      '@radix-ui/react-tabs',
-      '@radix-ui/react-accordion',
-      '@radix-ui/react-dropdown-menu',
-      '@tiptap/react',
-      '@tiptap/starter-kit',
-      'framer-motion',
-      'react-beautiful-dnd'
     ],
-    // Disable View Transitions API to prevent compilation issues
-    viewTransition: process.env.DISABLE_VIEW_TRANSITIONS !== 'true',
-    // Enable CSS optimization for better performance
-    optimizeCss: true,
-    // Maintain scroll position during navigation
-    scrollRestoration: true,
-    // Enable optimized server React for faster compilation
-    optimizeServerReact: true,
+    // Disable experimental features that may cause chunk loading issues
+    viewTransition: false,
+    optimizeCss: false,
+    scrollRestoration: false,
+    optimizeServerReact: false,
   },
 
   // Compiler optimizations
@@ -75,53 +63,20 @@ const nextConfig = {
     config.resolve.symlinks = false;
     config.resolve.cacheWithContext = false;
 
-    // Memory optimization for webpack
+    // Simplified optimization for webpack to prevent chunk loading issues
     if (!dev && !isServer) {
       config.optimization = {
         ...config.optimization,
         minimize: true,
-        usedExports: true,
         splitChunks: {
           chunks: 'all',
-          minSize: 20000,
-          maxSize: 244000,
           cacheGroups: {
-            // Separate vendor chunks for better caching
+            // Simple vendor chunk
             vendor: {
               test: /[\\/]node_modules[\\/]/,
               name: 'vendors',
               chunks: 'all',
-              maxSize: 244000,
               priority: 10,
-            },
-            // Separate React-related libraries
-            react: {
-              test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
-              name: 'react',
-              chunks: 'all',
-              priority: 20,
-            },
-            // Separate UI libraries
-            ui: {
-              test: /[\\/]node_modules[\\/](@radix-ui|lucide-react|framer-motion)[\\/]/,
-              name: 'ui',
-              chunks: 'all',
-              priority: 15,
-            },
-            // Separate editor libraries
-            editor: {
-              test: /[\\/]node_modules[\\/](@tiptap|react-beautiful-dnd)[\\/]/,
-              name: 'editor',
-              chunks: 'all',
-              priority: 15,
-            },
-            // Common chunks for shared code
-            common: {
-              name: 'common',
-              minChunks: 2,
-              chunks: 'all',
-              priority: 5,
-              reuseExistingChunk: true,
             },
           },
         },
@@ -235,15 +190,15 @@ const nextConfig = {
     ];
   },
 
-  // Turbopack configuration
-  turbopack: {
-    rules: {
-      '*.svg': {
-        loaders: ['@svgr/webpack'],
-        as: '*.js',
-      },
-    },
-  },
+  // Turbopack configuration - temporarily disabled to fix chunk loading issues
+  // turbopack: {
+  //   rules: {
+  //     '*.svg': {
+  //       loaders: ['@svgr/webpack'],
+  //       as: '*.js',
+  //     },
+  //   },
+  // },
 };
 
 module.exports = withBundleAnalyzer(nextConfig);

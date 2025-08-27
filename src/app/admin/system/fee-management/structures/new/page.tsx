@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { api } from '@/trpc/react';
 import { ChevronLeft } from '@/components/ui/icons/custom-icons';
-import { FeeStructureForm, FeeStructureFormValues } from '@/components/shared/entities/fee';
+import { FeeStructureForm, FeeStructureFormValues } from '@/components/shared/entities/fee/fee-structure-form';
 import { useToast } from '@/components/ui/use-toast';
 import { LoadingSpinner } from '@/components/ui/loading';
 import { useAuth } from '@/hooks/useAuth';

@@ -23,6 +23,7 @@ export interface BaseSocketEvent {
 
 export interface ClientToServerEvents {
   // Connection management
+  'authenticated': () => void;
   'join:class': (data: { classId: string }) => void;
   'leave:class': (data: { classId: string }) => void;
   
@@ -37,6 +38,11 @@ export interface ClientToServerEvents {
   // Content subscriptions
   'subscribe:post': (data: { postId: string }) => void;
   'unsubscribe:post': (data: { postId: string }) => void;
+
+  // Messaging events
+  'subscribe:inbox': () => void;
+  'message:send': (data: { content: string; recipients: string[]; messageType?: string; classId?: string }) => void;
+  'message:mark_read': (data: { messageId: string }) => void;
 }
 
 // ==================== SERVER TO CLIENT EVENTS ====================
@@ -76,6 +82,14 @@ export interface ServerToClientEvents {
   'notification:new': (data: NotificationEvent) => void;
   'error': (data: ErrorEvent) => void;
   'connection:status': (data: ConnectionStatusEvent) => void;
+
+  // Messaging events
+  'message:new': (data: MessageEvent) => void;
+  'message:sent': (data: { success: boolean; messageId: string }) => void;
+  'message:send_failed': (data: { error: string }) => void;
+  'message:marked_read': (data: { messageId: string; success: boolean }) => void;
+  'message:read_status_changed': (data: { messageId: string; readBy: string; timestamp: Date }) => void;
+  'inbox:subscribed': (data: { success: boolean }) => void;
 }
 
 // ==================== INTER-SERVER EVENTS ====================
@@ -94,6 +108,7 @@ export interface SocketData {
   };
   userId: string;
   classId?: string;
+  lastActivity?: Date;
 }
 
 // ==================== EVENT DATA STRUCTURES ====================
@@ -203,10 +218,12 @@ export interface ReactionSummaryEvent extends BaseSocketEvent {
 export interface TypingEvent extends BaseSocketEvent {
   type: 'user:typing' | 'user:stopped_typing';
   user: UserSummary;
-  context: {
+  userId?: string; // For messaging compatibility
+  userName?: string; // For messaging compatibility
+  context?: {
     postId?: string;
     commentId?: string;
-    location: 'post' | 'comment' | 'reply';
+    location?: 'post' | 'comment' | 'reply';
   };
 }
 
@@ -326,6 +343,25 @@ export interface TypingIndicator {
     type: 'post' | 'comment' | 'reply';
   };
   startedAt: Date;
+}
+
+// ==================== MESSAGING EVENT TYPES ====================
+
+export interface MessageEvent {
+  type: 'message:new';
+  message: {
+    id: string;
+    content: string;
+    author: {
+      id: string;
+      name: string;
+      userType: string;
+    };
+    recipients: string[];
+    messageType: string;
+    createdAt: Date;
+  };
+  timestamp: Date;
 }
 
 // Event filters for subscriptions

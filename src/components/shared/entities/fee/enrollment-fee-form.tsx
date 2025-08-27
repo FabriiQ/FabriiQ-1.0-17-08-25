@@ -15,9 +15,113 @@ import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { FeeComponentList, FeeComponent } from "@/components/core/fee/fee-component-list";
-import { PaymentMethodSelector, PAYMENT_METHODS } from "@/components/core/payment/payment-method-selector";
-import { PaymentStatus } from "@/components/core/payment/payment-status-badge";
+// Define types locally to avoid circular dependencies
+export type FeeComponentType =
+  | "TUITION"
+  | "ADMISSION"
+  | "REGISTRATION"
+  | "LIBRARY"
+  | "LABORATORY"
+  | "SPORTS"
+  | "TRANSPORT"
+  | "HOSTEL"
+  | "EXAMINATION"
+  | "MISCELLANEOUS";
+
+export interface FeeComponent {
+  id?: string;
+  name: string;
+  type: FeeComponentType;
+  amount: number;
+  description?: string;
+  isRecurring?: boolean;
+  recurringInterval?: string;
+}
+
+// Simple local FeeComponentList implementation
+function FeeComponentList({ components, showTotal = true, compact = false }: {
+  components: FeeComponent[],
+  showTotal?: boolean,
+  compact?: boolean
+}) {
+  const total = components.reduce((sum, component) => sum + component.amount, 0);
+
+  return (
+    <div className={`space-y-${compact ? '2' : '4'}`}>
+      <div className="grid gap-2">
+        {components.map((component, index) => (
+          <div key={index} className={`flex justify-between items-center ${compact ? 'p-2' : 'p-3'} border rounded-lg`}>
+            <div>
+              <div className={`font-medium ${compact ? 'text-sm' : ''}`}>{component.name}</div>
+              <div className={`text-${compact ? 'xs' : 'sm'} text-muted-foreground`}>{component.type}</div>
+              {component.description && (
+                <div className={`text-${compact ? 'xs' : 'sm'} text-muted-foreground`}>{component.description}</div>
+              )}
+            </div>
+            <div className="text-right">
+              <div className={`font-medium ${compact ? 'text-sm' : ''}`}>${component.amount.toFixed(2)}</div>
+              {component.isRecurring && (
+                <div className="text-xs text-muted-foreground">{component.recurringInterval}</div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      {showTotal && (
+        <div className={`flex justify-between items-center ${compact ? 'p-2' : 'p-3'} border-t font-semibold`}>
+          <span>Total</span>
+          <span>${total.toFixed(2)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+// Payment method constants
+export const PAYMENT_METHODS = [
+  { value: "CASH", label: "Cash" },
+  { value: "BANK_TRANSFER", label: "Bank Transfer" },
+  { value: "CREDIT_CARD", label: "Credit Card" },
+  { value: "DEBIT_CARD", label: "Debit Card" },
+  { value: "CHEQUE", label: "Cheque" },
+  { value: "ONLINE", label: "Online Payment" },
+];
+
+export type PaymentStatus = "PAID" | "PENDING" | "PARTIAL" | "WAIVED";
+
+// Simple PaymentMethodSelector component
+function PaymentMethodSelector({ form, name, label, placeholder }: {
+  form: any,
+  name: string,
+  label: string,
+  placeholder: string
+}) {
+  return (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{label}</FormLabel>
+          <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <FormControl>
+              <SelectTrigger>
+                <SelectValue placeholder={placeholder} />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              {PAYMENT_METHODS.map((method) => (
+                <SelectItem key={method.value} value={method.value}>
+                  {method.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 
@@ -344,7 +448,6 @@ export function EnrollmentFeeForm({
               name="paymentMethod"
               label="Payment Method"
               placeholder="Select payment method"
-              customMethods={PAYMENT_METHODS}
             />
 
             <FormField

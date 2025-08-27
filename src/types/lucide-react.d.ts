@@ -97,4 +97,13 @@ declare module 'lucide-react' {
   export const Cog: Icon;
   export const Calculator: Icon;
   export const Play: Icon;
+
+  // Additional commonly used icons (ensure editor recognizes these exports)
+  export const Star: Icon;
+  export const Send: Icon;
+  export const SendHorizontal: Icon;
+  export const Shield: Icon;
+  export const ShieldCheck: Icon;
+  export const Volume: Icon;
+  export const Volume2: Icon;
 }

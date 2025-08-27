@@ -21,7 +21,7 @@ export async function seedTeacherAssignments(
     return [];
   }
 
-  const assignments = [];
+  const assignments: any[] = [];
 
   // Teacher specializations based on their data
   const teacherSpecializations: Record<string, string[]> = {
@@ -203,12 +203,29 @@ export async function seedTeacherAssignments(
         );
 
         if (matchesSpecialization) {
-          // Check if subject assignment already exists
-          const existingSubjectAssignment = await prisma.teacherSubjectAssignment.findFirst({
+          // First, create or find a qualification for this teacher-subject combination
+          const qualification = await prisma.teacherSubjectQualification.upsert({
             where: {
+              teacherId_subjectId: {
+                teacherId: teacher.teacherProfileId,
+                subjectId: subject.id
+              }
+            },
+            update: {},
+            create: {
               teacherId: teacher.teacherProfileId,
               subjectId: subject.id,
-              classId: assignment.classId,
+              level: 'QUALIFIED',
+              isVerified: true
+            }
+          });
+
+          // Then create the assignment using the qualification
+          const existingSubjectAssignment = await prisma.teacherSubjectAssignment.findFirst({
+            where: {
+              qualificationId: qualification.id,
+              campusId: assignment.class.courseCampus.campusId,
+              courseCampusId: assignment.class.courseCampusId,
               status: SystemStatus.ACTIVE
             }
           });
@@ -216,14 +233,14 @@ export async function seedTeacherAssignments(
           if (!existingSubjectAssignment) {
             await prisma.teacherSubjectAssignment.create({
               data: {
-                teacherId: teacher.teacherProfileId,
-                subjectId: subject.id,
-                classId: assignment.classId,
+                qualificationId: qualification.id,
+                campusId: assignment.class.courseCampus.campusId,
+                courseCampusId: assignment.class.courseCampusId,
                 status: SystemStatus.ACTIVE,
                 startDate: new Date(),
               }
             });
-            
+
             console.log(`   📖 Assigned ${teacher.name} to ${subject.name} in ${assignment.class.name}`);
           }
         }

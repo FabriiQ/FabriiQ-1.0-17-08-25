@@ -159,26 +159,39 @@ export async function seedChallanTemplates(prisma: PrismaClient) {
     }
 
     for (const templateData of challanTemplatesSeedData) {
-      await prisma.challanTemplate.upsert({
+      // Check if template with this name already exists
+      const existingTemplate = await prisma.challanTemplate.findFirst({
         where: {
-          name: templateData.name
-        },
-        update: {
-          description: templateData.description,
-          design: templateData.design,
-          copies: templateData.copies,
-          updatedAt: new Date(),
-        },
-        create: {
           name: templateData.name,
-          description: templateData.description,
-          design: templateData.design,
-          copies: templateData.copies,
-          institutionId: institution.id,
-          createdById: adminUser.id,
-          status: 'ACTIVE',
+          institutionId: institution.id
         }
       });
+
+      if (existingTemplate) {
+        // Update existing template
+        await prisma.challanTemplate.update({
+          where: { id: existingTemplate.id },
+          data: {
+            description: templateData.description,
+            design: templateData.design,
+            copies: templateData.copies,
+            updatedAt: new Date(),
+          }
+        });
+      } else {
+        // Create new template
+        await prisma.challanTemplate.create({
+          data: {
+            name: templateData.name,
+            description: templateData.description,
+            design: templateData.design,
+            copies: templateData.copies,
+            institutionId: institution.id,
+            createdById: adminUser.id,
+            status: 'ACTIVE',
+          }
+        });
+      }
     }
 
     console.log(`✅ Successfully seeded ${challanTemplatesSeedData.length} challan templates`);

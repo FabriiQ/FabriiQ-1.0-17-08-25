@@ -250,13 +250,21 @@ export function FeeDetailCard({
             </TabsList>
 
             <TabsContent value="details" className="space-y-4 pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center">
                     <DollarSign className="h-5 w-5 text-muted-foreground mr-2" />
                     <h3 className="text-sm font-medium text-muted-foreground">Base Amount</h3>
                   </div>
                   <p className="text-lg font-medium">{formatCurrency(fee.baseAmount)}</p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center">
+                    <DollarSign className="h-5 w-5 text-green-600 mr-2" />
+                    <h3 className="text-sm font-medium text-muted-foreground">Discount</h3>
+                  </div>
+                  <p className="text-lg font-medium text-green-600">-{formatCurrency(totalDiscounts)}</p>
                 </div>
 
                 <div className="space-y-1">

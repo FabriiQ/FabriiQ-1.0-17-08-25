@@ -15,7 +15,7 @@ function generateId() {
 // Helper function to generate multiple choice activity content
 function generateMultipleChoiceContent(topicTitle: string, index: number) {
   // Create different content based on topic and index
-  let questions = [];
+  let questions: any[] = [];
 
   if (topicTitle.toLowerCase().includes('solar system')) {
     questions = [
@@ -135,7 +135,7 @@ function generateMultipleChoiceContent(topicTitle: string, index: number) {
 // Helper function to generate true/false activity content
 function generateTrueFalseContent(topicTitle: string, index: number) {
   // Create different content based on topic and index
-  let questions = [];
+  let questions: any[] = [];
 
   if (topicTitle.toLowerCase().includes('science')) {
     questions = [
@@ -249,7 +249,7 @@ function generateTrueFalseContent(topicTitle: string, index: number) {
 // Helper function to generate multiple response activity content
 function generateMultipleResponseContent(topicTitle: string, index: number) {
   // Create different content based on topic and index
-  let questions = [];
+  let questions: any[] = [];
 
   if (topicTitle.toLowerCase().includes('food') || topicTitle.toLowerCase().includes('nutrition')) {
     questions = [
@@ -341,7 +341,7 @@ function generateMultipleResponseContent(topicTitle: string, index: number) {
 // Helper function to generate fill in the blanks activity content
 function generateFillInTheBlanksContent(topicTitle: string, index: number) {
   // Create different content based on topic and index
-  let questions = [];
+  let questions: any[] = [];
 
   if (topicTitle.toLowerCase().includes('geography')) {
     questions = [
@@ -709,7 +709,7 @@ function generateVideoContent(topicTitle: string, index: number) {
     videoTitle: `Introduction to ${topicTitle}`,
     videoDescription: `This video provides an introduction to ${topicTitle} and covers the basic concepts.`,
     duration: 300, // 5 minutes in seconds
-    checkpoints: []
+    checkpoints: [] as any[]
   };
 
   if (topicTitle.toLowerCase().includes('solar system') || topicTitle.toLowerCase().includes('space')) {
@@ -860,10 +860,10 @@ export async function seedActivitiesByType(
 ) {
   console.log('Seeding activities by type...');
 
-  // Find subjects by code
-  const mathSubject = subjects.find(s => s.code === 'PYP-CL3-MATH');
-  const englishSubject = subjects.find(s => s.code === 'PYP-CL3-ENG');
-  const scienceSubject = subjects.find(s => s.code === 'PYP-CL3-SCI');
+  // Resolve subjects by code (support PYP and MYP)
+  const mathSubject = subjects.find(s => s.code === 'PYP-CL3-MATH') || subjects.find(s => s.code === 'MYP-Y7-MATH') || subjects.find(s => s.code === 'MYP-Y8-MATH');
+  const englishSubject = subjects.find(s => s.code === 'PYP-CL3-ENG') || subjects.find(s => s.code === 'MYP-Y7-ENG') || subjects.find(s => s.code === 'MYP-Y8-ENGL') || subjects.find(s => s.code === 'MYP-Y8-ENG');
+  const scienceSubject = subjects.find(s => s.code === 'PYP-CL3-SCI') || subjects.find(s => s.code === 'MYP-Y7-SCI') || subjects.find(s => s.code === 'MYP-Y8-SCI');
 
   if (!mathSubject || !englishSubject || !scienceSubject) {
     console.warn('One or more subjects not found. Skipping activities seeding by type.');
@@ -900,13 +900,6 @@ export async function seedActivitiesByType(
   const targetClassId = classes[0].id;
   console.log(`Using class ID: ${targetClassId} for activities`);
 
-  // For compatibility with the rest of the code, we'll set both boysClassId and girlsClassId
-  // to the same target class ID
-  const boysClassId = targetClassId;
-  const girlsClassId = targetClassId;
-
-  console.log(`Using class IDs: ${boysClassId} and ${girlsClassId} for activities`);
-
   // Activity types to create
   const activityTypes = [
     LearningActivityType.MULTIPLE_CHOICE,
@@ -927,11 +920,11 @@ export async function seedActivitiesByType(
     { subject: mathSubject, topics: mathTopics },
     { subject: englishSubject, topics: englishTopics },
     { subject: scienceSubject, topics: scienceTopics }
-  ];
+  ].filter(s => s.subject && s.topics && s.topics.length > 0);
 
   // Check if we have topics for each subject
   if (mathTopics.length === 0 || englishTopics.length === 0 || scienceTopics.length === 0) {
-    console.warn('One or more subjects have no topics. Make sure to run the subject topics seed first.');
+    console.warn('One or more subjects have no topics. Seeding will continue but with fewer activities.');
     console.log(`Math topics: ${mathTopics.length}, English topics: ${englishTopics.length}, Science topics: ${scienceTopics.length}`);
   }
 

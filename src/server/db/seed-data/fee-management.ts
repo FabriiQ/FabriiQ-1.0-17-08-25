@@ -161,7 +161,7 @@ async function seedFeeStructures(
 ) {
   console.log('Seeding fee structures...');
 
-  const createdFeeStructures = [];
+  const createdFeeStructures: any[] = [];
 
   for (const feeStructure of feeStructureData) {
     // Find the program campus by code
@@ -210,7 +210,7 @@ async function seedDiscountTypes(
 ) {
   console.log('Seeding discount types...');
 
-  const createdDiscountTypes = [];
+  const createdDiscountTypes: any[] = [];
 
   for (const discountType of discountTypeData) {
     // Create the discount type
@@ -272,7 +272,7 @@ async function seedEnrollmentFees(
   }
 
   // Create enrollment fees for the sample enrollments
-  const enrollmentFees = [];
+  const enrollmentFees: any[] = [];
 
   // 1. John Smith - Annual Fee with Early Payment Discount
   const johnSmithEnrollment = sampleEnrollments[0];

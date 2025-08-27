@@ -938,9 +938,17 @@ export const userRouter = createTRPCRouter({
           status
         };
 
-        // Add userType filter if provided
+        // Add userType filter if provided (handle both old and new formats)
         if (userType) {
-          where.userType = userType;
+          if (userType === 'CAMPUS_TEACHER') {
+            where.userType = { in: ['CAMPUS_TEACHER', 'TEACHER'] };
+          } else if (userType === 'CAMPUS_STUDENT') {
+            where.userType = { in: ['CAMPUS_STUDENT', 'STUDENT'] };
+          } else if (userType === 'CAMPUS_ADMIN') {
+            where.userType = { in: ['CAMPUS_ADMIN', 'ADMINISTRATOR'] };
+          } else {
+            where.userType = userType;
+          }
         }
 
         // Add search filter if provided
@@ -955,15 +963,31 @@ export const userRouter = createTRPCRouter({
         // Get users with the specified filters
         const users = await ctx.prisma.user.findMany({
           where,
-          include: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+            userType: true,
             activeCampuses: {
               include: {
-                campus: true
+                campus: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                }
               }
             },
-            coordinatorProfile: userType === UserType.CAMPUS_COORDINATOR || userType === 'COORDINATOR',
-            teacherProfile: userType === UserType.CAMPUS_TEACHER || userType === 'TEACHER',
-            studentProfile: userType === UserType.CAMPUS_STUDENT
+            coordinatorProfile: userType === UserType.CAMPUS_COORDINATOR || userType === 'COORDINATOR' ? {
+              select: { id: true }
+            } : false,
+            teacherProfile: userType === UserType.CAMPUS_TEACHER || userType === 'TEACHER' ? {
+              select: { id: true }
+            } : false,
+            studentProfile: userType === UserType.CAMPUS_STUDENT ? {
+              select: { id: true }
+            } : false
           },
           skip: (page - 1) * pageSize,
           take: pageSize,

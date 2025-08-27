@@ -454,19 +454,26 @@ export class SocialWallService {
         logger.error('Failed to send post notification', { error, postId: result.id });
       });
 
-      // Send mention notifications if users were tagged
+      // Send mention notifications if users were tagged (optimized batch processing)
       if (input.taggedUserIds && input.taggedUserIds.length > 0) {
-        for (const taggedUserId of input.taggedUserIds) {
-          this.notificationService.notifyMention(
-            `mention_${result.id}_${taggedUserId}`,
-            taggedUserId,
-            userId,
-            'post',
-            result.id
-          ).catch(error => {
-            logger.error('Failed to send mention notification', { error, taggedUserId });
-          });
-        }
+        // Process mentions asynchronously to prevent blocking
+        setImmediate(async () => {
+          try {
+            await this.notificationService.notifyMentionsBatch(
+              result.id,
+              input.taggedUserIds || [],
+              userId,
+              'post',
+              result.id
+            );
+          } catch (error) {
+            logger.error('Failed to send batch mention notifications', {
+              error,
+              postId: result.id,
+              taggedUserIds: input.taggedUserIds
+            });
+          }
+        });
       }
 
       // Emit real-time event for new post
@@ -841,19 +848,26 @@ export class SocialWallService {
         logger.error('Failed to send comment notification', { error, commentId: result.id });
       });
 
-      // Send mention notifications if users were tagged
+      // Send mention notifications if users were tagged (optimized batch processing)
       if (input.taggedUserIds && input.taggedUserIds.length > 0) {
-        for (const taggedUserId of input.taggedUserIds) {
-          this.notificationService.notifyMention(
-            `mention_${result.id}_${taggedUserId}`,
-            taggedUserId,
-            userId,
-            'comment',
-            result.id
-          ).catch(error => {
-            logger.error('Failed to send mention notification', { error, taggedUserId });
-          });
-        }
+        // Process mentions asynchronously to prevent blocking
+        setImmediate(async () => {
+          try {
+            await this.notificationService.notifyMentionsBatch(
+              result.id,
+              input.taggedUserIds || [],
+              userId,
+              'comment',
+              result.id
+            );
+          } catch (error) {
+            logger.error('Failed to send batch mention notifications', {
+              error,
+              commentId: result.id,
+              taggedUserIds: input.taggedUserIds
+            });
+          }
+        });
       }
 
       // Emit real-time event for new comment

@@ -13,14 +13,23 @@ import { logger } from '../api/utils/logger';
 import { BackgroundJobSystem, JobFrequency, JobDefinition } from './background-job-system';
 import { ActivityCacheService } from '../api/services/activity-cache.service';
 import { ActivityArchivingService } from '../api/services/activity-archiving.service';
+import { RuleBasedMessageClassifier } from '../../features/messaging/core/RuleBasedClassifier';
+import { FERPAComplianceEngine } from '../../features/compliance/FERPAComplianceEngine';
+import { AuditLogService } from '../../features/compliance/AuditLogService';
 
 export class SystemJobManager {
   private prisma: PrismaClient;
   private jobSystem: BackgroundJobSystem;
+  private messageClassifier: RuleBasedMessageClassifier;
+  private ferpaEngine: FERPAComplianceEngine;
+  private auditService: AuditLogService;
 
   constructor(prisma: PrismaClient, jobSystem: BackgroundJobSystem) {
     this.prisma = prisma;
     this.jobSystem = jobSystem;
+    this.messageClassifier = new RuleBasedMessageClassifier();
+    this.ferpaEngine = new FERPAComplianceEngine();
+    this.auditService = new AuditLogService(prisma);
   }
 
   /**
@@ -40,6 +49,9 @@ export class SystemJobManager {
 
     // Register performance optimization jobs
     this.registerPerformanceOptimizationJobs();
+
+    // Register message analysis jobs
+    this.registerMessageAnalysisJobs();
   }
 
   /**
@@ -222,20 +234,11 @@ export class SystemJobManager {
           }
         });
 
-        // Clean up expired verification tokens
-        const tokenResult = await this.prisma.verificationToken.deleteMany({
-          where: {
-            expires: {
-              lt: new Date()
-            }
-          }
-        });
-
-        logger.info(`Cleaned up ${sessionResult.count} expired sessions and ${tokenResult.count} expired tokens`);
+        // Note: No VerificationToken model in schema; only clean up sessions
+        logger.info(`Cleaned up ${sessionResult.count} expired sessions`);
 
         return {
-          deletedSessions: sessionResult.count,
-          deletedTokens: tokenResult.count
+          deletedSessions: sessionResult.count
         };
       },
       priority: 7,
@@ -298,4 +301,274 @@ export class SystemJobManager {
     };
     this.jobSystem.registerJob(performanceMonitoringJob);
   }
+
+  /**
+   * Register message analysis jobs
+   */
+  private registerMessageAnalysisJobs(): void {
+    // Message analysis job - runs every 6 hours
+    const messageAnalysisJob: JobDefinition = {
+      id: 'system-message-analysis',
+      name: 'Message Analysis',
+      description: 'Analyzes unprocessed messages for classification, moderation flagging, and audit updates',
+      frequency: JobFrequency.CUSTOM,
+      customInterval: 6 * 60 * 60 * 1000, // 6 hours in milliseconds
+      handler: async () => {
+        logger.info('Running message analysis job');
+
+        const startTime = Date.now();
+        let totalProcessed = 0;
+        let flaggedMessages = 0;
+        let criticalMessages = 0;
+        let errors = 0;
+
+        try {
+          // Process messages in batches to avoid memory issues
+          const batchSize = parseInt(process.env.MESSAGE_ANALYSIS_BATCH_SIZE || '100');
+          let offset = 0;
+          let hasMoreMessages = true;
+
+          while (hasMoreMessages) {
+            const batch = await this.getUnanalyzedMessages(batchSize, offset);
+
+            if (batch.length === 0) {
+              hasMoreMessages = false;
+              break;
+            }
+
+            for (const message of batch) {
+              try {
+                await this.analyzeMessage(message);
+                totalProcessed++;
+              } catch (error) {
+                errors++;
+                logger.error('Failed to analyze message', {
+                  messageId: message.id,
+                  error
+                });
+              }
+            }
+
+            offset += batchSize;
+
+            // Prevent infinite loops
+            if (offset > 10000) {
+              logger.warn('Reached maximum offset limit, stopping analysis');
+              break;
+            }
+          }
+
+          // Count flagged and critical messages from this run
+          const flaggedCount = await this.prisma.moderationQueue.count({
+            where: {
+              createdAt: {
+                gte: new Date(startTime)
+              }
+            }
+          });
+
+          const criticalCount = await this.prisma.socialPost.count({
+            where: {
+              riskLevel: 'CRITICAL',
+              analyzedAt: {
+                gte: new Date(startTime)
+              }
+            }
+          });
+
+          flaggedMessages = flaggedCount;
+          criticalMessages = criticalCount;
+
+          const processingTimeMs = Date.now() - startTime;
+
+          logger.info('Message analysis completed', {
+            totalProcessed,
+            flaggedMessages,
+            criticalMessages,
+            errors,
+            processingTimeMs
+          });
+
+          // Notify moderators if there are critical messages
+          if (criticalMessages > 0) {
+            logger.warn('Critical messages detected - moderators should be notified', {
+              criticalCount: criticalMessages,
+              totalFlagged: flaggedMessages
+            });
+          }
+
+          return {
+            success: true,
+            totalProcessed,
+            flaggedMessages,
+            criticalMessages,
+            errors,
+            processingTimeMs
+          };
+
+        } catch (error) {
+          logger.error('Message analysis job failed', { error });
+          throw error;
+        }
+      },
+      priority: 5,
+      timeout: 30 * 60 * 1000, // 30 minutes
+      retryCount: 2,
+      retryDelay: 60 * 60 * 1000, // 1 hour
+      enabled: process.env.MESSAGE_ANALYSIS_CRON_ENABLED !== 'false'
+    };
+
+    this.jobSystem.registerJob(messageAnalysisJob);
+  }
+
+  /**
+   * Get unanalyzed messages from the database
+   */
+  private async getUnanalyzedMessages(limit: number, offset: number) {
+    try {
+      const messages = await this.prisma.socialPost.findMany({
+        where: {
+          analyzedAt: null, // Only get unanalyzed messages
+          messageType: { not: null }, // Only messages (not regular posts)
+        },
+        include: {
+          author: {
+            select: { id: true, name: true, userType: true }
+          },
+          class: {
+            select: { id: true, name: true }
+          }
+        },
+        orderBy: { createdAt: 'asc' },
+        take: limit,
+        skip: offset
+      });
+
+      return messages;
+    } catch (error) {
+      logger.error('Failed to fetch unanalyzed messages', { error, limit, offset });
+      throw error;
+    }
+  }
+
+  /**
+   * Analyze a single message
+   */
+  private async analyzeMessage(message: any): Promise<void> {
+    const startTime = Date.now();
+
+    try {
+      // 1. Classify the message
+      const classification = this.messageClassifier.classifyMessage(message.content, {
+        sender: message.author,
+        recipients: [], // We don't have recipients in the message record
+        classId: message.classId
+      });
+
+      // 2. FERPA compliance check (align with FERPAComplianceEngine API)
+      const ferpaClassification = this.ferpaEngine.classifyFERPARequirements(
+        message.content,
+        message.author,
+        []
+      );
+
+      // 3. Update message with analysis results
+      await this.prisma.socialPost.update({
+        where: { id: message.id },
+        data: {
+          // Update classification fields
+          contentCategory: classification.contentCategory,
+          riskLevel: classification.riskLevel,
+          isEducationalRecord: ferpaClassification.isEducationalRecord,
+          encryptionLevel: classification.encryptionLevel,
+          auditRequired: classification.auditRequired || ferpaClassification.disclosureLoggingRequired,
+          legalBasis: classification.legalBasis,
+          flaggedKeywords: classification.flaggedKeywords || [],
+
+          // Mark as analyzed
+          analyzedAt: new Date()
+        }
+      });
+
+      // 4. Create audit log entry
+      await this.auditService.log(
+        message.id,
+        'ANALYZED',
+        'system',
+        {
+          classification,
+          ferpaClassification,
+          processingTimeMs: Date.now() - startTime,
+          cronJobRun: true
+        }
+      );
+
+      // 5. Create moderation queue entry if needed
+      if (classification.moderationRequired || classification.riskLevel === 'CRITICAL') {
+        await this.createModerationQueueEntry(message, classification);
+      }
+
+    } catch (error) {
+      logger.error('Message analysis failed', {
+        messageId: message.id,
+        error
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Create moderation queue entry
+   */
+  private async createModerationQueueEntry(message: any, classification: any): Promise<void> {
+    try {
+      // Check if already in moderation queue to avoid duplicates
+      const existing = await this.prisma.moderationQueue.findFirst({
+        where: { messageId: message.id }
+      });
+
+      if (existing) {
+        logger.debug('Message already in moderation queue', { messageId: message.id });
+        return;
+      }
+
+      await this.prisma.moderationQueue.create({
+        data: {
+          messageId: message.id,
+          reason: `Flagged by automated analysis: ${classification.riskLevel} risk`,
+          flaggedKeywords: classification.flaggedKeywords || [],
+          priority: this.mapRiskToPriority(classification.riskLevel),
+          status: 'PENDING',
+          createdAt: new Date()
+        }
+      });
+
+      logger.info('Created moderation queue entry', {
+        messageId: message.id,
+        riskLevel: classification.riskLevel
+      });
+
+    } catch (error) {
+      logger.error('Failed to create moderation queue entry', {
+        messageId: message.id,
+        error
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Map risk level to moderation priority
+   */
+  private mapRiskToPriority(riskLevel: string): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
+    switch (riskLevel) {
+      case 'CRITICAL': return 'CRITICAL';
+      case 'HIGH': return 'HIGH';
+      case 'MEDIUM': return 'MEDIUM';
+      case 'LOW': return 'LOW';
+      default: return 'MEDIUM';
+    }
+  }
+
+
 }

@@ -43,6 +43,15 @@ export const campusAdminsData = [
     status: SystemStatus.ACTIVE,
     campusCode: 'SIS-GIRLS',
   },
+  {
+    email: 'central_admin@sunshine.edu',
+    name: 'Daniel Carter',
+    username: 'daniel_carter',
+    userType: UserType.CAMPUS_ADMIN,
+    accessScope: AccessScope.SINGLE_CAMPUS,
+    status: SystemStatus.ACTIVE,
+    campusCode: 'SIS-CENTRAL',
+  },
 ];
 
 // Teachers
@@ -55,9 +64,9 @@ export const teachersData = [
     accessScope: AccessScope.SINGLE_CAMPUS,
     status: SystemStatus.ACTIVE,
     campusCode: 'SIS-BOYS',
-    subjects: ['PYP-CL3-MATH'],
+    subjects: ['MYP-Y7-MATH','MYP-Y8-MATH'],
     isClassTeacher: true,
-    classCode: 'SIS-BOYS-CL3A',
+    classCode: 'SIS-BOYS-Y7-A',
   },
   {
     email: 'math_girls@sunshine.edu',
@@ -67,9 +76,9 @@ export const teachersData = [
     accessScope: AccessScope.SINGLE_CAMPUS,
     status: SystemStatus.ACTIVE,
     campusCode: 'SIS-GIRLS',
-    subjects: ['PYP-CL3-MATH'],
+    subjects: ['MYP-Y7-MATH','MYP-Y8-MATH'],
     isClassTeacher: true,
-    classCode: 'SIS-GIRLS-CL3A',
+    classCode: 'SIS-GIRLS-Y7-A',
   },
   {
     email: 'english_boys@sunshine.edu',
@@ -79,7 +88,7 @@ export const teachersData = [
     accessScope: AccessScope.SINGLE_CAMPUS,
     status: SystemStatus.ACTIVE,
     campusCode: 'SIS-BOYS',
-    subjects: ['PYP-CL3-ENG'],
+    subjects: ['MYP-Y7-ENGL','MYP-Y8-ENGL'],
     isClassTeacher: false,
   },
   {
@@ -90,7 +99,7 @@ export const teachersData = [
     accessScope: AccessScope.SINGLE_CAMPUS,
     status: SystemStatus.ACTIVE,
     campusCode: 'SIS-GIRLS',
-    subjects: ['PYP-CL3-ENG'],
+    subjects: ['MYP-Y7-ENGL','MYP-Y8-ENGL'],
     isClassTeacher: false,
   },
   {
@@ -100,8 +109,8 @@ export const teachersData = [
     userType: UserType.TEACHER,
     accessScope: AccessScope.MULTI_CAMPUS,
     status: SystemStatus.ACTIVE,
-    campusCodes: ['SIS-BOYS', 'SIS-GIRLS'],
-    subjects: ['PYP-CL3-SCI'],
+    campusCodes: ['SIS-BOYS', 'SIS-GIRLS','SIS-CENTRAL'],
+    subjects: ['MYP-Y7-SCI','MYP-Y8-SCI'],
     isClassTeacher: false,
   },
   {
@@ -111,8 +120,8 @@ export const teachersData = [
     userType: UserType.TEACHER,
     accessScope: AccessScope.MULTI_CAMPUS,
     status: SystemStatus.ACTIVE,
-    campusCodes: ['SIS-BOYS', 'SIS-GIRLS'],
-    subjects: ['PYP-CL3-PE'],
+    campusCodes: ['SIS-BOYS', 'SIS-GIRLS','SIS-CENTRAL'],
+    subjects: ['MYP-Y7-PE','MYP-Y8-PE'],
     isClassTeacher: false,
   },
 ];
@@ -132,7 +141,7 @@ export const boysStudentsData = [
 ];
 
 export const girlsStudentsData = [
-  { name: 'Emma Smith', email: 'emma_smith@student.sunshine.edu', username: 'emma_smith' },
+  { name: 'Emily Johnson', email: 'emily_johnson@student.sunshine.edu', username: 'emily_johnson' }, // Demo user from login page
   { name: 'Olivia Johnson', email: 'olivia_johnson@student.sunshine.edu', username: 'olivia_johnson' },
   { name: 'Sophia Brown', email: 'sophia_brown@student.sunshine.edu', username: 'sophia_brown' },
   { name: 'Isabella Davis', email: 'isabella_davis@student.sunshine.edu', username: 'isabella_davis' },
@@ -162,23 +171,42 @@ export async function seedUsers(prisma: PrismaClient, institutions: any[], campu
   }
 
   // Create System Admin
-  const systemAdmin = await prisma.user.upsert({
-    where: { email: systemAdminData.email },
-    update: {
-      name: systemAdminData.name,
-      username: systemAdminData.username,
-      userType: systemAdminData.userType,
-      accessScope: systemAdminData.accessScope,
-      status: systemAdminData.status,
-      primaryCampusId: boysCampus.id, // Set primary campus ID
-    },
-    create: {
-      ...systemAdminData,
-      password: hashedPassword,
-      institutionId: institution.id,
-      primaryCampusId: boysCampus.id, // Set primary campus ID
-    },
+  // First check if user exists by email or username
+  const existingAdmin = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { email: systemAdminData.email },
+        { username: systemAdminData.username }
+      ]
+    }
   });
+
+  let systemAdmin;
+  if (existingAdmin) {
+    // Update existing user
+    systemAdmin = await prisma.user.update({
+      where: { id: existingAdmin.id },
+      data: {
+        name: systemAdminData.name,
+        email: systemAdminData.email,
+        username: systemAdminData.username,
+        userType: systemAdminData.userType,
+        accessScope: systemAdminData.accessScope,
+        status: systemAdminData.status,
+        primaryCampusId: boysCampus.id,
+      },
+    });
+  } else {
+    // Create new user
+    systemAdmin = await prisma.user.create({
+      data: {
+        ...systemAdminData,
+        password: hashedPassword,
+        institutionId: institution.id,
+        primaryCampusId: boysCampus.id,
+      },
+    });
+  }
 
   // Create Program Coordinator
   const coordinator = await prisma.user.upsert({
@@ -239,7 +267,7 @@ export async function seedUsers(prisma: PrismaClient, institutions: any[], campu
   });
 
   // Create Campus Admins
-  const campusAdmins = [];
+  const campusAdmins: any[] = [];
 
   for (const adminData of campusAdminsData) {
     const { campusCode, ...userData } = adminData;
@@ -250,23 +278,42 @@ export async function seedUsers(prisma: PrismaClient, institutions: any[], campu
       continue;
     }
 
-    const admin = await prisma.user.upsert({
-      where: { email: userData.email },
-      update: {
-        name: userData.name,
-        username: userData.username,
-        userType: userData.userType,
-        accessScope: userData.accessScope,
-        status: userData.status,
-        primaryCampusId: campus.id, // Set primary campus ID
-      },
-      create: {
-        ...userData,
-        password: hashedPassword,
-        institutionId: institution.id,
-        primaryCampusId: campus.id, // Set primary campus ID
-      },
+    // Check if user exists by email or username
+    const existingAdmin = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: userData.email },
+          { username: userData.username }
+        ]
+      }
     });
+
+    let admin;
+    if (existingAdmin) {
+      // Update existing user
+      admin = await prisma.user.update({
+        where: { id: existingAdmin.id },
+        data: {
+          name: userData.name,
+          email: userData.email,
+          username: userData.username,
+          userType: userData.userType,
+          accessScope: userData.accessScope,
+          status: userData.status,
+          primaryCampusId: campus.id,
+        },
+      });
+    } else {
+      // Create new user
+      admin = await prisma.user.create({
+        data: {
+          ...userData,
+          password: hashedPassword,
+          institutionId: institution.id,
+          primaryCampusId: campus.id,
+        },
+      });
+    }
 
     // Create campus access for admin
     await prisma.userCampusAccess.upsert({
@@ -292,7 +339,7 @@ export async function seedUsers(prisma: PrismaClient, institutions: any[], campu
   }
 
   // Create Teachers
-  const teachers = [];
+  const teachers: any[] = [];
 
   for (const teacherData of teachersData) {
     const { campusCode, campusCodes, subjects, isClassTeacher, classCode, ...userData } = teacherData;
@@ -394,7 +441,7 @@ export async function seedUsers(prisma: PrismaClient, institutions: any[], campu
   }
 
   // Create Students
-  const students = [];
+  const students: any[] = [];
 
   // Boys students
   for (const studentData of boysStudentsData) {

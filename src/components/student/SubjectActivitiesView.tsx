@@ -141,8 +141,8 @@ export function SubjectActivitiesView({
     code: ''
   };
 
-  // Fetch activities with grades for this student, class, and subject with caching for offline support
-  const { data: activityGrades, isLoading } = api.activityGrade.listByStudentAndClass.useQuery(
+  // Fetch activities with optional grades for this student, class, and subject with caching for offline support
+  const { data: activitiesWithGrades, isLoading } = api.activity.getStudentActivitiesByClassAndSubject.useQuery(
     {
       classId,
       subjectId
@@ -156,13 +156,14 @@ export function SubjectActivitiesView({
     }
   );
 
-  // Log activity grades for debugging
+  // Log activities for debugging
   useEffect(() => {
-    if (activityGrades) {
-      console.log('Activity grades loaded:', activityGrades.length);
+    if (activitiesWithGrades) {
+      console.log('Activities loaded:', activitiesWithGrades.length);
       console.log('Subject ID:', subjectId);
+      console.log('Activities with grades:', activitiesWithGrades.filter(a => a.activityGrades.length > 0).length);
     }
-  }, [activityGrades, subjectId]);
+  }, [activitiesWithGrades, subjectId]);
 
   // Update offline status when connectivity changes
   useEffect(() => {
@@ -208,47 +209,67 @@ export function SubjectActivitiesView({
     const now = new Date();
     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    // If no activity grades, return empty array
-    if (!activityGrades) return [];
+    // If no activities, return empty array
+    if (!activitiesWithGrades) return [];
 
-    console.log('Processing activity grades:', activityGrades.length);
+    console.log('Processing activities with grades:', activitiesWithGrades.length);
 
-    // Process the activity grades with additional metadata
-    return activityGrades.map((grade: any) => {
-      const activity = grade.activity;
+    // Process the activities with optional grade metadata
+    return activitiesWithGrades.map((activity: any) => {
+      // Get the most recent grade if available
+      const grade = activity.activityGrades && activity.activityGrades.length > 0
+        ? activity.activityGrades[0]
+        : null;
 
       // Map the ActivityGrade status to our display status
       let status = 'pending';
-      switch (grade.status) {
-        case 'GRADED':
-        case 'COMPLETED':
-          status = 'completed';
-          console.log('Activity marked as completed:', activity.title, grade.status);
-          break;
-        case 'SUBMITTED':
-        case 'DRAFT':
-          status = 'in-progress';
-          console.log('Activity marked as in-progress:', activity.title);
-          break;
-        case 'UNATTEMPTED':
-          // Check if the activity is overdue or upcoming based on dates
-          const isOverdue = activity.endDate && new Date(activity.endDate) < now;
-          const isUpcoming = activity.startDate && new Date(activity.startDate) > now;
+      if (grade) {
+        switch (grade.status) {
+          case 'GRADED':
+          case 'COMPLETED':
+            status = 'completed';
+            console.log('Activity marked as completed:', activity.title, grade.status);
+            break;
+          case 'SUBMITTED':
+          case 'DRAFT':
+            status = 'in-progress';
+            console.log('Activity marked as in-progress:', activity.title);
+            break;
+          case 'UNATTEMPTED':
+            // Check if the activity is overdue or upcoming based on dates
+            const isOverdue = activity.endDate && new Date(activity.endDate) < now;
+            const isUpcoming = activity.startDate && new Date(activity.startDate) > now;
 
-          if (isOverdue) {
-            status = 'overdue';
-            console.log('Activity marked as overdue:', activity.title);
-          } else if (isUpcoming) {
-            status = 'upcoming';
-            console.log('Activity marked as upcoming:', activity.title);
-          } else {
+            if (isOverdue) {
+              status = 'overdue';
+              console.log('Activity marked as overdue:', activity.title);
+            } else if (isUpcoming) {
+              status = 'upcoming';
+              console.log('Activity marked as upcoming:', activity.title);
+            } else {
+              status = 'pending';
+              console.log('Activity marked as pending:', activity.title);
+            }
+            break;
+          default:
             status = 'pending';
-            console.log('Activity marked as pending:', activity.title);
-          }
-          break;
-        default:
+            console.log('Activity marked as pending (default):', activity.title);
+        }
+      } else {
+        // No grade exists, determine status based on dates
+        const isOverdue = activity.endDate && new Date(activity.endDate) < now;
+        const isUpcoming = activity.startDate && new Date(activity.startDate) > now;
+
+        if (isOverdue) {
+          status = 'overdue';
+          console.log('Activity marked as overdue (no grade):', activity.title);
+        } else if (isUpcoming) {
+          status = 'upcoming';
+          console.log('Activity marked as upcoming (no grade):', activity.title);
+        } else {
           status = 'pending';
-          console.log('Activity marked as pending (default):', activity.title);
+          console.log('Activity marked as pending (no grade):', activity.title);
+        }
       }
 
       // Mark activities created in the last 7 days as new
@@ -260,9 +281,9 @@ export function SubjectActivitiesView({
       const chapterId = activity.topic?.id || 'general';
 
       // Add commitment information
-      let isCommitted = grade.isCommitted || false;
-      let commitmentDeadline = grade.commitmentDeadline ? new Date(grade.commitmentDeadline) : null;
-      let commitmentMet = grade.commitmentMet;
+      let isCommitted = grade?.isCommitted || false;
+      let commitmentDeadline = grade?.commitmentDeadline ? new Date(grade.commitmentDeadline) : null;
+      let commitmentMet = grade?.commitmentMet;
       let isCommitmentOverdue = commitmentDeadline && now > commitmentDeadline;
 
       // Add engagement metrics (in a production app, these would come from analytics)
@@ -302,7 +323,7 @@ export function SubjectActivitiesView({
         type: activityType,
         status: status,
         dueDate: activity.endDate || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
-        score: grade.score, // Use grade.score instead of activity.score
+        score: grade?.score, // Use grade.score instead of activity.score
         totalScore: activity.maxScore || 100,
         chapterName: chapterName,
         chapterId: chapterId,
@@ -331,7 +352,7 @@ export function SubjectActivitiesView({
 
       return processedActivity;
     });
-  }, [activityGrades, classId]);
+  }, [activitiesWithGrades, classId]);
 
   // Find activities in progress for "continue where you left off" section
   const inProgressActivities = useMemo(() => {
@@ -476,7 +497,7 @@ export function SubjectActivitiesView({
       );
     }
 
-    if (!activityGrades) {
+    if (!activitiesWithGrades) {
       return (
         <div className="p-6 text-center">
           <div className="mb-4 text-red-500">
@@ -748,7 +769,7 @@ export function SubjectActivitiesView({
       </div>
     );
   }, [
-    isLoading, activityGrades, isOffline, subject, onBack, router,
+    isLoading, activitiesWithGrades, isOffline, subject, onBack, router,
     viewType, handleViewChange, animateTransition, inProgressActivities,
     filteredActivities, mapActivityToCorrectFormat, subjectId, classId
   ]);

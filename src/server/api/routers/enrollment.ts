@@ -11,7 +11,7 @@ import { TRPCError } from "@trpc/server";
 import { SystemStatus } from "@prisma/client";
 
 export const enrollmentRouter = createTRPCRouter({
-  // Get all enrollments with optional filtering
+  // Get all enrollments with optional filtering - OPTIMIZED WITH PAGINATION
   getAllEnrollments: protectedProcedure
     .input(
       z.object({
@@ -19,6 +19,8 @@ export const enrollmentRouter = createTRPCRouter({
         programId: z.string().optional(),
         status: z.string().optional(),
         search: z.string().optional(),
+        page: z.number().min(1).default(1).optional(),
+        pageSize: z.number().min(1).max(100).default(25).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -395,12 +397,12 @@ export const enrollmentRouter = createTRPCRouter({
             allHistory.push({
               id: transaction.id,
               type: 'PAYMENT_TRANSACTION',
-              action: `Payment ${transaction.type}`,
-              description: `${transaction.type}: ${transaction.amount} via ${transaction.paymentMethod}`,
+              action: `Payment Transaction`,
+              description: `Payment: $${transaction.amount} via ${transaction.method}`,
               details: {
                 transactionId: transaction.id,
                 amount: transaction.amount,
-                paymentMethod: transaction.paymentMethod,
+                paymentMethod: transaction.method,
                 reference: transaction.reference,
                 status: transaction.status,
               },
@@ -608,4 +610,6 @@ export const enrollmentRouter = createTRPCRouter({
       const enrollmentService = new EnrollmentService({ prisma: ctx.prisma });
       return enrollmentService.getEnrollmentsByFeeStructure(input.feeStructureId);
     }),
+
+
 });

@@ -11,7 +11,28 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { FeeComponent, FeeComponentList, FeeComponentType } from "@/components/core/fee/fee-component-list";
+// Define types locally to avoid circular dependencies
+export type FeeComponentType =
+  | "TUITION"
+  | "ADMISSION"
+  | "REGISTRATION"
+  | "LIBRARY"
+  | "LABORATORY"
+  | "SPORTS"
+  | "TRANSPORT"
+  | "HOSTEL"
+  | "EXAMINATION"
+  | "MISCELLANEOUS";
+
+export interface FeeComponent {
+  id?: string;
+  name: string;
+  type: FeeComponentType;
+  amount: number;
+  description?: string;
+  isRecurring?: boolean;
+  recurringInterval?: string;
+}
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { X, Plus, Edit, Trash } from "lucide-react";
@@ -32,6 +53,16 @@ const feeComponentSchema = z.object({
   type: z.string().min(1, "Type is required"),
   amount: z.coerce.number().min(0, "Amount must be a positive number"),
   description: z.string().optional(),
+  isRecurring: z.boolean().default(false),
+  recurringInterval: z.string().optional(),
+}).refine((data) => {
+  if (data.isRecurring && !data.recurringInterval) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Recurring interval is required when component is recurring",
+  path: ["recurringInterval"],
 });
 
 export type FeeStructureFormValues = z.infer<typeof feeStructureSchema> & {
@@ -99,6 +130,8 @@ export function FeeStructureForm({
       type: undefined,
       amount: 0,
       description: "",
+      isRecurring: false,
+      recurringInterval: undefined,
     },
   });
 
@@ -125,6 +158,8 @@ export function FeeStructureForm({
         type: component.type,
         amount: component.amount,
         description: component.description || "",
+        isRecurring: component.isRecurring || false,
+        recurringInterval: component.recurringInterval || undefined,
       });
     } else {
       setEditingComponent(null);
@@ -133,6 +168,8 @@ export function FeeStructureForm({
         type: undefined,
         amount: 0,
         description: "",
+        isRecurring: false,
+        recurringInterval: undefined,
       });
     }
     setIsComponentDialogOpen(true);
@@ -145,6 +182,8 @@ export function FeeStructureForm({
       type: values.type as FeeComponentType,
       amount: values.amount,
       description: values.description,
+      isRecurring: values.isRecurring,
+      recurringInterval: values.recurringInterval,
     };
 
     if (editingComponent) {
@@ -305,9 +344,9 @@ export function FeeStructureForm({
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                     <div className="space-y-0.5">
-                      <FormLabel>Recurring Fee</FormLabel>
+                      <FormLabel>Auto-Generate Recurring Fees</FormLabel>
                       <p className="text-sm text-muted-foreground">
-                        Is this a recurring fee structure?
+                        Automatically create new fees based on recurring components
                       </p>
                     </div>
                     <FormControl>
@@ -395,6 +434,16 @@ export function FeeStructureForm({
                           <span className="text-sm text-muted-foreground">
                             ${component.amount.toFixed(2)}
                           </span>
+                          {component.isRecurring && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100">
+                              {component.recurringInterval}
+                            </span>
+                          )}
+                          {!component.isRecurring && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
+                              One-time
+                            </span>
+                          )}
                         </div>
                         {component.description && (
                           <p className="text-xs text-muted-foreground mt-1">{component.description}</p>
@@ -543,6 +592,58 @@ export function FeeStructureForm({
                     </FormItem>
                   )}
                 />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={componentForm.control}
+                    name="isRecurring"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <div className="space-y-0.5">
+                          <FormLabel>Recurring Component</FormLabel>
+                          <p className="text-xs text-muted-foreground">
+                            Is this component charged repeatedly?
+                          </p>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {componentForm.watch("isRecurring") && (
+                    <FormField
+                      control={componentForm.control}
+                      name="recurringInterval"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Recurring Interval <span className="text-destructive">*</span></FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select interval" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="MONTHLY">Monthly</SelectItem>
+                              <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                              <SelectItem value="SEMESTER">Semester</SelectItem>
+                              <SelectItem value="ANNUAL">Annual</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsComponentDialogOpen(false)}>

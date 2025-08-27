@@ -23,6 +23,8 @@ export interface FeeComponent {
   type: FeeComponentType;
   amount: number;
   description?: string;
+  isRecurring?: boolean;
+  recurringInterval?: string;
 }
 
 interface FeeComponentListProps {

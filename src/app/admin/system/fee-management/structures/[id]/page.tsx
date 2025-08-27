@@ -22,7 +22,42 @@ import {
   Users
 } from 'lucide-react';
 import { DollarSign } from '@/components/ui/icons/lucide-icons';
-import { FeeComponentList, FeeComponent } from '@/components/shared/entities/fee';
+import { FeeComponent } from '@/components/shared/entities/fee/fee-structure-form';
+
+// Simple local FeeComponentList implementation to avoid circular dependencies
+function FeeComponentList({ components, showTotal = true }: { components: FeeComponent[], showTotal?: boolean }) {
+  const total = components.reduce((sum, component) => sum + component.amount, 0);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-2">
+        {components.map((component, index) => (
+          <div key={index} className="flex justify-between items-center p-3 border rounded-lg">
+            <div>
+              <div className="font-medium">{component.name}</div>
+              <div className="text-sm text-muted-foreground">{component.type}</div>
+              {component.description && (
+                <div className="text-sm text-muted-foreground">{component.description}</div>
+              )}
+            </div>
+            <div className="text-right">
+              <div className="font-medium">${component.amount.toFixed(2)}</div>
+              {component.isRecurring && (
+                <div className="text-xs text-muted-foreground">{component.recurringInterval}</div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      {showTotal && (
+        <div className="flex justify-between items-center p-3 border-t font-semibold">
+          <span>Total</span>
+          <span>${total.toFixed(2)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
 import { DataTable } from '@/components/ui/data-display/data-table';
 import { ColumnDef } from '@tanstack/react-table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';

@@ -4,6 +4,7 @@ import { LateFeeService } from './late-fee.service';
 import { AutomatedLateFeeService } from './automated-late-fee.service';
 import { AutomatedFeeWorkflowService } from './automated-fee-workflow.service';
 import { EnhancedFeeIntegrationService } from './enhanced-fee-integration.service';
+import { RecurringFeeProcessingService } from './recurring-fee-processing.service';
 
 /**
  * Cron service for running scheduled tasks
@@ -14,12 +15,14 @@ export class CronService {
   private notificationService: FeeNotificationService;
   private automatedWorkflowService: AutomatedFeeWorkflowService;
   private feeIntegrationService: EnhancedFeeIntegrationService;
+  private recurringFeeService: RecurringFeeProcessingService;
   private scheduledJobs: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(private prisma: PrismaClient) {
-    this.lateFeeService = new LateFeeService(prisma);
+    this.lateFeeService = new LateFeeService({ prisma });
     this.automatedLateFeeService = new AutomatedLateFeeService({ prisma });
     this.notificationService = new FeeNotificationService(prisma);
+    this.recurringFeeService = new RecurringFeeProcessingService(prisma);
 
     // Initialize new enhanced services
     this.feeIntegrationService = new EnhancedFeeIntegrationService({
@@ -77,6 +80,9 @@ export class CronService {
 
     // Hourly due date reminders during business hours
     this.scheduleHourlyReminders();
+
+    // Daily recurring fee processing at 5 AM
+    this.scheduleRecurringFeeProcessing();
 
     console.log('Fee management cron jobs initialized successfully');
   }
@@ -178,6 +184,30 @@ export class CronService {
     } catch (error) {
       console.error('Failed to log workflow execution:', error);
     }
+  }
+
+  /**
+   * Schedule recurring fee processing
+   */
+  private scheduleRecurringFeeProcessing(): void {
+    const jobName = 'recurring-fee-processing';
+
+    // Run at 5 AM every day
+    const interval = setInterval(async () => {
+      const now = new Date();
+      if (now.getHours() === 5 && now.getMinutes() === 0) {
+        try {
+          console.log('Starting recurring fee processing...');
+          const result = await this.recurringFeeService.generateRecurringFees(false);
+          console.log('Recurring fee processing completed:', result);
+        } catch (error) {
+          console.error('Recurring fee processing failed:', error);
+        }
+      }
+    }, 60000); // Check every minute
+
+    this.scheduledJobs.set(jobName, interval);
+    console.log(`Scheduled job: ${jobName}`);
   }
 
   /**

@@ -9,11 +9,11 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/server/db';
 import { logger } from '@/server/api/utils/logger';
-import type { 
-  ClientToServerEvents, 
-  ServerToClientEvents, 
-  InterServerEvents, 
-  SocketData 
+import type {
+  ClientToServerEvents,
+  ServerToClientEvents,
+  InterServerEvents,
+  SocketData
 } from '../types/socket-events.types';
 
 export class SocialWallSocketServer {
@@ -125,6 +125,41 @@ export class SocialWallSocketServer {
     // Dynamic namespace creation for each class
     this.io.of(/^\/class-[\w]+$/).on('connection', (socket) => {
       this.handleClassConnection(socket);
+    });
+
+    // Admin messaging namespace for system and campus admins
+    this.io.of('/admin-messaging').use(async (socket, next) => {
+      try {
+        const userId = socket.data.userId;
+        const user = socket.data.user;
+
+        if (!userId || !user) {
+          return next(new Error('Authentication required'));
+        }
+
+        // Check if user is admin
+        if (!['SYSTEM_ADMIN', 'CAMPUS_ADMIN'].includes(user.userType)) {
+          return next(new Error('Admin access required'));
+        }
+
+        logger.debug('Admin messaging socket authenticated', {
+          userId,
+          userType: user.userType,
+          socketId: socket.id
+        });
+
+        next();
+      } catch (error) {
+        logger.error('Admin messaging socket authentication error', { error });
+        next(new Error('Admin authentication failed'));
+      }
+    }).on('connection', (socket) => {
+      this.handleAdminMessagingConnection(socket);
+    });
+
+    // General messaging namespace for all users
+    this.io.of('/messaging').on('connection', (socket) => {
+      this.handleMessagingConnection(socket);
     });
   }
 
@@ -409,8 +444,8 @@ export class SocialWallSocketServer {
       // Disconnect inactive sockets
       sockets.forEach((socket) => {
         // Check if socket has been inactive for too long
-        const lastActivity = socket.data.lastActivity || socket.handshake.time;
-        const inactiveTime = Date.now() - lastActivity;
+        const lastActivity = socket.data.lastActivity || new Date(socket.handshake.time);
+        const inactiveTime = Date.now() - (lastActivity instanceof Date ? lastActivity.getTime() : lastActivity);
 
         if (inactiveTime > 1800000) { // 30 minutes
           socket.disconnect(true);
@@ -432,6 +467,203 @@ export class SocialWallSocketServer {
     } catch (error) {
       logger.error('Cleanup error', { error });
     }
+  }
+
+  // ==================== MESSAGING CONNECTION HANDLERS ====================
+
+  private handleAdminMessagingConnection(socket: any) {
+    const { userId, user } = socket.data;
+    const { userType, campusId } = user;
+
+    logger.info('Admin connected to messaging', {
+      userId,
+      userType,
+      campusId,
+      socketId: socket.id
+    });
+
+    // Join appropriate admin rooms
+    if (userType === 'SYSTEM_ADMIN') {
+      socket.join('system-admin-inbox');
+      socket.join('all-admin-messages');
+    } else if (userType === 'CAMPUS_ADMIN' && campusId) {
+      socket.join(`campus-admin-inbox-${campusId}`);
+      socket.join('all-admin-messages');
+    }
+
+    // Subscribe to inbox updates
+    socket.on('subscribe:inbox', () => {
+      logger.debug('Admin subscribed to inbox updates', { userId, userType });
+      socket.emit('inbox:subscribed', { success: true });
+    });
+
+    // Handle message actions
+    socket.on('message:mark_read', async (data: { messageId: string }) => {
+      try {
+        // Import MessagingService here to avoid circular dependencies
+        const { MessagingService } = await import('@/server/api/services/messaging.service');
+        const service = new MessagingService(prisma);
+
+        await service.markAsRead(userId, data.messageId);
+
+        logger.debug('Message marked as read', { messageId: data.messageId, userId });
+
+        // Broadcast to other admin sessions
+        socket.to('all-admin-messages').emit('message:read_status_changed', {
+          messageId: data.messageId,
+          readBy: userId,
+          timestamp: new Date()
+        });
+
+        socket.emit('message:marked_read', { messageId: data.messageId, success: true });
+      } catch (error) {
+        logger.error('Failed to mark message as read', { error, messageId: data.messageId });
+        socket.emit('error', { message: 'Failed to mark message as read' });
+      }
+    });
+
+    // Handle typing indicators
+    socket.on('typing:start', (data: { recipientId?: string }) => {
+      if (data.recipientId) {
+        this.io?.of('/messaging').to(`user-${data.recipientId}`).emit('user:typing', {
+          type: 'user:typing' as const,
+          user: {
+            id: userId,
+            name: user.name || 'Unknown',
+            userType: user.userType
+          },
+          userId,
+          userName: user.name,
+          classId: socket.data.classId || '',
+          timestamp: new Date()
+        });
+      }
+    });
+
+    socket.on('typing:stop', (data: { recipientId?: string }) => {
+      if (data.recipientId) {
+        this.io?.of('/messaging').to(`user-${data.recipientId}`).emit('user:stopped_typing', {
+          type: 'user:stopped_typing' as const,
+          user: {
+            id: userId,
+            name: user.name || 'Unknown',
+            userType: user.userType
+          },
+          userId,
+          classId: socket.data.classId || '',
+          timestamp: new Date()
+        });
+      }
+    });
+
+    socket.on('disconnect', () => {
+      logger.info('Admin disconnected from messaging', {
+        userId,
+        userType,
+        socketId: socket.id
+      });
+    });
+  }
+
+  private handleMessagingConnection(socket: any) {
+    const { userId, user } = socket.data;
+    const { userType, campusId } = user;
+
+    logger.info('User connected to messaging', {
+      userId,
+      userType,
+      socketId: socket.id
+    });
+
+    // Join user-specific room
+    socket.join(`user-${userId}`);
+
+    // Join role-based rooms
+    if (userType === 'TEACHER' && campusId) {
+      socket.join(`teachers-${campusId}`);
+    } else if (userType === 'STUDENT' && campusId) {
+      socket.join(`students-${campusId}`);
+    }
+
+    // Handle message sending
+    socket.on('message:send', async (data: {
+      content: string;
+      recipients: string[];
+      messageType?: string;
+      classId?: string;
+    }) => {
+      try {
+        // Import MessagingService here to avoid circular dependencies
+        const { MessagingService } = await import('@/server/api/services/messaging.service');
+        const service = new MessagingService(prisma);
+
+        const result = await service.createMessage(userId, {
+          content: data.content,
+          recipients: data.recipients,
+          messageType: data.messageType as any || 'PRIVATE',
+          classId: data.classId,
+        });
+
+        // Broadcast to recipients
+        this.broadcastNewMessage(result, data.recipients);
+
+        socket.emit('message:sent', {
+          success: true,
+          messageId: result.id
+        });
+
+      } catch (error) {
+        logger.error('Failed to send message', { error, userId });
+        socket.emit('message:send_failed', {
+          error: 'Failed to send message'
+        });
+      }
+    });
+
+    socket.on('disconnect', () => {
+      logger.info('User disconnected from messaging', {
+        userId,
+        userType,
+        socketId: socket.id
+      });
+    });
+  }
+
+  // ==================== MESSAGING BROADCAST METHODS ====================
+
+  public broadcastNewMessage(message: any, recipientIds: string[]) {
+    if (!this.io) return;
+
+    // Broadcast to specific recipients
+    recipientIds.forEach(recipientId => {
+      this.io?.of('/messaging').to(`user-${recipientId}`).emit('message:new', {
+        type: 'message:new' as const,
+        message,
+        timestamp: new Date()
+      });
+    });
+
+    // Broadcast to admin inboxes
+    this.io.of('/admin-messaging').to('all-admin-messages').emit('message:new', {
+      type: 'message:new' as const,
+      message,
+      timestamp: new Date()
+    });
+
+    logger.debug('New message broadcasted', {
+      messageId: message.id,
+      recipientCount: recipientIds.length
+    });
+  }
+
+  public broadcastToSystemAdmins(event: string, data: any) {
+    if (!this.io) return;
+    (this.io.of('/admin-messaging').to('system-admin-inbox') as any).emit(event, data);
+  }
+
+  public broadcastToCampusAdmins(campusId: string, event: string, data: any) {
+    if (!this.io) return;
+    (this.io.of('/admin-messaging').to(`campus-admin-inbox-${campusId}`) as any).emit(event, data);
   }
 
   public shutdown() {

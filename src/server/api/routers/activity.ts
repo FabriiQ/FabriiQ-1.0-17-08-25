@@ -1557,4 +1557,113 @@ export const activityRouter = createTRPCRouter({
         });
       }
     }),
+
+  // Get activities for a student with optional grade information
+  getStudentActivitiesByClassAndSubject: protectedProcedure
+    .input(z.object({
+      classId: z.string(),
+      subjectId: z.string().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      try {
+        // Ensure user is authenticated
+        if (!ctx.session?.user?.id) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Not authenticated",
+          });
+        }
+
+        // Find the student profile for the current user
+        const studentProfile = await ctx.prisma.studentProfile.findFirst({
+          where: { userId: ctx.session.user.id },
+        });
+
+        if (!studentProfile) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Student profile not found for current user',
+          });
+        }
+
+        // Check if the student is enrolled in this class
+        const enrollment = await ctx.prisma.studentEnrollment.findFirst({
+          where: {
+            studentId: studentProfile.id,
+            classId: input.classId,
+            status: SystemStatus.ACTIVE,
+          },
+        });
+
+        if (!enrollment) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Student is not enrolled in this class",
+          });
+        }
+
+        // Build the where condition for activities
+        const activityWhere: any = {
+          classId: input.classId,
+          status: SystemStatus.ACTIVE,
+        };
+
+        // Add subject filter if provided
+        if (input.subjectId) {
+          activityWhere.subjectId = input.subjectId;
+        }
+
+        // Get all activities for this class/subject with optional grade information
+        const activities = await ctx.prisma.activity.findMany({
+          where: activityWhere,
+          include: {
+            subject: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              }
+            },
+            topic: {
+              select: {
+                id: true,
+                title: true,
+                code: true,
+              }
+            },
+            // Include the student's grades for each activity
+            activityGrades: {
+              where: {
+                studentId: studentProfile.id
+              },
+              orderBy: {
+                updatedAt: 'desc'
+              },
+              take: 1 // Only get the most recent grade
+            }
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
+
+        logger.debug('Fetched activities with optional grades', {
+          activityCount: activities.length,
+          studentId: studentProfile.id,
+          classId: input.classId,
+          subjectId: input.subjectId
+        });
+
+        return activities;
+      } catch (error) {
+        logger.error('Error fetching student activities:', error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch student activities",
+        });
+      }
+    }),
 });

@@ -36,6 +36,8 @@ export const createFeeStructureSchema = z.object({
       type: z.string(),
       amount: z.number().positive(),
       description: z.string().optional(),
+      isRecurring: z.boolean().default(false),
+      recurringInterval: z.string().optional(),
     })
   ),
   isRecurring: z.boolean().default(false),
@@ -57,6 +59,8 @@ export const updateFeeStructureSchema = z.object({
         type: z.string(),
         amount: z.number().positive(),
         description: z.string().optional(),
+        isRecurring: z.boolean().default(false),
+        recurringInterval: z.string().optional(),
       })
     )
     .optional(),
@@ -885,7 +889,9 @@ export class FeeService {
    * @returns Array of available fee structures
    */
   async getAvailableFeeStructuresForEnrollment(enrollmentId: string) {
-    // Get the enrollment to find the program/course
+    console.log('DEBUG getAvailableFeeStructuresForEnrollment:', { enrollmentId });
+
+    // Get the enrollment to find the program campus
     const enrollment = await this.prisma.studentEnrollment.findUnique({
       where: { id: enrollmentId },
       include: {
@@ -901,10 +907,19 @@ export class FeeService {
               include: {
                 course: true,
                 campus: true,
+                programCampus: {
+                  include: {
+                    program: true,
+                    campus: true,
+                  },
+                },
               },
             },
           },
         },
+        fees: {
+          select: { feeStructureId: true }
+        }
       },
     });
 
@@ -912,42 +927,69 @@ export class FeeService {
       throw new Error('Enrollment not found');
     }
 
-    // Get already assigned fee structure IDs (for future filtering if needed)
-    // const assignedFeeStructures = await this.prisma.enrollmentFee.findMany({
-    //   where: { enrollmentId },
-    //   select: { feeStructureId: true },
-    // });
-    // const assignedIds = assignedFeeStructures.map(ef => ef.feeStructureId);
+    // Get the program campus ID - try direct relationship first, then through courseCampus
+    const programCampusId = enrollment.class?.programCampusId || enrollment.class?.courseCampus?.programCampusId;
+    const programCampus = enrollment.class?.programCampus || enrollment.class?.courseCampus?.programCampus;
 
-    // Get available fee structures for the program/course
-    const programId = enrollment.class?.programCampus?.program?.id;
-    const courseId = enrollment.class?.courseCampus?.course?.id;
-    const campusId = enrollment.class?.programCampus?.campus?.id || enrollment.class?.courseCampus?.campus?.id;
+    console.log('DEBUG enrollment found:', {
+      enrollmentId: enrollment.id,
+      classId: enrollment.class?.id,
+      directProgramCampusId: enrollment.class?.programCampusId,
+      courseCampusProgramCampusId: enrollment.class?.courseCampus?.programCampusId,
+      finalProgramCampusId: programCampusId,
+      programName: programCampus?.program?.name,
+      campusName: programCampus?.campus?.name,
+      existingFeesCount: enrollment.fees?.length || 0
+    });
 
+    // Get already assigned fee structure IDs to exclude them
+    const assignedFeeStructureIds = enrollment.fees?.map(fee => fee.feeStructureId) || [];
+    console.log('DEBUG assignedFeeStructureIds:', assignedFeeStructureIds);
+
+    if (!programCampusId) {
+      console.log('DEBUG: No programCampusId found, returning empty array');
+      return [];
+    }
+
+    // Find fee structures for this program campus, excluding already assigned ones
     const whereClause: any = {
       status: 'ACTIVE',
-      OR: [],
+      programCampusId: programCampusId,
     };
 
-    if (programId) {
-      whereClause.OR.push({ programId });
-    }
-    if (courseId) {
-      whereClause.OR.push({ courseId });
-    }
-    if (campusId) {
-      whereClause.OR.push({ campusId });
+    // Exclude already assigned fee structures
+    if (assignedFeeStructureIds.length > 0) {
+      whereClause.id = {
+        notIn: assignedFeeStructureIds
+      };
     }
 
-    // If no specific program/course/campus, get all active fee structures
-    if (whereClause.OR.length === 0) {
-      delete whereClause.OR;
-    }
+    console.log('DEBUG whereClause:', whereClause);
 
-    return this.prisma.feeStructure.findMany({
+    const feeStructures = await this.prisma.feeStructure.findMany({
       where: whereClause,
+      include: {
+        programCampus: {
+          include: {
+            program: true,
+            campus: true,
+          },
+        },
+      },
       orderBy: { name: 'asc' },
     });
+
+    console.log('DEBUG found fee structures:', {
+      count: feeStructures.length,
+      structures: feeStructures.map(fs => ({
+        id: fs.id,
+        name: fs.name,
+        programCampusId: fs.programCampusId,
+        status: fs.status
+      }))
+    });
+
+    return feeStructures;
   }
 
   async updateEnrollmentFee(input: UpdateEnrollmentFeeInput) {

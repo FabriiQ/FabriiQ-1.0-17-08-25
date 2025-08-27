@@ -93,7 +93,7 @@ export async function seedEnrollmentDocuments(
   }
 
   // Check if we have a model for document types
-  let documentTypes = [];
+  let documentTypes: any[] = [];
   try {
     // Try to find if we have a DocumentType model
     // This is a placeholder - in a real implementation, you would:
@@ -111,7 +111,7 @@ export async function seedEnrollmentDocuments(
   }
 
   // Create enrollment documents for the sample enrollments
-  const enrollmentDocuments = [];
+  const enrollmentDocuments: any[] = [];
 
   // 1. John Smith Documents
   const johnSmithEnrollment = sampleEnrollments[0];

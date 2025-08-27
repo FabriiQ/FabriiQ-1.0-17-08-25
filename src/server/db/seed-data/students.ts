@@ -1,7 +1,7 @@
 import { PrismaClient, UserType, AccessScope, SystemStatus } from '@prisma/client';
 import { hash } from 'bcryptjs';
 
-export const DEFAULT_STUDENT_PASSWORD = 'Student123!';
+export const DEFAULT_STUDENT_PASSWORD = 'Password123!';
 
 interface Class {
   id: string;
@@ -18,8 +18,13 @@ export async function seedStudents(prisma: PrismaClient, classes: Class[], campu
 
   const hashedPassword = await hash(DEFAULT_STUDENT_PASSWORD, 12);
 
-  const boysClass3A = classes.find(c => c.code === 'SIS-BOYS-CL3A');
-  const girlsClass3A = classes.find(c => c.code === 'SIS-GIRLS-CL3A');
+  // Try to find Y7 classes first, fallback to CL3A
+  let boysClass3A = classes.find(c => c.code === 'SIS-BOYS-Y7-A');
+  let girlsClass3A = classes.find(c => c.code === 'SIS-GIRLS-Y7-A');
+
+  // Fallback to CL3A if Y7 not found
+  if (!boysClass3A) boysClass3A = classes.find(c => c.code === 'SIS-BOYS-CL3A');
+  if (!girlsClass3A) girlsClass3A = classes.find(c => c.code === 'SIS-GIRLS-CL3A');
 
   if (!boysClass3A || !girlsClass3A) {
     console.warn('Classes not found. Skipping student seeding.');
@@ -139,10 +144,18 @@ export async function seedStudents(prisma: PrismaClient, classes: Class[], campu
       classId: girlsClass3A.id,
     },
     {
+      email: 'emily_johnson@student.sunshine.edu',
+      name: 'Emily Johnson',
+      username: 'emily_johnson',
+      enrollmentNumber: 'SIS-GIRLS-2024-002',
+      campusId: girlsCampus.id,
+      classId: girlsClass3A.id,
+    },
+    {
       email: 'olivia_johnson@student.sunshine.edu',
       name: 'Olivia Johnson',
       username: 'olivia_johnson',
-      enrollmentNumber: 'SIS-GIRLS-2024-002',
+      enrollmentNumber: 'SIS-GIRLS-2024-003',
       campusId: girlsCampus.id,
       classId: girlsClass3A.id,
     },
@@ -150,7 +163,7 @@ export async function seedStudents(prisma: PrismaClient, classes: Class[], campu
       email: 'sophia_brown@student.sunshine.edu',
       name: 'Sophia Brown',
       username: 'sophia_brown',
-      enrollmentNumber: 'SIS-GIRLS-2024-003',
+      enrollmentNumber: 'SIS-GIRLS-2024-004',
       campusId: girlsCampus.id,
       classId: girlsClass3A.id,
     },
@@ -158,7 +171,7 @@ export async function seedStudents(prisma: PrismaClient, classes: Class[], campu
       email: 'isabella_davis@student.sunshine.edu',
       name: 'Isabella Davis',
       username: 'isabella_davis',
-      enrollmentNumber: 'SIS-GIRLS-2024-004',
+      enrollmentNumber: 'SIS-GIRLS-2024-005',
       campusId: girlsCampus.id,
       classId: girlsClass3A.id,
     },
@@ -166,7 +179,7 @@ export async function seedStudents(prisma: PrismaClient, classes: Class[], campu
       email: 'charlotte_wilson@student.sunshine.edu',
       name: 'Charlotte Wilson',
       username: 'charlotte_wilson',
-      enrollmentNumber: 'SIS-GIRLS-2024-005',
+      enrollmentNumber: 'SIS-GIRLS-2024-007',
       campusId: girlsCampus.id,
       classId: girlsClass3A.id,
     },
@@ -174,7 +187,7 @@ export async function seedStudents(prisma: PrismaClient, classes: Class[], campu
       email: 'amelia_taylor@student.sunshine.edu',
       name: 'Amelia Taylor',
       username: 'amelia_taylor',
-      enrollmentNumber: 'SIS-GIRLS-2024-006',
+      enrollmentNumber: 'SIS-GIRLS-2024-008',
       campusId: girlsCampus.id,
       classId: girlsClass3A.id,
     },
@@ -182,7 +195,7 @@ export async function seedStudents(prisma: PrismaClient, classes: Class[], campu
       email: 'mia_anderson@student.sunshine.edu',
       name: 'Mia Anderson',
       username: 'mia_anderson',
-      enrollmentNumber: 'SIS-GIRLS-2024-007',
+      enrollmentNumber: 'SIS-GIRLS-2024-009',
       campusId: girlsCampus.id,
       classId: girlsClass3A.id,
     },
@@ -190,7 +203,7 @@ export async function seedStudents(prisma: PrismaClient, classes: Class[], campu
       email: 'harper_martinez@student.sunshine.edu',
       name: 'Harper Martinez',
       username: 'harper_martinez',
-      enrollmentNumber: 'SIS-GIRLS-2024-008',
+      enrollmentNumber: 'SIS-GIRLS-2024-010',
       campusId: girlsCampus.id,
       classId: girlsClass3A.id,
     },
@@ -198,7 +211,7 @@ export async function seedStudents(prisma: PrismaClient, classes: Class[], campu
       email: 'evelyn_thompson@student.sunshine.edu',
       name: 'Evelyn Thompson',
       username: 'evelyn_thompson',
-      enrollmentNumber: 'SIS-GIRLS-2024-009',
+      enrollmentNumber: 'SIS-GIRLS-2024-011',
       campusId: girlsCampus.id,
       classId: girlsClass3A.id,
     },
@@ -206,13 +219,13 @@ export async function seedStudents(prisma: PrismaClient, classes: Class[], campu
       email: 'abigail_garcia@student.sunshine.edu',
       name: 'Abigail Garcia',
       username: 'abigail_garcia',
-      enrollmentNumber: 'SIS-GIRLS-2024-010',
+      enrollmentNumber: 'SIS-GIRLS-2024-012',
       campusId: girlsCampus.id,
       classId: girlsClass3A.id,
     },
   ];
 
-  const createdStudents = [];
+  const createdStudents: any[] = [];
 
   // Create boys students
   for (const studentData of boysStudentsData) {

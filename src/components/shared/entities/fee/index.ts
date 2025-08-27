@@ -1,16 +1,8 @@
-// Core fee components
-export { FeeComponentList } from "@/components/core/fee/fee-component-list";
-export type { FeeComponent, FeeComponentType } from "@/components/core/fee/fee-component-list";
-
-export { DiscountBadge } from "@/components/core/fee/discount-badge";
-export type { DiscountType } from "@/components/core/fee/discount-badge";
-
-export { ChallanPreview } from "@/components/core/fee/challan-preview";
-export type { ChallanData } from "@/components/core/fee/challan-preview";
+// Note: Core fee components are imported directly to avoid circular dependencies
 
 // Shared fee components
 export { FeeStructureForm } from "./fee-structure-form";
-export type { FeeStructureFormValues, FeeComponentFormValues } from "./fee-structure-form";
+export type { FeeStructureFormValues, FeeComponentFormValues, FeeComponent, FeeComponentType } from "./fee-structure-form";
 
 export { DiscountTypeForm } from "./discount-type-form";
 export type { DiscountTypeFormValues } from "./discount-type-form";
@@ -42,17 +34,7 @@ export type {
   ChallanTemplate
 } from "./fee-detail-card";
 
-// Re-export payment components that are used with fees
-export { PaymentStatusBadge } from "@/components/core/payment/payment-status-badge";
-export type { PaymentStatus } from "@/components/core/payment/payment-status-badge";
-
-export { TransactionList } from "@/components/core/payment/transaction-list";
-export type { Transaction } from "@/components/core/payment/transaction-list";
-
-export { PaymentMethodSelector, PAYMENT_METHODS } from "@/components/core/payment/payment-method-selector";
-
-export { PaymentHistoryTimeline } from "@/components/core/payment/payment-history-timeline";
-export type { HistoryEvent } from "@/components/core/payment/payment-history-timeline";
+// Note: Payment components are imported directly to avoid circular dependencies
 
 export { TransactionForm } from "../enrollment/transaction-form";
 export type { TransactionFormValues } from "../enrollment/transaction-form";

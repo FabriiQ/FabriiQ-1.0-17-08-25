@@ -9,6 +9,7 @@ export interface FeatureFlags {
   ENABLE_ANALYTICS: boolean;
   ENABLE_NOTIFICATIONS: boolean;
   ENABLE_WORKSHEETS: boolean;
+  MESSAGING_ENABLED: boolean;
   [key: string]: boolean;
 }
 
@@ -17,16 +18,18 @@ const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
   ENABLE_ANALYTICS: false,
   ENABLE_NOTIFICATIONS: false,
   ENABLE_WORKSHEETS: false,
+  MESSAGING_ENABLED: true, // Enable messaging for Phase 6 implementation
 };
 
 // Parse feature flags from environment variable
 let parsedFeatureFlags: FeatureFlags = { ...DEFAULT_FEATURE_FLAGS };
 
-// Force enable worksheets for development
+// Force enable worksheets and messaging for development
 parsedFeatureFlags.ENABLE_WORKSHEETS = true;
+parsedFeatureFlags.MESSAGING_ENABLED = true;
 
 // Skip trying to parse the environment variable since it's causing issues
-console.log('Using default feature flags with worksheets enabled');
+console.log('Using default feature flags with worksheets and messaging enabled');
 console.log('Final feature flags:', parsedFeatureFlags);
 
 export const featureFlags = parsedFeatureFlags;

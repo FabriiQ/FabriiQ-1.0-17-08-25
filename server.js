@@ -65,6 +65,95 @@ app.prepare().then(() => {
     global.__socialWallSocketIO = io;
     console.log('Socket.IO server created successfully');
 
+    // Initialize basic socket namespaces
+    try {
+      // Admin messaging namespace
+      const adminMessaging = io.of('/admin-messaging');
+      adminMessaging.on('connection', (socket) => {
+        console.log('Admin connected to messaging:', socket.id);
+
+        socket.on('subscribe:inbox', () => {
+          socket.emit('inbox:subscribed', { success: true });
+        });
+
+        socket.on('disconnect', () => {
+          console.log('Admin disconnected from messaging:', socket.id);
+        });
+      });
+
+      // General messaging namespace with proper event handlers
+      const messaging = io.of('/messaging');
+      messaging.on('connection', (socket) => {
+        console.log('User connected to messaging:', socket.id);
+
+        // Join user-specific room
+        const userId = socket.handshake.auth.userId;
+        if (userId) {
+          socket.join(`user-${userId}`);
+          console.log(`User ${userId} joined messaging room`);
+        }
+
+        // Handle message sending
+        socket.on('message:send', (data) => {
+          console.log('Message sent via socket:', data);
+          // Broadcast to recipients
+          if (data.recipients && Array.isArray(data.recipients)) {
+            data.recipients.forEach(recipientId => {
+              socket.to(`user-${recipientId}`).emit('message:new', {
+                type: 'message:new',
+                message: data,
+                timestamp: new Date()
+              });
+            });
+          }
+        });
+
+        // Handle mark as read
+        socket.on('message:read', (data) => {
+          console.log('Message marked as read via socket:', data);
+          // Broadcast read status to sender
+          socket.broadcast.emit('message:read', {
+            messageId: data.messageId,
+            userId: userId,
+            timestamp: new Date()
+          });
+        });
+
+        // Handle typing indicators
+        socket.on('user:typing', (data) => {
+          socket.broadcast.emit('user:typing', {
+            userId: userId,
+            isTyping: data.isTyping,
+            timestamp: new Date()
+          });
+        });
+
+        // Handle class room joining
+        socket.on('join:class', (data) => {
+          if (data.classId) {
+            socket.join(`class-${data.classId}`);
+            console.log(`User ${userId} joined class ${data.classId}`);
+          }
+        });
+
+        // Handle class room leaving
+        socket.on('leave:class', (data) => {
+          if (data.classId) {
+            socket.leave(`class-${data.classId}`);
+            console.log(`User ${userId} left class ${data.classId}`);
+          }
+        });
+
+        socket.on('disconnect', () => {
+          console.log('User disconnected from messaging:', socket.id);
+        });
+      });
+
+      console.log('Basic socket namespaces initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize socket namespaces:', error);
+    }
+
     // Set up dynamic namespaces for class-specific connections
     io.of(/^\/class-[\w]+$/).on('connection', (socket) => {
       const classId = socket.nsp.name.replace('/class-', '');

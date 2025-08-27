@@ -258,9 +258,10 @@ Transform your existing social wall into a **unified, compliance-ready communica
 ### **1. Enhanced Data Model (Compliance-Ready)**
 
 ```typescript
-// Extend existing social wall with compliance-first messaging
-interface ComplianceMessage extends BaseSocialPost {
-  // Existing social wall fields +
+// Extend existing SocialPost model with compliance-first messaging
+// Uses tRPC for all API operations - no direct Prisma queries in UI
+interface ComplianceMessage extends SocialPost {
+  // Existing social wall fields from SocialPost +
   messageType: 'public' | 'private' | 'group' | 'broadcast' | 'system';
   recipients: MessageRecipient[];
   threadId?: string;
@@ -293,11 +294,12 @@ interface MessageRecipient {
 }
 ```
 
-### **2. Smart Message Classification Engine**
+### **2. Smart Message Classification Engine (tRPC Service Layer)**
 
 ```typescript
+// All classification happens in tRPC service layer - no direct database access in UI
 class ComplianceMessageClassifier {
-  // Automatically classify messages based on content, participants, and context
+  // Used by tRPC messaging router procedures
   classifyMessage(content: string, sender: User, recipients: User[]): {
     messageType: MessageType;
     complianceLevel: 'low' | 'medium' | 'high' | 'critical';
@@ -308,6 +310,10 @@ class ComplianceMessageClassifier {
     crossBorderTransferRisk: boolean;
   }
 }
+
+// UI components use tRPC hooks exclusively:
+// const { data: messages } = api.messaging.getMessages.useQuery({ classId });
+// const createMessage = api.messaging.createMessage.useMutation();
 ```
 
 ## **📱 Enhanced UI/UX with Compliance Intelligence**

@@ -2,28 +2,37 @@ import { PrismaClient, SystemStatus } from '@prisma/client';
 
 export const programsSeedData = [
   {
-    name: 'Primary Years Program',
-    code: 'PYP',
+    name: 'Middle Years Program',
+    code: 'MYP',
     status: SystemStatus.ACTIVE,
     institutionCode: 'SIS',
   },
 ];
 
 export const coursesSeedData = [
+  // Two courses within Middle Years Program
   {
-    name: 'Class 3',
-    code: 'PYP-CL3',
-    description: 'Third grade curriculum for primary students',
+    name: 'Year 7',
+    code: 'MYP-Y7',
+    description: 'Middle Years Program Year 7 curriculum',
     credits: 5,
     status: SystemStatus.ACTIVE,
-    programCode: 'PYP',
+    programCode: 'MYP',
+  },
+  {
+    name: 'Year 8',
+    code: 'MYP-Y8',
+    description: 'Middle Years Program Year 8 curriculum',
+    credits: 5,
+    status: SystemStatus.ACTIVE,
+    programCode: 'MYP',
   },
 ];
 
 export async function seedPrograms(prisma: PrismaClient, institutions: any[], campuses: any[], academicCycles: any[]) {
   console.log('Seeding programs...');
 
-  const createdPrograms = [];
+  const createdPrograms: any[] = [];
 
   for (const program of programsSeedData) {
     const { institutionCode, ...programData } = program;
@@ -100,7 +109,7 @@ export async function seedPrograms(prisma: PrismaClient, institutions: any[], ca
 export async function seedCourses(prisma: PrismaClient, programs: any[]) {
   console.log('Seeding courses...');
 
-  const createdCourses = [];
+  const createdCourses: any[] = [];
 
   for (const course of coursesSeedData) {
     const { programCode, ...courseData } = course;
@@ -134,16 +143,23 @@ export async function seedCourses(prisma: PrismaClient, programs: any[]) {
 
 export const programCampusesSeedData = [
   {
-    programCode: 'PYP',
+    programCode: 'MYP',
     campusCode: 'SIS-BOYS',
-    code: 'PYP-SIS-BOYS',
+    code: 'MYP-SIS-BOYS',
     academicCycleCode: 'AY-2024-2025',
     status: SystemStatus.ACTIVE,
   },
   {
-    programCode: 'PYP',
+    programCode: 'MYP',
     campusCode: 'SIS-GIRLS',
-    code: 'PYP-SIS-GIRLS',
+    code: 'MYP-SIS-GIRLS',
+    academicCycleCode: 'AY-2024-2025',
+    status: SystemStatus.ACTIVE,
+  },
+  {
+    programCode: 'MYP',
+    campusCode: 'SIS-CENTRAL',
+    code: 'MYP-SIS-CENTRAL',
     academicCycleCode: 'AY-2024-2025',
     status: SystemStatus.ACTIVE,
   },
@@ -152,7 +168,7 @@ export const programCampusesSeedData = [
 export async function seedProgramCampuses(prisma: PrismaClient, programs: any[], campuses: any[], academicCycles: any[]) {
   console.log('Seeding program-campus associations...');
 
-  const createdProgramCampuses = [];
+  const createdProgramCampuses: any[] = [];
   const currentAcademicCycle = academicCycles[0]; // Academic Year 2024-2025
 
   if (!currentAcademicCycle) {
@@ -160,11 +176,11 @@ export async function seedProgramCampuses(prisma: PrismaClient, programs: any[],
     return [];
   }
 
-  // Associate the Primary Years Program with both campuses
-  const primaryProgram = programs.find(p => p.code === 'PYP');
+  // Associate the Middle Years Program with all campuses
+  const primaryProgram = programs.find(p => p.code === 'MYP');
 
   if (!primaryProgram) {
-    console.warn('Primary Years Program not found. Skipping program-campus associations.');
+    console.warn('Middle Years Program not found. Skipping program-campus associations.');
     return [];
   }
 
@@ -215,11 +231,11 @@ export async function seedProgramCampuses(prisma: PrismaClient, programs: any[],
 export async function seedCourseCampuses(prisma: PrismaClient, courses: any[], campuses: any[]) {
   console.log('Seeding course-campus associations...');
 
-  const createdCourseCampuses = [];
-  const class3Course = courses.find(c => c.code === 'PYP-CL3');
+  const createdCourseCampuses: any[] = [];
+  const classCourses = courses.filter(c => c.code.startsWith('MYP-'));
 
-  if (!class3Course) {
-    console.warn('Class 3 course not found. Skipping course-campus associations.');
+  if (classCourses.length === 0) {
+    console.warn('MYP courses not found. Skipping course-campus associations.');
     return [];
   }
 
@@ -248,28 +264,30 @@ export async function seedCourseCampuses(prisma: PrismaClient, courses: any[], c
       continue;
     }
 
-    const courseCampus = await prisma.courseCampus.upsert({
-      where: {
-        courseId_campusId_programCampusId: {
-          courseId: class3Course.id,
+    for (const course of classCourses) {
+      const courseCampus = await prisma.courseCampus.upsert({
+        where: {
+          courseId_campusId_programCampusId: {
+            courseId: course.id,
+            campusId: programCampus.campusId,
+            programCampusId: programCampus.id,
+          },
+        },
+        update: {
+          status: SystemStatus.ACTIVE,
+        },
+        create: {
+          courseId: course.id,
           campusId: programCampus.campusId,
           programCampusId: programCampus.id,
+          startDate: new Date('2024-08-01'),
+          endDate: new Date('2025-06-30'),
+          status: SystemStatus.ACTIVE,
         },
-      },
-      update: {
-        status: SystemStatus.ACTIVE,
-      },
-      create: {
-        courseId: class3Course.id,
-        campusId: programCampus.campusId,
-        programCampusId: programCampus.id,
-        startDate: new Date('2024-08-01'),
-        endDate: new Date('2025-06-30'),
-        status: SystemStatus.ACTIVE,
-      },
-    });
+      });
 
-    createdCourseCampuses.push(courseCampus);
+      createdCourseCampuses.push(courseCampus);
+    }
   }
 
   console.log(`Seeded ${createdCourseCampuses.length} course-campus associations`);

@@ -13,6 +13,7 @@ import {
 import { MultipleFeeAssignmentService } from "../services/multiple-fee-assignment.service";
 import { DueDateManagementService } from "../services/due-date-management.service";
 import { EnhancedFeeAnalyticsService } from "../services/enhanced-fee-analytics.service";
+import { RecurringFeeProcessingService } from "../services/recurring-fee-processing.service";
 
 export const enrollmentFeeRouter = createTRPCRouter({
   // Get fee collection statistics
@@ -349,7 +350,7 @@ export const enrollmentFeeRouter = createTRPCRouter({
       return multipleFeeService.removeFeeAssignment(input.enrollmentFeeId, ctx.session.user.id);
     }),
 
-  getAvailableFeeStructures: protectedProcedure
+  getAvailableFeeStructuresForAssignment: protectedProcedure
     .input(z.object({ enrollmentId: z.string() }))
     .query(async ({ input, ctx }) => {
       const multipleFeeService = new MultipleFeeAssignmentService(ctx.prisma);
@@ -452,5 +453,44 @@ export const enrollmentFeeRouter = createTRPCRouter({
     .query(async ({ input, ctx }) => {
       const analyticsService = new EnhancedFeeAnalyticsService(ctx.prisma);
       return analyticsService.getLateFeeAnalytics(input);
+    }),
+
+  // Process enrollment fees with recurring logic
+  processEnrollmentFeesWithRecurring: protectedProcedure
+    .input(z.object({
+      enrollmentId: z.string(),
+      feeStructureId: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const recurringFeeService = new RecurringFeeProcessingService(ctx.prisma);
+      return recurringFeeService.processEnrollmentFees(
+        input.enrollmentId,
+        input.feeStructureId,
+        ctx.session.user.id
+      );
+    }),
+
+  // Get fee breakdown for enrollment
+  getFeeBreakdown: protectedProcedure
+    .input(z.object({ enrollmentId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const recurringFeeService = new RecurringFeeProcessingService(ctx.prisma);
+      return recurringFeeService.getFeeBreakdown(input.enrollmentId);
+    }),
+
+  // Manually trigger recurring fee generation (admin only)
+  generateRecurringFees: protectedProcedure
+    .input(z.object({ dryRun: z.boolean().default(true) }))
+    .mutation(async ({ input, ctx }) => {
+      // Check admin permissions
+      if (!['SYSTEM_ADMIN', 'SYSTEM_MANAGER'].includes(ctx.session.user.userType)) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Only system administrators can trigger recurring fee generation",
+        });
+      }
+
+      const recurringFeeService = new RecurringFeeProcessingService(ctx.prisma);
+      return recurringFeeService.generateRecurringFees(input.dryRun);
     }),
 });

@@ -4,16 +4,103 @@ import { SubjectNodeType, CompetencyLevel } from '../../api/constants';
 export async function seedSubjectTopics(prisma: PrismaClient, subjects: any[]) {
   console.log('Seeding subject topics...');
 
-  // Find subjects by code
-  const mathSubject = subjects.find(s => s.code === 'PYP-CL3-MATH');
-  const englishSubject = subjects.find(s => s.code === 'PYP-CL3-ENG');
-  const scienceSubject = subjects.find(s => s.code === 'PYP-CL3-SCI');
-  const peSubject = subjects.find(s => s.code === 'PYP-CL3-PE');
+  // Try PYP defaults first
+  let mathSubject = subjects.find(s => s.code === 'PYP-CL3-MATH');
+  let englishSubject = subjects.find(s => s.code === 'PYP-CL3-ENG');
+  let scienceSubject = subjects.find(s => s.code === 'PYP-CL3-SCI');
+  let peSubject = subjects.find(s => s.code === 'PYP-CL3-PE');
+
+  // Fallback to MYP generic subjects if PYP not present
+  if (!mathSubject) mathSubject = subjects.find(s => s.code === 'MYP-Y7-MATH') || subjects.find(s => s.code === 'MYP-Y8-MATH');
+  if (!englishSubject) englishSubject = subjects.find(s => s.code === 'MYP-Y7-ENG') || subjects.find(s => s.code === 'MYP-Y8-ENGL') || subjects.find(s => s.code === 'MYP-Y8-ENG');
+  if (!scienceSubject) scienceSubject = subjects.find(s => s.code === 'MYP-Y7-SCI') || subjects.find(s => s.code === 'MYP-Y8-SCI');
+  if (!peSubject) peSubject = subjects.find(s => s.code === 'MYP-Y7-PE') || subjects.find(s => s.code === 'MYP-Y8-PE');
 
   if (!mathSubject || !englishSubject || !scienceSubject || !peSubject) {
-    console.warn('One or more subjects not found. Skipping subject topics seeding.');
+    console.warn('One or more subjects not found for topics. Skipping subject topics seeding.');
     return;
   }
+
+  // For MYP fallback, we'll seed a minimal set of generic topics instead of PYP-detailed ones
+  const isMYP = !subjects.some(s => s.code.startsWith('PYP-')) && subjects.some(s => s.code.startsWith('MYP-'));
+
+  if (isMYP) {
+    await seedGenericTopics(prisma, mathSubject.id, 'Mathematics & Logical Thinking');
+    await seedGenericTopics(prisma, englishSubject.id, 'English Language & Communication');
+    await seedGenericTopics(prisma, scienceSubject.id, 'Integrated Science & Inquiry');
+    await seedGenericTopics(prisma, peSubject.id, 'Physical Education & Wellbeing');
+    console.log('Seeded generic MYP topics');
+    return;
+  }
+
+async function seedGenericTopics(prisma: PrismaClient, subjectId: string, baseTitle: string) {
+  // Create 3 simple topics with 2 subtopics each
+  for (let i = 1; i <= 3; i++) {
+    const chapter = await prisma.subjectTopic.upsert({
+      where: {
+        subjectId_code: {
+          subjectId,
+          code: `${subjectId}-GEN-CH${i}`.slice(0, 64)
+        }
+      },
+      update: {
+        title: `${baseTitle}: Unit ${i}`,
+        description: `Core concepts in ${baseTitle} - Unit ${i}`,
+        nodeType: SubjectNodeType.CHAPTER,
+        orderIndex: i - 1,
+        estimatedMinutes: 180,
+        competencyLevel: CompetencyLevel.BASIC,
+        keywords: [baseTitle.toLowerCase(), 'myp', 'unit', `u${i}`],
+        status: SystemStatus.ACTIVE,
+      },
+      create: {
+        code: `${subjectId}-GEN-CH${i}`.slice(0, 64),
+        title: `${baseTitle}: Unit ${i}`,
+        description: `Core concepts in ${baseTitle} - Unit ${i}`,
+        nodeType: SubjectNodeType.CHAPTER,
+        orderIndex: i - 1,
+        estimatedMinutes: 180,
+        competencyLevel: CompetencyLevel.BASIC,
+        keywords: [baseTitle.toLowerCase(), 'myp', 'unit', `u${i}`],
+        status: SystemStatus.ACTIVE,
+        subjectId,
+      },
+    });
+
+    for (let t = 1; t <= 2; t++) {
+      await prisma.subjectTopic.upsert({
+        where: {
+          subjectId_code: {
+            subjectId,
+            code: `${subjectId}-GEN-CH${i}-T${t}`.slice(0, 64)
+          }
+        },
+        update: {
+          title: `${baseTitle} Topic ${i}.${t}`,
+          description: `Learning topic ${t} for unit ${i} in ${baseTitle}`,
+          nodeType: SubjectNodeType.TOPIC,
+          orderIndex: t - 1,
+          estimatedMinutes: 90,
+          keywords: [baseTitle.toLowerCase(), 'topic', `${i}.${t}`],
+          parentTopicId: chapter.id,
+          status: SystemStatus.ACTIVE,
+        },
+        create: {
+          code: `${subjectId}-GEN-CH${i}-T${t}`.slice(0, 64),
+          title: `${baseTitle} Topic ${i}.${t}`,
+          description: `Learning topic ${t} for unit ${i} in ${baseTitle}`,
+          nodeType: SubjectNodeType.TOPIC,
+          orderIndex: t - 1,
+          estimatedMinutes: 90,
+          keywords: [baseTitle.toLowerCase(), 'topic', `${i}.${t}`],
+          parentTopicId: chapter.id,
+          status: SystemStatus.ACTIVE,
+          subjectId,
+        },
+      });
+    }
+  }
+}
 
   // ===== MATHEMATICS TOPICS =====
   await seedMathTopics(prisma, mathSubject.id);

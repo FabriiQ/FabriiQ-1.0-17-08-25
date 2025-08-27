@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
@@ -27,6 +27,7 @@ import { DataTable } from '@/components/ui/data-display/data-table';
 import { ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Pagination } from '@/components/ui/pagination/pagination';
 import { api } from '@/trpc/react';
 import {
   Search,
@@ -71,11 +72,25 @@ type Enrollment = {
 export default function SystemEnrollmentPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('all');
+
+  // Handle tab change to update status filter
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setSelectedStatus(value);
+    setCurrentPage(1);
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCampus, setSelectedCampus] = useState('all');
   const [selectedProgram, setSelectedProgram] = useState('all');
   const [transferDialogOpen, setTransferDialogOpen] = useState<{ open: boolean; enrollment?: any }>({ open: false });
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCampus, selectedProgram, selectedStatus, searchTerm]);
 
   // Fetch campuses for filter
   const { data: campuses, isLoading: campusesLoading } = api.campus.getAllCampuses.useQuery();
@@ -83,13 +98,71 @@ export default function SystemEnrollmentPage() {
   // Fetch programs for filter
   const { data: programs, isLoading: programsLoading } = api.program.getAllPrograms.useQuery();
 
-  // Fetch enrollments with filters
-  const { data: enrollments, isLoading: enrollmentsLoading } = api.enrollment.getAllEnrollments.useQuery({
+  // Fetch enrollments with filters and pagination
+  const { data: enrollmentResponse, isLoading: enrollmentsLoading } = api.enrollment.getAllEnrollments.useQuery({
     campusId: selectedCampus,
     programId: selectedProgram,
     status: selectedStatus,
     search: searchTerm,
+    page: currentPage,
+    pageSize: pageSize,
   });
+
+  const enrollments = enrollmentResponse?.data || [];
+  const pagination = enrollmentResponse?.pagination;
+
+  // Fetch enrollment statistics for the cards
+  const { data: allEnrollmentsStats } = api.enrollment.getAllEnrollments.useQuery({
+    campusId: selectedCampus,
+    programId: selectedProgram,
+    status: 'all',
+    search: '',
+    page: 1,
+    pageSize: 1, // We only need the count
+  });
+
+  const { data: activeEnrollmentsStats } = api.enrollment.getAllEnrollments.useQuery({
+    campusId: selectedCampus,
+    programId: selectedProgram,
+    status: 'ACTIVE',
+    search: '',
+    page: 1,
+    pageSize: 1,
+  });
+
+  const { data: pendingEnrollmentsStats } = api.enrollment.getAllEnrollments.useQuery({
+    campusId: selectedCampus,
+    programId: selectedProgram,
+    status: 'PENDING',
+    search: '',
+    page: 1,
+    pageSize: 1,
+  });
+
+  const { data: completedEnrollmentsStats } = api.enrollment.getAllEnrollments.useQuery({
+    campusId: selectedCampus,
+    programId: selectedProgram,
+    status: 'COMPLETED',
+    search: '',
+    page: 1,
+    pageSize: 1,
+  });
+
+  const { data: withdrawnEnrollmentsStats } = api.enrollment.getAllEnrollments.useQuery({
+    campusId: selectedCampus,
+    programId: selectedProgram,
+    status: 'WITHDRAWN',
+    search: '',
+    page: 1,
+    pageSize: 1,
+  });
+
+  // Calculate statistics from the responses
+  const totalEnrollments = allEnrollmentsStats?.pagination?.totalCount || 0;
+  const activeEnrollments = activeEnrollmentsStats?.pagination?.totalCount || 0;
+  const pendingEnrollments = pendingEnrollmentsStats?.pagination?.totalCount || 0;
+  const completedEnrollments = completedEnrollmentsStats?.pagination?.totalCount || 0;
+  const withdrawnEnrollments = withdrawnEnrollmentsStats?.pagination?.totalCount || 0;
 
   // Fetch data for transfer dialog when needed
   const { data: availableClasses } = api.class.getAllClasses.useQuery(
@@ -174,12 +247,6 @@ export default function SystemEnrollmentPage() {
     },
   ];
 
-  // Calculate enrollment statistics
-  const activeEnrollments = enrollments?.filter(e => e.status === 'ACTIVE').length || 0;
-  const pendingEnrollments = enrollments?.filter(e => e.status === 'PENDING').length || 0;
-  const completedEnrollments = enrollments?.filter(e => e.status === 'COMPLETED').length || 0;
-  const withdrawnEnrollments = enrollments?.filter(e => e.status === 'WITHDRAWN').length || 0;
-
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -190,7 +257,15 @@ export default function SystemEnrollmentPage() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Enrollments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalEnrollments}</div>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Active Enrollments</CardTitle>
@@ -225,7 +300,7 @@ export default function SystemEnrollmentPage() {
         </Card>
       </div>
 
-      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
+      <Tabs defaultValue="all" value={activeTab} onValueChange={handleTabChange}>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
           <TabsList className="grid w-full max-w-md grid-cols-4">
             <TabsTrigger value="all">All</TabsTrigger>
@@ -313,11 +388,28 @@ export default function SystemEnrollmentPage() {
                   ))}
                 </div>
               ) : (
-                <DataTable
-                  columns={columns}
-                  data={enrollments || []}
-                  searchColumn="studentName"
-                />
+                <div className="space-y-4">
+                  <DataTable
+                    columns={columns}
+                    data={enrollments || []}
+                    searchColumn="studentName"
+                    pagination={false}
+                  />
+                  {pagination && (
+                    <Pagination
+                      currentPage={pagination.page}
+                      totalPages={pagination.totalPages}
+                      totalCount={pagination.totalCount}
+                      pageSize={pagination.pageSize}
+                      onPageChange={setCurrentPage}
+                      onPageSizeChange={(newPageSize) => {
+                        setPageSize(newPageSize);
+                        setCurrentPage(1);
+                      }}
+                      pageSizeOptions={[10, 25, 50, 100]}
+                    />
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -325,61 +417,112 @@ export default function SystemEnrollmentPage() {
 
         <TabsContent value="active">
           <Card>
-            {enrollmentsLoading ? (
-              <CardContent className="pt-6">
+            <CardContent className="pt-6">
+              {enrollmentsLoading ? (
                 <div className="space-y-2">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Skeleton key={i} className="h-12 w-full" />
                   ))}
                 </div>
-              </CardContent>
-            ) : (
-              <DataTable
-                columns={columns}
-                data={enrollments?.filter(e => e.status === 'ACTIVE') || []}
-                searchColumn="studentName"
-              />
-            )}
+              ) : (
+                <div className="space-y-4">
+                  <DataTable
+                    columns={columns}
+                    data={enrollments || []}
+                    searchColumn="studentName"
+                    pagination={false}
+                  />
+                  {pagination && (
+                    <Pagination
+                      currentPage={pagination.page}
+                      totalPages={pagination.totalPages}
+                      totalCount={pagination.totalCount}
+                      pageSize={pagination.pageSize}
+                      onPageChange={setCurrentPage}
+                      onPageSizeChange={(newPageSize) => {
+                        setPageSize(newPageSize);
+                        setCurrentPage(1);
+                      }}
+                      pageSizeOptions={[10, 25, 50, 100]}
+                    />
+                  )}
+                </div>
+              )}
+            </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="pending">
           <Card>
-            {enrollmentsLoading ? (
-              <CardContent className="pt-6">
+            <CardContent className="pt-6">
+              {enrollmentsLoading ? (
                 <div className="space-y-2">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Skeleton key={i} className="h-12 w-full" />
                   ))}
                 </div>
-              </CardContent>
-            ) : (
-              <DataTable
-                columns={columns}
-                data={enrollments?.filter(e => e.status === 'PENDING') || []}
-                searchColumn="studentName"
-              />
-            )}
+              ) : (
+                <div className="space-y-4">
+                  <DataTable
+                    columns={columns}
+                    data={enrollments || []}
+                    searchColumn="studentName"
+                    pagination={false}
+                  />
+                  {pagination && (
+                    <Pagination
+                      currentPage={pagination.page}
+                      totalPages={pagination.totalPages}
+                      totalCount={pagination.totalCount}
+                      pageSize={pagination.pageSize}
+                      onPageChange={setCurrentPage}
+                      onPageSizeChange={(newPageSize) => {
+                        setPageSize(newPageSize);
+                        setCurrentPage(1);
+                      }}
+                      pageSizeOptions={[10, 25, 50, 100]}
+                    />
+                  )}
+                </div>
+              )}
+            </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="completed">
           <Card>
-            {enrollmentsLoading ? (
-              <CardContent className="pt-6">
+            <CardContent className="pt-6">
+              {enrollmentsLoading ? (
                 <div className="space-y-2">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Skeleton key={i} className="h-12 w-full" />
                   ))}
                 </div>
-              </CardContent>
-            ) : (
-              <DataTable
-                columns={columns}
-                data={enrollments?.filter(e => e.status === 'COMPLETED') || []}
-                searchColumn="studentName"
-              />
-            )}
+              ) : (
+                <div className="space-y-4">
+                  <DataTable
+                    columns={columns}
+                    data={enrollments || []}
+                    searchColumn="studentName"
+                    pagination={false}
+                  />
+                  {pagination && (
+                    <Pagination
+                      currentPage={pagination.page}
+                      totalPages={pagination.totalPages}
+                      totalCount={pagination.totalCount}
+                      pageSize={pagination.pageSize}
+                      onPageChange={setCurrentPage}
+                      onPageSizeChange={(newPageSize) => {
+                        setPageSize(newPageSize);
+                        setCurrentPage(1);
+                      }}
+                      pageSizeOptions={[10, 25, 50, 100]}
+                    />
+                  )}
+                </div>
+              )}
+            </CardContent>
           </Card>
         </TabsContent>
       </Tabs>

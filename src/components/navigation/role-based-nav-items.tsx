@@ -15,9 +15,11 @@ import {
   UserPlus,
   Clock,
   ArrowRight,
-  Award
+  Award,
+  MessageSquare
 } from 'lucide-react';
 import { UserType } from '@prisma/client';
+import { isFeatureEnabled } from '@/lib/feature-flags';
 
 export interface NavItem {
   title: string;
@@ -196,7 +198,14 @@ export const systemAdminNavItems: NavItem[] = [
     path: '/admin/system/fee-management',
     icon: <FileText className="h-5 w-5" />,
     requiredRoles: ['SYSTEM_ADMIN']
-  }
+  },
+  // Communications - Feature flag controlled
+  ...(isFeatureEnabled('MESSAGING_ENABLED') ? [{
+    title: 'Communications',
+    path: '/admin/system/communications',
+    icon: <MessageSquare className="h-5 w-5" />,
+    requiredRoles: ['SYSTEM_ADMIN' as UserType]
+  }] : [])
 ];
 
 /**
@@ -304,7 +313,14 @@ export const campusAdminNavItems: NavItem[] = [
     path: '/admin/utils',
     icon: <Settings className="h-5 w-5" />,
     requiredRoles: ['CAMPUS_ADMIN', 'SYSTEM_ADMIN']
-  }
+  },
+  // Communications - Feature flag controlled
+  ...(isFeatureEnabled('MESSAGING_ENABLED') ? [{
+    title: 'Communications',
+    path: '/admin/campus/communications',
+    icon: <MessageSquare className="h-5 w-5" />,
+    requiredRoles: ['CAMPUS_ADMIN', 'SYSTEM_ADMIN'] as UserType[]
+  }] : [])
 ];
 
 /**

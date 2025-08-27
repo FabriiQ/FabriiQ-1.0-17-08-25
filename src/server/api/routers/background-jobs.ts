@@ -420,4 +420,147 @@ export const backgroundJobsRouter = createTRPCRouter({
         });
       }
     }),
+
+  // Message Analysis Endpoints
+  runMessageAnalysis: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      // Check permissions
+      if (!ADMIN_ROLES.includes(ctx.session.user.userType as any)) {
+        throw new TRPCError({ code: "UNAUTHORIZED" });
+      }
+
+      try {
+        // Initialize job system if not already initialized
+        const { jobSystem } = initializeBackgroundJobs(ctx.prisma);
+
+        // Run the message analysis job
+        const result = await jobSystem.executeJob('system-message-analysis');
+
+        return {
+          success: true,
+          message: 'Message analysis completed successfully',
+          result
+        };
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to run message analysis",
+          cause: error
+        });
+      }
+    }),
+
+  getMessageAnalysisStats: protectedProcedure
+    .input(z.object({
+      days: z.number().min(1).max(90).default(7)
+    }))
+    .query(async ({ ctx, input }) => {
+      // Check permissions
+      if (!ADMIN_ROLES.includes(ctx.session.user.userType as any)) {
+        throw new TRPCError({ code: "UNAUTHORIZED" });
+      }
+
+      try {
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - input.days);
+
+        const [
+          totalAnalyzed,
+          riskBreakdown,
+          moderationQueue,
+          auditLogs
+        ] = await Promise.all([
+          // Total analyzed messages
+          ctx.prisma.socialPost.count({
+            where: {
+              analyzedAt: { gte: startDate },
+              messageType: { not: null }
+            }
+          }),
+
+          // Risk level breakdown
+          ctx.prisma.socialPost.groupBy({
+            by: ['riskLevel'],
+            where: {
+              analyzedAt: { gte: startDate },
+              messageType: { not: null }
+            },
+            _count: { id: true }
+          }),
+
+          // Moderation queue entries
+          ctx.prisma.moderationQueue.count({
+            where: {
+              createdAt: { gte: startDate }
+            }
+          }),
+
+          // Audit log entries
+          ctx.prisma.messageAuditLog.count({
+            where: {
+              timestamp: { gte: startDate },
+              action: 'ANALYZED'
+            }
+          })
+        ]);
+
+        // Process risk breakdown
+        const riskStats = {
+          LOW: 0,
+          MEDIUM: 0,
+          HIGH: 0,
+          CRITICAL: 0
+        };
+
+        riskBreakdown.forEach(item => {
+          if (item.riskLevel && item.riskLevel in riskStats) {
+            riskStats[item.riskLevel as keyof typeof riskStats] = item._count.id;
+          }
+        });
+
+        return {
+          period: {
+            days: input.days,
+            startDate,
+            endDate: new Date()
+          },
+          totalAnalyzed,
+          riskBreakdown: riskStats,
+          moderationQueueEntries: moderationQueue,
+          auditLogEntries: auditLogs,
+          averagePerDay: Math.round(totalAnalyzed / input.days)
+        };
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to get message analysis statistics",
+          cause: error
+        });
+      }
+    }),
+
+  getUnanalyzedMessageCount: protectedProcedure
+    .query(async ({ ctx }) => {
+      // Check permissions
+      if (!ADMIN_ROLES.includes(ctx.session.user.userType as any)) {
+        throw new TRPCError({ code: "UNAUTHORIZED" });
+      }
+
+      try {
+        const count = await ctx.prisma.socialPost.count({
+          where: {
+            analyzedAt: null,
+            messageType: { not: null }
+          }
+        });
+
+        return { count };
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_SERVER",
+          message: "Failed to get unanalyzed message count",
+          cause: error
+        });
+      }
+    }),
 });

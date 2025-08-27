@@ -119,6 +119,9 @@ import { systemConfigRouter } from "./routers/system-config";
 // Social Wall Router
 import { socialWallRouter } from "./routers/social-wall";
 
+// Messaging Router (High-Performance Communication Hub)
+import { messagingRouter } from "./routers/messaging";
+
 // AI Question Generator Router
 import { aiQuestionGeneratorRouter } from "./routers/ai-question-generator";
 
@@ -265,6 +268,9 @@ export const appRouter = createTRPCRouter({
 
   // Social Wall Router
   socialWall: socialWallRouter,
+
+  // Messaging Router (High-Performance Communication Hub)
+  messaging: messagingRouter,
 
   // Learning Patterns Router
   learningPatterns: learningPatternsRouter,

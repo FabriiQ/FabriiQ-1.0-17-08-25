@@ -527,6 +527,21 @@ export default function EnrollmentDetailPage() {
           <h1 className="text-3xl font-bold tracking-tight">Enrollment Details</h1>
         </div>
         <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            onClick={async () => {
+              await Promise.all([
+                refetchEnrollment(),
+                refetchFees()
+              ]);
+              toast({
+                title: "Refreshed",
+                description: "Enrollment data has been refreshed.",
+              });
+            }}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" /> Refresh
+          </Button>
           <Button variant="outline" asChild>
             <Link href={`/admin/system/enrollment/${enrollmentId}/edit`}>
               <Edit className="mr-2 h-4 w-4" /> Edit
@@ -1103,7 +1118,7 @@ export default function EnrollmentDetailPage() {
                           </div>
                           <div className="text-center p-4 rounded-lg bg-muted/50">
                             <div className="text-2xl font-bold text-green-600">
-                              Rs. {enrollmentFee.discountedAmount.toLocaleString()}
+                              Rs. {(enrollmentFee.baseAmount - enrollmentFee.finalAmount).toLocaleString()}
                             </div>
                             <div className="text-sm text-muted-foreground">Discount</div>
                           </div>
@@ -1177,7 +1192,21 @@ export default function EnrollmentDetailPage() {
                             </div>
                           </Button>
 
-
+                          <Button
+                            variant="outline"
+                            className="h-auto p-4"
+                            onClick={() => window.open(`/admin/system/enrollment/${enrollment.id}/fee`, '_blank')}
+                          >
+                            <div className="flex flex-col items-center space-y-2">
+                              <FileText className="h-6 w-6" />
+                              <div className="text-center">
+                                <div className="font-medium">Fee Details</div>
+                                <div className="text-xs text-muted-foreground">
+                                  View detailed fee info
+                                </div>
+                              </div>
+                            </div>
+                          </Button>
 
                           {/* Show Waive Late Fee button if fee is overdue */}
                           {enrollmentFee.paymentStatus === 'OVERDUE' && (
@@ -1325,27 +1354,43 @@ export default function EnrollmentDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {/* This would be populated with actual data in a real implementation */}
-                <div className="p-3 rounded-md border">
-                  <p className="font-medium">Introduction to Programming</p>
-                  <p className="text-sm text-muted-foreground">Computer Science</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <Badge variant="outline">Active</Badge>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href="#">View</Link>
-                    </Button>
+                {currentClasses?.success && currentClasses.enrollments && currentClasses.enrollments.length > 0 ? (
+                  currentClasses.enrollments
+                    .filter(otherEnrollment => otherEnrollment.id !== enrollmentId) // Exclude current enrollment
+                    .map((otherEnrollment) => (
+                      <div key={otherEnrollment.id} className="p-3 rounded-md border">
+                        <p className="font-medium">{otherEnrollment.class?.name || 'Unknown Class'}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {otherEnrollment.class?.courseCampus?.course?.name ||
+                           'Unknown Program'}
+                        </p>
+                        <div className="flex items-center justify-between mt-2">
+                          <Badge
+                            variant={otherEnrollment.status === 'ACTIVE' ? 'default' : 'outline'}
+                            className={
+                              otherEnrollment.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                              otherEnrollment.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
+                              otherEnrollment.status === 'INACTIVE' ? 'bg-red-100 text-red-800' :
+                              otherEnrollment.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                              otherEnrollment.status === 'WITHDRAWN' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                            }
+                          >
+                            {otherEnrollment.status}
+                          </Badge>
+                          <Button variant="ghost" size="sm" asChild>
+                            <Link href={`/admin/system/enrollment/${otherEnrollment.id}`}>
+                              View
+                            </Link>
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <p>No other enrollments found for this student.</p>
                   </div>
-                </div>
-                <div className="p-3 rounded-md border">
-                  <p className="font-medium">Data Structures</p>
-                  <p className="text-sm text-muted-foreground">Computer Science</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <Badge variant="outline">Completed</Badge>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href="#">View</Link>
-                    </Button>
-                  </div>
-                </div>
+                )}
               </div>
             </CardContent>
             <CardFooter>

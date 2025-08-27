@@ -231,6 +231,28 @@ export function BackgroundJobsManager() {
     },
   });
 
+  // Message Analysis Mutations
+  const runMessageAnalysisMutation = api.backgroundJobs.runMessageAnalysis.useMutation({
+    onSuccess: (data) => {
+      toast({
+        title: "Message analysis completed",
+        description: `Processed ${data.result?.totalProcessed || 0} messages, flagged ${data.result?.flaggedMessages || 0} for moderation.`,
+      });
+      refetchJobs();
+      refetchRunningJobs();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error running message analysis",
+        description: error.message,
+      });
+    },
+  });
+
+  // Fetch message analysis stats
+  const { data: messageAnalysisStats } = api.backgroundJobs.getMessageAnalysisStats.useQuery({ days: 7 });
+  const { data: unanalyzedCount } = api.backgroundJobs.getUnanalyzedMessageCount.useQuery();
+
   // Refresh all data
   const refreshAllData = async () => {
     setIsRefreshing(true);
@@ -469,6 +491,19 @@ export function BackgroundJobsManager() {
             )}
             Run All System Jobs
           </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => runMessageAnalysisMutation.mutate()}
+            disabled={runMessageAnalysisMutation.isLoading}
+          >
+            {runMessageAnalysisMutation.isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <PlayIcon className="h-4 w-4 mr-2" />
+            )}
+            Run Message Analysis
+          </Button>
         </div>
       </div>
 
@@ -522,6 +557,40 @@ export function BackgroundJobsManager() {
                   ))}
                 </div>
               </div>
+            </div>
+
+            {/* Message Analysis Stats */}
+            {messageAnalysisStats && (
+              <div className="mt-6">
+                <h3 className="text-lg font-semibold mb-4">Message Analysis (Last 7 Days)</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {messageAnalysisStats.totalAnalyzed}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Total Analyzed</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-orange-600">
+                      {messageAnalysisStats.moderationQueueEntries}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Flagged</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-red-600">
+                      {messageAnalysisStats.riskBreakdown.CRITICAL}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Critical</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-gray-600">
+                      {unanalyzedCount?.count || 0}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Pending</div>
+                  </div>
+                </div>
+              </div>
+            )}
             </div>
           </CardContent>
         </Card>

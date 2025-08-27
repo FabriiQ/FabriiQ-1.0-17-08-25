@@ -12,12 +12,17 @@ import { seedStudentEnrollments } from './student-enrollments';
 import { seedSubjects } from './subjects';
 import { seedStudents } from './students';
 import { seedSubjectTopics } from './subject-topics';
-import { seedActivities } from './activities';
 import { seedActivitiesByType } from './activities-seed';
 import { seedBulkStudents } from './bulk-students-seed';
+import { seedComprehensiveEnrollments } from './comprehensive-enrollments';
+import { seedComprehensiveAttendance } from './comprehensive-attendance';
+import { seedComprehensiveAssessments } from './comprehensive-assessments';
+import { seedComprehensiveFees } from './comprehensive-fees';
+import { seedComprehensiveAnalytics } from './comprehensive-analytics';
 import { seedTeacherAssignments } from './teacher-assignments';
 import { seedTeacherAttendance } from './teacher-attendance';
 import { seedLateFeePolicies } from './late-fee-policies';
+import { seedMessages } from './messages';
 import { seedChallanTemplates } from './challan-templates';
 
 const prisma = new PrismaClient();
@@ -26,12 +31,13 @@ const prisma = new PrismaClient();
  * Main seed function that orchestrates the seeding process
  */
 export async function seedNewData() {
-  console.log('Starting new database seeding...');
+  console.log('🌱 Starting new database seeding...');
 
   try {
+    console.log('📊 About to seed institutions...');
     // Step 1: Seed institutions
     const institutions = await seedInstitutions(prisma);
-    console.log('Institutions seeded successfully');
+    console.log('✅ Institutions seeded successfully');
 
     // Step 2: Seed campuses
     const campuses = await seedCampuses(prisma, institutions);
@@ -67,8 +73,8 @@ export async function seedNewData() {
     const users = await seedUsers(prisma, institutions, campuses);
     console.log('Users seeded successfully');
 
-    // Step 10: Seed classes
-    const classes = await seedClasses(prisma, programCampuses, []);
+    // Step 10: Seed classes (use teachers from users for class teacher selection)
+    const classes = await seedClasses(prisma, programCampuses, users.teachers);
     console.log('Classes seeded successfully');
 
     // Step 11: Seed students
@@ -76,7 +82,7 @@ export async function seedNewData() {
     console.log('Students seeded successfully');
 
     // Step 12: Seed student enrollments
-    const studentEnrollments = await seedStudentEnrollments(prisma, classes, []);
+    const studentEnrollments = await seedStudentEnrollments(prisma, classes, Object.values(users).flat());
     console.log('Student enrollments seeded successfully');
 
     // Step 10: Seed fee management data
@@ -87,21 +93,44 @@ export async function seedNewData() {
     await seedEnrollmentDocuments(prisma, studentEnrollments, []);
     console.log('Enrollment documents seeded successfully');
 
-    // Step 12: Seed subject topics
+    // Step 12: Seed subject topics (generic if subject-specific not defined)
     await seedSubjectTopics(prisma, subjects);
     console.log('Subject topics seeded successfully');
 
-    // Step 13: Seed activities
-    await seedActivities(prisma, subjects, classes, students);
+    // Step 13: Seed activities (by type across topics/classes)
+    await seedActivitiesByType(prisma, subjects, classes);
     console.log('Activities seeded successfully');
 
-    // Step 14: Seed activities by type
-    await seedActivitiesByType(prisma, subjects, classes);
-    console.log('Activities by type seeded successfully');
 
-    // Step 15: Seed bulk students (500 per class)
-    await seedBulkStudents(prisma, 500);
+
+    // Step 15: Seed bulk students (30 per class)
+    await seedBulkStudents(prisma, 30);
     console.log('Bulk students seeded successfully');
+
+    // Step 15.1: Seed comprehensive enrollments
+    console.log('🎓 Seeding comprehensive enrollments...');
+    await seedComprehensiveEnrollments(prisma);
+    console.log('✅ Comprehensive enrollments seeded successfully');
+
+    // Step 15.2: Seed comprehensive attendance
+    console.log('📅 Seeding comprehensive attendance...');
+    await seedComprehensiveAttendance(prisma);
+    console.log('✅ Comprehensive attendance seeded successfully');
+
+    // Step 15.3: Seed comprehensive assessments
+    console.log('📝 Seeding comprehensive assessments...');
+    await seedComprehensiveAssessments(prisma);
+    console.log('✅ Comprehensive assessments seeded successfully');
+
+    // Step 15.4: Seed comprehensive fees
+    console.log('💰 Seeding comprehensive fees...');
+    await seedComprehensiveFees(prisma);
+    console.log('✅ Comprehensive fees seeded successfully');
+
+    // Step 15.5: Seed comprehensive analytics
+    console.log('📊 Seeding comprehensive analytics...');
+    await seedComprehensiveAnalytics(prisma);
+    console.log('✅ Comprehensive analytics seeded successfully');
 
     // Step 16: Seed teacher assignments
     await seedTeacherAssignments(prisma, users.teachers, classes, subjects);
@@ -118,6 +147,10 @@ export async function seedNewData() {
     // Step 19: Seed challan templates
     await seedChallanTemplates(prisma);
     console.log('Challan templates seeded successfully');
+
+    // Step 15: Seed messages for testing real-time inboxes
+    const messageCount = await seedMessages(prisma);
+    console.log(`Messages seeded successfully: ${messageCount} messages created`);
 
     console.log('New database seeding completed successfully!');
     return {

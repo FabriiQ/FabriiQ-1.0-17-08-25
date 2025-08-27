@@ -35,12 +35,29 @@ export const campusesSeedData = [
       phone: '+1-555-765-4321',
     },
   },
+  {
+    name: 'Sunshine Central Campus',
+    code: 'SIS-CENTRAL',
+    institutionCode: 'SIS',
+    status: SystemStatus.ACTIVE,
+    address: {
+      street: '789 Knowledge Blvd',
+      city: 'Education City',
+      state: 'Education State',
+      country: 'Education Country',
+      postalCode: '12345',
+    },
+    contact: {
+      email: 'central@sunshine.edu',
+      phone: '+1-555-222-3333',
+    },
+  },
 ];
 
 export async function seedCampuses(prisma: PrismaClient, institutions: any[]) {
   console.log('Seeding campuses...');
 
-  const createdCampuses = [];
+  const createdCampuses: any[] = [];
 
   for (const campus of campusesSeedData) {
     const { institutionCode, ...campusData } = campus;

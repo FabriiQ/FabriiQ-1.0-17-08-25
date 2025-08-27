@@ -66,18 +66,25 @@ export const transferStudentCampusSchema = z.object({
 
 export class EnrollmentService extends ServiceBase {
   /**
-   * Gets all enrollments with optional filtering
-   * @param filters Optional filters for campus, program, status, and search term
-   * @returns Filtered enrollments
+   * Gets all enrollments with optional filtering - OPTIMIZED FOR PERFORMANCE WITH PAGINATION
+   * @param filters Optional filters for campus, program, status, search term, and pagination
+   * @returns Filtered enrollments with pagination metadata
    */
   async getAllEnrollments(filters: {
     campusId?: string;
     programId?: string;
     status?: string;
     search?: string;
+    page?: number;
+    pageSize?: number;
   }) {
     try {
-      // Build the where clause based on filters
+      // Set pagination defaults
+      const page = filters.page || 1;
+      const pageSize = Math.min(filters.pageSize || 25, 100); // Max 100 per page
+      const skip = (page - 1) * pageSize;
+
+      // Build optimized where clause
       const where: any = {};
 
       // Add status filter if provided and not 'all'
@@ -103,74 +110,121 @@ export class EnrollmentService extends ServiceBase {
         };
       }
 
-      // Add search filter if provided
-      if (filters.search) {
-        where.student = {
-          user: {
-            OR: [
-              {
-                name: {
-                  contains: filters.search,
-                  mode: 'insensitive',
-                },
-              },
-              {
-                email: {
-                  contains: filters.search,
-                  mode: 'insensitive',
-                },
-              },
-              {
-                id: filters.search, // In case the search is an exact ID
-              },
-            ],
-          },
-        };
-      }
-
-      // Get enrollments with filters
-      const enrollments = await this.prisma.studentEnrollment.findMany({
-        where,
-        include: {
-          student: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                },
-              },
-            },
-          },
-          class: {
-            include: {
-              campus: true,
-              programCampus: {
-                include: {
-                  program: true,
-                },
-              },
-            },
-          },
-          fees: true,
-        },
-        orderBy: [
+      // Add search filter if provided - optimized for performance
+      if (filters.search && filters.search.trim()) {
+        const searchTerm = filters.search.trim();
+        where.OR = [
           {
             student: {
               user: {
-                name: 'asc',
+                name: {
+                  contains: searchTerm,
+                  mode: 'insensitive',
+                },
               },
             },
           },
-        ],
-      });
+          {
+            student: {
+              user: {
+                email: {
+                  contains: searchTerm,
+                  mode: 'insensitive',
+                },
+              },
+            },
+          },
+          {
+            student: {
+              enrollmentNumber: {
+                contains: searchTerm,
+                mode: 'insensitive',
+              },
+            },
+          },
+          {
+            class: {
+              name: {
+                contains: searchTerm,
+                mode: 'insensitive',
+              },
+            },
+          },
+        ];
+      }
 
-      // Transform the data to match the expected format in the UI
+      // Execute queries in parallel for better performance
+      const [enrollments, totalCount] = await Promise.all([
+        this.prisma.studentEnrollment.findMany({
+          where,
+          select: {
+            id: true,
+            status: true,
+            startDate: true,
+            endDate: true,
+            createdAt: true,
+            student: {
+              select: {
+                id: true,
+                enrollmentNumber: true,
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+            class: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                campus: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+                programCampus: {
+                  select: {
+                    id: true,
+                    program: {
+                      select: {
+                        id: true,
+                        name: true,
+                        code: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            _count: {
+              select: {
+                fees: true,
+              },
+            },
+          },
+          orderBy: [
+            {
+              createdAt: 'desc',
+            },
+          ],
+          skip,
+          take: pageSize,
+        }),
+        this.prisma.studentEnrollment.count({ where }),
+      ]);
+
+      // Transform the data efficiently
       const formattedEnrollments = enrollments.map(enrollment => ({
         id: enrollment.id,
         studentName: enrollment.student.user.name,
+        studentEmail: enrollment.student.user.email,
         studentId: enrollment.student.user.id,
+        enrollmentNumber: enrollment.student.enrollmentNumber,
         campusName: enrollment.class.campus.name,
         campusId: enrollment.class.campus.id,
         className: enrollment.class.name,
@@ -180,11 +234,28 @@ export class EnrollmentService extends ServiceBase {
         startDate: enrollment.startDate,
         endDate: enrollment.endDate,
         status: enrollment.status,
-        hasFee: enrollment.fees && enrollment.fees.length > 0,
+        hasFee: enrollment._count.fees > 0,
+        createdAt: enrollment.createdAt,
       }));
 
-      return formattedEnrollments;
+      // Calculate pagination metadata
+      const totalPages = Math.ceil(totalCount / pageSize);
+      const hasNextPage = page < totalPages;
+      const hasPreviousPage = page > 1;
+
+      return {
+        data: formattedEnrollments,
+        pagination: {
+          page,
+          pageSize,
+          totalCount,
+          totalPages,
+          hasNextPage,
+          hasPreviousPage,
+        },
+      };
     } catch (error) {
+      console.error('Error in getAllEnrollments:', error);
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to get enrollments",
@@ -388,6 +459,7 @@ export class EnrollmentService extends ServiceBase {
               courseCampus: {
                 select: {
                   id: true,
+                  programCampusId: true,
                   course: {
                     select: {
                       id: true,

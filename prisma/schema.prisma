@@ -66,6 +66,7 @@ model User {
   canvases                   Canvas[]
   createdTemplates           ChallanTemplate[]           @relation("CreatedTemplates")
   updatedTemplates           ChallanTemplate[]           @relation("UpdatedTemplates")
+  consentAuditLogs           ConsentAuditLog[]           @relation("ConsentAuditLogs")
   conversationParticipations ConversationParticipant[]
   coordinatorProfile         CoordinatorProfile?
   createdDiscountTypes       DiscountType[]              @relation("CreatedDiscountTypes")
@@ -75,6 +76,7 @@ model User {
   createdEnrollmentHistory   EnrollmentHistory[]         @relation("CreatedEnrollmentHistory")
   createdArrears             FeeArrear[]                 @relation("CreatedArrears")
   updatedArrears             FeeArrear[]                 @relation("UpdatedArrears")
+  performedCalculations      FeeCalculationAudit[]       @relation("PerformedCalculations")
   createdChallans            FeeChallan[]                @relation("CreatedChallans")
   updatedChallans            FeeChallan[]                @relation("UpdatedChallans")
   approvedDiscounts          FeeDiscount[]               @relation("ApprovedDiscounts")
@@ -86,6 +88,7 @@ model User {
   updatedFeeTransactions     FeeTransaction[]            @relation("UpdatedFeeTransactions")
   createdFeedback            FeedbackBase[]              @relation("CreatedFeedback")
   feedbackResponses          FeedbackResponse[]          @relation("UserFeedbackResponses")
+  ferpaDisclosures           FerpaDisclosureLog[]        @relation("FerpaDisclosures")
   files                      File[]
   createdGradeBooks          GradeBook[]                 @relation("CreatedGradeBooks")
   updatedGradeBooks          GradeBook[]                 @relation("UpdatedGradeBooks")
@@ -94,10 +97,30 @@ model User {
   createdH5PContents         H5PContent[]                @relation("CreatedH5PContents")
   h5pCompletions             H5PContentCompletion[]
   createdHolidays            Holiday[]                   @relation("HolidayCreator")
+  createdInvoicePayments     InvoicePayment[]
+  createdInvoiceReminders    InvoiceReminder[]
+  createdInvoiceTemplates    InvoiceTemplate[]
+  createdInvoices            Invoice[]                   @relation("InvoiceCreatedBy")
+  deletedInvoices            Invoice[]                   @relation("InvoiceDeletedBy")
+  updatedInvoices            Invoice[]                   @relation("InvoiceUpdatedBy")
+  createdLateFeeApplication  LateFeeApplication[]        @relation("CreatedLateFeeApplication")
+  updatedLateFeeApplication  LateFeeApplication[]        @relation("UpdatedLateFeeApplication")
+  waivedLateFees             LateFeeApplication[]        @relation("WaivedLateFees")
+  performedLateFeeActions    LateFeeHistory[]            @relation("PerformedLateFeeActions")
+  createdLateFeePolicy       LateFeePolicy[]             @relation("CreatedLateFeePolicy")
+  updatedLateFeePolicy       LateFeePolicy[]             @relation("UpdatedLateFeePolicy")
+  approvedWaivers            LateFeeWaiver[]             @relation("ApprovedWaivers")
+  requestedWaivers           LateFeeWaiver[]             @relation("RequestedWaivers")
+  reviewedWaivers            LateFeeWaiver[]             @relation("ReviewedWaivers")
   adminApprovals             LessonPlan[]                @relation("AdminApprovals")
   coordinatorApprovals       LessonPlan[]                @relation("CoordinatorApprovals")
+  messageAuditLogs           MessageAuditLog[]           @relation("MessageAuditActor")
+  messageRecipients          MessageRecipient[]          @relation("MessageRecipients")
   sentMessages               Message[]
+  moderationAssignments      ModerationQueue[]           @relation("ModerationAssignee")
+  moderationReviews          ModerationQueue[]           @relation("ModerationReviewer")
   notifications              Notification[]
+  resolvedReconciliations    PaymentReconciliation[]     @relation("ResolvedReconciliations")
   performanceAlerts          PerformanceAlert[]
   performanceAnalytics       PerformanceAnalytics[]
   createdQuestionBanks       QuestionBank[]              @relation("CreatedQuestionBanks")
@@ -131,27 +154,11 @@ model User {
   teacherPreferences         TeacherPreference[]
   teacherProfile             TeacherProfile?
   activeCampuses             UserCampusAccess[]
+  userConsents               UserConsent[]               @relation("UserConsents")
   permissions                UserPermission[]
   institution                Institution                 @relation(fields: [institutionId], references: [id])
   calendarEvents             AcademicCalendarEvent[]     @relation("EventUsers")
   holidays                   Holiday[]                   @relation("HolidayUsers")
-  createdInvoices            Invoice[]                   @relation("InvoiceCreatedBy")
-  updatedInvoices            Invoice[]                   @relation("InvoiceUpdatedBy")
-  deletedInvoices            Invoice[]                   @relation("InvoiceDeletedBy")
-  createdInvoiceTemplates    InvoiceTemplate[]
-  createdInvoicePayments     InvoicePayment[]
-  createdInvoiceReminders    InvoiceReminder[]
-  createdLateFeePolicy       LateFeePolicy[]             @relation("CreatedLateFeePolicy")
-  updatedLateFeePolicy       LateFeePolicy[]             @relation("UpdatedLateFeePolicy")
-  waivedLateFees             LateFeeApplication[]        @relation("WaivedLateFees")
-  createdLateFeeApplication  LateFeeApplication[]        @relation("CreatedLateFeeApplication")
-  updatedLateFeeApplication  LateFeeApplication[]        @relation("UpdatedLateFeeApplication")
-  requestedWaivers           LateFeeWaiver[]             @relation("RequestedWaivers")
-  reviewedWaivers            LateFeeWaiver[]             @relation("ReviewedWaivers")
-  performedCalculations      FeeCalculationAudit[]       @relation("PerformedCalculations")
-  resolvedReconciliations    PaymentReconciliation[]     @relation("ResolvedReconciliations")
-  approvedWaivers            LateFeeWaiver[]             @relation("ApprovedWaivers")
-  performedLateFeeActions    LateFeeHistory[]            @relation("PerformedLateFeeActions")
 
   @@index([institutionId, email])
   @@index([institutionId, username])
@@ -564,6 +571,7 @@ model StudentProfile {
   ActivityGrade       ActivityGrade[]
   assessments         AssessmentSubmission[]
   attendance          Attendance[]
+  invoices            Invoice[]
   journeyEvents       JourneyEvent[]
   learningGoals       LearningGoal[]
   learningTimeRecords LearningTimeRecord[]
@@ -578,7 +586,6 @@ model StudentProfile {
   pointsAggregates    StudentPointsAggregate[]
   user                User                      @relation(fields: [userId], references: [id])
   topicMasteries      TopicMastery[]            @relation("UserTopicMasteries")
-  invoices            Invoice[]
 
   @@index([totalPoints])
   @@index([currentLevel])
@@ -655,15 +662,17 @@ model StudentEnrollment {
   status      EnrollmentStatus    @default(ACTIVE)
   fees        EnrollmentFee[]
   history     EnrollmentHistory[]
+  invoices    Invoice[]
   class       Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
   createdBy   User                @relation("CreatedEnrollments", fields: [createdById], references: [id])
   student     StudentProfile      @relation(fields: [studentId], references: [id])
   updatedBy   User?               @relation("UpdatedEnrollments", fields: [updatedById], references: [id])
-  invoices    Invoice[]
 
   @@unique([studentId, classId])
   @@index([studentId, status])
   @@index([classId, status])
+  @@index([status, createdAt])
+  @@index([createdAt])
   @@map("student_enrollments")
 }
 
@@ -1142,13 +1151,13 @@ model Institution {
   assessments          Assessment[]
   campuses             Campus[]
   challanTemplates     ChallanTemplate[]
+  invoiceTemplates     InvoiceTemplate[]
   leaderboardSnapshots LeaderboardSnapshot[]
   programs             Program[]
   questionBanks        QuestionBank[]
   questionSources      QuestionSource[]
   rewardPointsConfigs  RewardPointsConfig[]
   users                User[]
-  invoiceTemplates     InvoiceTemplate[]
 
   @@map("institutions")
 }
@@ -1536,10 +1545,10 @@ model FeeStructure {
   createdById       String
   updatedById       String?
   enrollmentFees    EnrollmentFee[]
-  invoices          Invoice[]
   createdBy         User            @relation("CreatedFeeStructures", fields: [createdById], references: [id])
   programCampus     ProgramCampus   @relation(fields: [programCampusId], references: [id])
   updatedBy         User?           @relation("UpdatedFeeStructures", fields: [updatedById], references: [id])
+  invoices          Invoice[]
 
   @@index([programCampusId])
   @@index([academicCycleId])
@@ -1568,49 +1577,47 @@ model DiscountType {
 }
 
 model EnrollmentFee {
-  id                String             @id @default(cuid())
-  enrollmentId      String
-  feeStructureId    String
-  baseAmount        Float
-  discountedAmount  Float
-  finalAmount       Float
-  computedLateFee   Float              @default(0)
-
-  dueDate           DateTime?
-  paymentStatus     PaymentStatusType
-  paymentMethod     String?
-  notes             String?
+  id                     String                  @id @default(cuid())
+  enrollmentId           String
+  feeStructureId         String
+  baseAmount             Float
+  discountedAmount       Float
+  finalAmount            Float
+  computedLateFee        Float                   @default(0)
+  dueDate                DateTime?
+  paymentStatus          PaymentStatusType
+  paymentMethod          String?
+  notes                  String?
   lastLateFeeCalculation DateTime?
   lastNotificationSent   DateTime?
-  reminderCount     Int                @default(0)
-  version           Int                @default(1)
-  lastChangeReason  String?
-  statusSyncedAt    DateTime           @default(now())
-  lockVersion       Int                @default(0)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  createdById       String
-  updatedById       String?
-  additionalCharges AdditionalCharge[]
-  createdBy         User               @relation("CreatedEnrollmentFees", fields: [createdById], references: [id])
-  enrollment        StudentEnrollment  @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  feeStructure      FeeStructure       @relation(fields: [feeStructureId], references: [id])
-  updatedBy         User?              @relation("UpdatedEnrollmentFees", fields: [updatedById], references: [id])
-  arrears           FeeArrear[]
-  challans          FeeChallan[]
-  discounts         FeeDiscount[]
-  transactions      FeeTransaction[]
-  lateFeeApplications LateFeeApplication[]
-  lateFeeWaivers    LateFeeWaiver[]
-  lateFeeHistory    LateFeeHistory[]
-  notifications     FeeNotification[]
-  calculationAudits FeeCalculationAudit[]
-  reconciliations   PaymentReconciliation[]
+  reminderCount          Int                     @default(0)
+  version                Int                     @default(1)
+  lastChangeReason       String?
+  statusSyncedAt         DateTime                @default(now())
+  lockVersion            Int                     @default(0)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  createdById            String
+  updatedById            String?
+  additionalCharges      AdditionalCharge[]
+  createdBy              User                    @relation("CreatedEnrollmentFees", fields: [createdById], references: [id])
+  enrollment             StudentEnrollment       @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  feeStructure           FeeStructure            @relation(fields: [feeStructureId], references: [id])
+  updatedBy              User?                   @relation("UpdatedEnrollmentFees", fields: [updatedById], references: [id])
+  arrears                FeeArrear[]
+  calculationAudits      FeeCalculationAudit[]
+  challans               FeeChallan[]
+  discounts              FeeDiscount[]
+  notifications          FeeNotification[]
+  transactions           FeeTransaction[]
+  lateFeeApplications    LateFeeApplication[]
+  lateFeeHistory         LateFeeHistory[]
+  lateFeeWaivers         LateFeeWaiver[]
+  reconciliations        PaymentReconciliation[]
 
   @@index([enrollmentId])
   @@index([paymentStatus])
   @@index([dueDate])
-
   @@index([paymentStatus, dueDate])
   @@index([computedLateFee])
   @@index([lastNotificationSent])
@@ -1681,37 +1688,37 @@ model FeeArrear {
 }
 
 model LateFeePolicy {
-  id                      String                    @id @default(cuid())
-  institutionId           String?
-  campusId                String?
-  name                    String
-  description             String?
-  calculationType         LateFeeCalculationType    @default(FIXED)
-  amount                  Float                     @default(0)
-  maxAmount               Float?
-  minAmount               Float                     @default(0)
-  gracePeriodDays         Int                       @default(0)
-  applyAfterDays          Int                       @default(1)
-  compoundingEnabled      Boolean                   @default(false)
-  compoundingInterval     CompoundingInterval?      @default(DAILY)
-  maxCompoundingPeriods   Int?
-  tieredRules             Json?
-  applyOnWeekends         Boolean                   @default(true)
-  applyOnHolidays         Boolean                   @default(true)
-  autoApply               Boolean                   @default(true)
-  applicableToFeeTypes    String[]
-  applicableToPrograms    String[]
-  applicableToClasses     String[]
-  isActive                Boolean                   @default(true)
-  effectiveFrom           DateTime?
-  effectiveTo             DateTime?
-  createdAt               DateTime                  @default(now())
-  updatedAt               DateTime                  @updatedAt
-  createdById             String
-  updatedById             String?
-  createdBy               User                      @relation("CreatedLateFeePolicy", fields: [createdById], references: [id])
-  updatedBy               User?                     @relation("UpdatedLateFeePolicy", fields: [updatedById], references: [id])
-  applications            LateFeeApplication[]
+  id                    String                 @id @default(cuid())
+  institutionId         String?
+  campusId              String?
+  name                  String
+  description           String?
+  calculationType       LateFeeCalculationType @default(FIXED)
+  amount                Float                  @default(0)
+  maxAmount             Float?
+  minAmount             Float                  @default(0)
+  gracePeriodDays       Int                    @default(0)
+  applyAfterDays        Int                    @default(1)
+  compoundingEnabled    Boolean                @default(false)
+  compoundingInterval   CompoundingInterval?   @default(DAILY)
+  maxCompoundingPeriods Int?
+  tieredRules           Json?
+  applyOnWeekends       Boolean                @default(true)
+  applyOnHolidays       Boolean                @default(true)
+  autoApply             Boolean                @default(true)
+  applicableToFeeTypes  String[]
+  applicableToPrograms  String[]
+  applicableToClasses   String[]
+  isActive              Boolean                @default(true)
+  effectiveFrom         DateTime?
+  effectiveTo           DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  createdById           String
+  updatedById           String?
+  applications          LateFeeApplication[]
+  createdBy             User                   @relation("CreatedLateFeePolicy", fields: [createdById], references: [id])
+  updatedBy             User?                  @relation("UpdatedLateFeePolicy", fields: [updatedById], references: [id])
 
   @@index([institutionId])
   @@index([campusId])
@@ -1721,36 +1728,36 @@ model LateFeePolicy {
 }
 
 model LateFeeApplication {
-  id                  String           @id @default(cuid())
-  enrollmentFeeId     String
-  policyId            String
-  daysOverdue         Int
-  calculatedAmount    Float
-  appliedAmount       Float
-  compoundingPeriods  Int              @default(0)
-  dueDate             DateTime
-  calculationDate     DateTime
-  applicationDate     DateTime?
-  paymentDate         DateTime?
-  status              LateFeeStatus    @default(PENDING)
-  reason              String?
-  notes               String?
-  waivedAmount        Float            @default(0)
-  waivedBy            String?
-  waivedDate          DateTime?
-  waiverReason        String?
-  batchId             String?
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-  createdById         String
-  updatedById         String?
-  enrollmentFee       EnrollmentFee    @relation(fields: [enrollmentFeeId], references: [id], onDelete: Cascade)
-  policy              LateFeePolicy    @relation(fields: [policyId], references: [id])
-  waivedByUser        User?            @relation("WaivedLateFees", fields: [waivedBy], references: [id])
-  createdBy           User             @relation("CreatedLateFeeApplication", fields: [createdById], references: [id])
-  updatedBy           User?            @relation("UpdatedLateFeeApplication", fields: [updatedById], references: [id])
-  waivers             LateFeeWaiver[]
-  history             LateFeeHistory[]
+  id                 String           @id @default(cuid())
+  enrollmentFeeId    String
+  policyId           String
+  daysOverdue        Int
+  calculatedAmount   Float
+  appliedAmount      Float
+  compoundingPeriods Int              @default(0)
+  dueDate            DateTime
+  calculationDate    DateTime
+  applicationDate    DateTime?
+  paymentDate        DateTime?
+  status             LateFeeStatus    @default(PENDING)
+  reason             String?
+  notes              String?
+  waivedAmount       Float            @default(0)
+  waivedBy           String?
+  waivedDate         DateTime?
+  waiverReason       String?
+  batchId            String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  createdById        String
+  updatedById        String?
+  createdBy          User             @relation("CreatedLateFeeApplication", fields: [createdById], references: [id])
+  enrollmentFee      EnrollmentFee    @relation(fields: [enrollmentFeeId], references: [id], onDelete: Cascade)
+  policy             LateFeePolicy    @relation(fields: [policyId], references: [id])
+  updatedBy          User?            @relation("UpdatedLateFeeApplication", fields: [updatedById], references: [id])
+  waivedByUser       User?            @relation("WaivedLateFees", fields: [waivedBy], references: [id])
+  history            LateFeeHistory[]
+  waivers            LateFeeWaiver[]
 
   @@index([enrollmentFeeId])
   @@index([policyId])
@@ -1763,32 +1770,32 @@ model LateFeeApplication {
 }
 
 model LateFeeWaiver {
-  id                     String                @id @default(cuid())
-  lateFeeApplicationId   String
-  enrollmentFeeId        String
-  requestedAmount        Float
-  approvedAmount         Float                 @default(0)
-  reason                 String
-  justification          String?
-  supportingDocuments    Json?
-  status                 WaiverStatus          @default(PENDING)
-  requestedBy            String
-  requestedDate          DateTime              @default(now())
-  reviewedBy             String?
-  reviewedDate           DateTime?
-  approvedBy             String?
-  approvedDate           DateTime?
-  rejectionReason        String?
-  expiresAt              DateTime?
-  isExpired              Boolean               @default(false)
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
-  lateFeeApplication     LateFeeApplication    @relation(fields: [lateFeeApplicationId], references: [id], onDelete: Cascade)
-  enrollmentFee          EnrollmentFee         @relation(fields: [enrollmentFeeId], references: [id], onDelete: Cascade)
-  requestedByUser        User                  @relation("RequestedWaivers", fields: [requestedBy], references: [id])
-  reviewedByUser         User?                 @relation("ReviewedWaivers", fields: [reviewedBy], references: [id])
-  approvedByUser         User?                 @relation("ApprovedWaivers", fields: [approvedBy], references: [id])
-  history                LateFeeHistory[]
+  id                   String             @id @default(cuid())
+  lateFeeApplicationId String
+  enrollmentFeeId      String
+  requestedAmount      Float
+  approvedAmount       Float              @default(0)
+  reason               String
+  justification        String?
+  supportingDocuments  Json?
+  status               WaiverStatus       @default(PENDING)
+  requestedBy          String
+  requestedDate        DateTime           @default(now())
+  reviewedBy           String?
+  reviewedDate         DateTime?
+  approvedBy           String?
+  approvedDate         DateTime?
+  rejectionReason      String?
+  expiresAt            DateTime?
+  isExpired            Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  history              LateFeeHistory[]
+  approvedByUser       User?              @relation("ApprovedWaivers", fields: [approvedBy], references: [id])
+  enrollmentFee        EnrollmentFee      @relation(fields: [enrollmentFeeId], references: [id], onDelete: Cascade)
+  lateFeeApplication   LateFeeApplication @relation(fields: [lateFeeApplicationId], references: [id], onDelete: Cascade)
+  requestedByUser      User               @relation("RequestedWaivers", fields: [requestedBy], references: [id])
+  reviewedByUser       User?              @relation("ReviewedWaivers", fields: [reviewedBy], references: [id])
 
   @@index([lateFeeApplicationId])
   @@index([enrollmentFeeId])
@@ -1799,23 +1806,23 @@ model LateFeeWaiver {
 }
 
 model LateFeeHistory {
-  id                     String              @id @default(cuid())
-  enrollmentFeeId        String
-  lateFeeApplicationId   String?
-  waiverRequestId        String?
-  action                 String
-  previousStatus         String?
-  newStatus              String?
-  amount                 Float?
-  details                Json?
-  performedBy            String
-  performedAt            DateTime            @default(now())
-  reason                 String?
-  systemGenerated        Boolean             @default(false)
-  enrollmentFee          EnrollmentFee       @relation(fields: [enrollmentFeeId], references: [id], onDelete: Cascade)
-  lateFeeApplication     LateFeeApplication? @relation(fields: [lateFeeApplicationId], references: [id], onDelete: Cascade)
-  waiverRequest          LateFeeWaiver?      @relation(fields: [waiverRequestId], references: [id], onDelete: Cascade)
-  performedByUser        User                @relation("PerformedLateFeeActions", fields: [performedBy], references: [id])
+  id                   String              @id @default(cuid())
+  enrollmentFeeId      String
+  lateFeeApplicationId String?
+  waiverRequestId      String?
+  action               String
+  previousStatus       String?
+  newStatus            String?
+  amount               Float?
+  details              Json?
+  performedBy          String
+  performedAt          DateTime            @default(now())
+  reason               String?
+  systemGenerated      Boolean             @default(false)
+  enrollmentFee        EnrollmentFee       @relation(fields: [enrollmentFeeId], references: [id], onDelete: Cascade)
+  lateFeeApplication   LateFeeApplication? @relation(fields: [lateFeeApplicationId], references: [id], onDelete: Cascade)
+  performedByUser      User                @relation("PerformedLateFeeActions", fields: [performedBy], references: [id])
+  waiverRequest        LateFeeWaiver?      @relation(fields: [waiverRequestId], references: [id], onDelete: Cascade)
 
   @@index([enrollmentFeeId])
   @@index([lateFeeApplicationId])
@@ -1910,13 +1917,13 @@ model FeeTransaction {
 model FeeNotification {
   id               String        @id @default(cuid())
   enrollmentFeeId  String
-  notificationType String        // 'OVERDUE', 'REMINDER', 'LATE_FEE_APPLIED'
+  notificationType String
   recipientEmail   String
   recipientName    String
   subject          String
   message          String
   sentAt           DateTime      @default(now())
-  status           String        @default("SENT") // 'SENT', 'FAILED', 'BOUNCED'
+  status           String        @default("SENT")
   metadata         Json?
   createdAt        DateTime      @default(now())
   enrollmentFee    EnrollmentFee @relation(fields: [enrollmentFeeId], references: [id], onDelete: Cascade)
@@ -1927,19 +1934,19 @@ model FeeNotification {
 }
 
 model FeeCalculationAudit {
-  id                  String        @id @default(cuid())
-  enrollmentFeeId     String
-  calculationType     String        // 'INITIAL', 'RECALCULATION', 'LATE_FEE', 'DISCOUNT', 'CHARGE'
-  previousAmount      Float?
-  newAmount           Float?
-  changeAmount        Float?
-  reason              String?
-  calculationDetails  Json?
-  performedBy         String
-  performedAt         DateTime      @default(now())
-  isAutomated         Boolean       @default(false)
-  enrollmentFee       EnrollmentFee @relation(fields: [enrollmentFeeId], references: [id], onDelete: Cascade)
-  performedByUser     User          @relation("PerformedCalculations", fields: [performedBy], references: [id])
+  id                 String        @id @default(cuid())
+  enrollmentFeeId    String
+  calculationType    String
+  previousAmount     Float?
+  newAmount          Float?
+  changeAmount       Float?
+  reason             String?
+  calculationDetails Json?
+  performedBy        String
+  performedAt        DateTime      @default(now())
+  isAutomated        Boolean       @default(false)
+  enrollmentFee      EnrollmentFee @relation(fields: [enrollmentFeeId], references: [id], onDelete: Cascade)
+  performedByUser    User          @relation("PerformedCalculations", fields: [performedBy], references: [id])
 
   @@index([enrollmentFeeId, performedAt])
   @@index([calculationType, performedAt])
@@ -1947,19 +1954,19 @@ model FeeCalculationAudit {
 }
 
 model PaymentReconciliation {
-  id                  String        @id @default(cuid())
-  enrollmentFeeId     String
-  expectedAmount      Float
-  actualPaidAmount    Float
-  discrepancyAmount   Float?        // Computed in database
-  reconciliationDate  DateTime      @default(now())
-  status              String        @default("PENDING") // 'PENDING', 'RESOLVED', 'ESCALATED'
-  notes               String?
-  resolvedBy          String?
-  resolvedAt          DateTime?
-  createdAt           DateTime      @default(now())
-  enrollmentFee       EnrollmentFee @relation(fields: [enrollmentFeeId], references: [id], onDelete: Cascade)
-  resolvedByUser      User?         @relation("ResolvedReconciliations", fields: [resolvedBy], references: [id])
+  id                 String        @id @default(cuid())
+  enrollmentFeeId    String
+  expectedAmount     Float
+  actualPaidAmount   Float
+  discrepancyAmount  Float?
+  reconciliationDate DateTime      @default(now())
+  status             String        @default("PENDING")
+  notes              String?
+  resolvedBy         String?
+  resolvedAt         DateTime?
+  createdAt          DateTime      @default(now())
+  enrollmentFee      EnrollmentFee @relation(fields: [enrollmentFeeId], references: [id], onDelete: Cascade)
+  resolvedByUser     User?         @relation("ResolvedReconciliations", fields: [resolvedBy], references: [id])
 
   @@index([status, reconciliationDate])
   @@map("payment_reconciliation")
@@ -3231,9 +3238,9 @@ model TopicMastery {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   assessmentResults  AssessmentResult[]
-  student            StudentProfile     @relation("UserTopicMasteries", fields: [studentId], references: [userId], map: "topic_masteries_user_fkey")
   subject            Subject            @relation(fields: [subjectId], references: [id])
   topic              SubjectTopic       @relation(fields: [topicId], references: [id])
+  student            StudentProfile     @relation("UserTopicMasteries", fields: [studentId], references: [userId], map: "topic_masteries_user_fkey")
 
   @@unique([studentId, topicId])
   @@index([studentId])
@@ -3298,41 +3305,79 @@ model ActivityOutcome {
 }
 
 model SocialPost {
-  id               String                @id @default(cuid())
-  content          String
-  contentType      PostContentType       @default(TEXT)
-  mediaUrls        Json?
-  metadata         Json?
-  classId          String
-  authorId         String
-  postType         PostType              @default(REGULAR)
-  status           PostStatus            @default(ACTIVE)
-  commentCount     Int                   @default(0)
-  reactionCount    Int                   @default(0)
-  isModerated      Boolean               @default(false)
-  moderatedBy      String?
-  moderatedAt      DateTime?
-  moderationReason String?
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-  deletedAt        DateTime?
-  commentsDisabled Boolean               @default(false)
-  isPinned         Boolean               @default(false)
-  repliesDisabled  Boolean               @default(false)
-  activityTags     SocialActivityTag[]
-  comments         SocialComment[]
-  moderationLogs   SocialModerationLog[]
-  author           User                  @relation("SocialPostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  class            Class                 @relation(fields: [classId], references: [id], onDelete: Cascade)
-  moderator        User?                 @relation("SocialPostModerator", fields: [moderatedBy], references: [id])
-  reactions        SocialReaction[]
-  reports          SocialReport[]
-  userTags         SocialUserTag[]
+  id                        String                    @id @default(cuid())
+  content                   String
+  contentType               PostContentType           @default(TEXT)
+  mediaUrls                 Json?
+  metadata                  Json?
+  classId                   String
+  authorId                  String
+  postType                  PostType                  @default(REGULAR)
+  status                    PostStatus                @default(ACTIVE)
+  commentCount              Int                       @default(0)
+  reactionCount             Int                       @default(0)
+  isModerated               Boolean                   @default(false)
+  moderatedBy               String?
+  moderatedAt               DateTime?
+  moderationReason          String?
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @updatedAt
+  deletedAt                 DateTime?
+  commentsDisabled          Boolean                   @default(false)
+  isPinned                  Boolean                   @default(false)
+  repliesDisabled           Boolean                   @default(false)
+  messageType               MessageType?              @default(PUBLIC)
+  threadId                  String?
+  parentMessageId           String?
+  consentRequired           Boolean                   @default(false)
+  consentObtained           Boolean                   @default(true)
+  legalBasis                LegalBasis                @default(LEGITIMATE_INTEREST)
+  dataCategories            String[]                  @default([])
+  retentionPolicyId         String?
+  encryptionLevel           EncryptionLevel           @default(STANDARD)
+  auditRequired             Boolean                   @default(false)
+  crossBorderTransfer       Boolean                   @default(false)
+  contentCategory           ContentCategory           @default(GENERAL)
+  riskLevel                 RiskLevel                 @default(LOW)
+  flaggedKeywords           String[]                  @default([])
+  isEducationalRecord       Boolean                   @default(false)
+  directoryInformationLevel DirectoryLevel            @default(PUBLIC)
+  parentalConsentRequired   Boolean                   @default(false)
+  disclosureLoggingRequired Boolean                   @default(false)
+  analyzedAt                DateTime?
+  lastAccessedAt            DateTime?
+  accessCount               Int                       @default(0)
+  encryptionKeys            EncryptionKey[]
+  ferpaDisclosureLogs       FerpaDisclosureLog[]
+  messageAuditLogs          MessageAuditLog[]
+  messageRecipients         MessageRecipient[]
+  retentionSchedule         MessageRetentionSchedule?
+  moderationQueue           ModerationQueue[]
+  activityTags              SocialActivityTag[]
+  comments                  SocialComment[]
+  moderationLogs            SocialModerationLog[]
+  author                    User                      @relation("SocialPostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  class                     Class                     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  moderator                 User?                     @relation("SocialPostModerator", fields: [moderatedBy], references: [id])
+  retentionPolicy           RetentionPolicy?          @relation(fields: [retentionPolicyId], references: [id])
+  reactions                 SocialReaction[]
+  reports                   SocialReport[]
+  userTags                  SocialUserTag[]
 
   @@index([classId, createdAt])
   @@index([authorId, createdAt])
   @@index([status, createdAt])
   @@index([classId, status, createdAt])
+  @@index([messageType, createdAt])
+  @@index([threadId, createdAt])
+  @@index([parentMessageId])
+  @@index([riskLevel, moderatedAt])
+  @@index([contentCategory, createdAt])
+  @@index([isEducationalRecord, createdAt])
+  @@index([auditRequired, analyzedAt])
+  @@index([lastAccessedAt, accessCount])
+  @@index([analyzedAt])
+  @@index([classId, messageType, createdAt])
   @@map("social_posts")
 }
 
@@ -3635,6 +3680,292 @@ model AiUsageLog {
   @@index([feature])
   @@index([createdAt])
   @@map("ai_usage_logs")
+}
+
+model Invoice {
+  id                 String             @id @default(cuid())
+  invoiceNumber      String             @unique
+  studentId          String
+  enrollmentId       String?
+  feeStructureId     String?
+  invoiceType        InvoiceType
+  priority           InvoicePriority    @default(NORMAL)
+  title              String
+  description        String?
+  lineItems          Json
+  subtotal           Decimal            @db.Decimal(10, 2)
+  discountAmount     Decimal            @default(0) @db.Decimal(10, 2)
+  taxAmount          Decimal            @default(0) @db.Decimal(10, 2)
+  totalAmount        Decimal            @db.Decimal(10, 2)
+  issueDate          DateTime           @default(now())
+  dueDate            DateTime
+  paidDate           DateTime?
+  paymentTerms       String?
+  lateFeePenalty     Decimal            @default(0) @db.Decimal(10, 2)
+  status             InvoiceStatus      @default(DRAFT)
+  notes              String?
+  termsAndConditions String?
+  metadata           Json?
+  templateId         String?
+  customBranding     Json?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  deletedAt          DateTime?
+  createdById        String
+  updatedById        String?
+  deletedById        String?
+  partitionKey       String
+  payments           InvoicePayment[]
+  reminders          InvoiceReminder[]
+  createdBy          User               @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  deletedBy          User?              @relation("InvoiceDeletedBy", fields: [deletedById], references: [id])
+  enrollment         StudentEnrollment? @relation(fields: [enrollmentId], references: [id])
+  feeStructure       FeeStructure?      @relation(fields: [feeStructureId], references: [id])
+  student            StudentProfile     @relation(fields: [studentId], references: [id])
+  template           InvoiceTemplate?   @relation(fields: [templateId], references: [id])
+  updatedBy          User?              @relation("InvoiceUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([studentId, status])
+  @@index([invoiceType, status])
+  @@index([dueDate, status])
+  @@index([partitionKey, createdAt])
+  @@index([createdAt])
+  @@map("invoices")
+}
+
+model InvoiceTemplate {
+  id            String       @id @default(cuid())
+  name          String
+  description   String?
+  templateData  Json
+  isDefault     Boolean      @default(false)
+  institutionId String
+  status        SystemStatus @default(ACTIVE)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  createdById   String
+  createdBy     User         @relation(fields: [createdById], references: [id])
+  institution   Institution  @relation(fields: [institutionId], references: [id])
+  invoices      Invoice[]
+
+  @@map("invoice_templates")
+}
+
+model InvoicePayment {
+  id                   String        @id @default(cuid())
+  invoiceId            String
+  amount               Decimal       @db.Decimal(10, 2)
+  paymentMethod        String
+  paymentDate          DateTime      @default(now())
+  transactionReference String?
+  notes                String?
+  metadata             Json?
+  status               PaymentStatus @default(COMPLETED)
+  createdAt            DateTime      @default(now())
+  createdById          String
+  createdBy            User          @relation(fields: [createdById], references: [id])
+  invoice              Invoice       @relation(fields: [invoiceId], references: [id])
+
+  @@index([invoiceId])
+  @@index([paymentDate])
+  @@map("invoice_payments")
+}
+
+model InvoiceReminder {
+  id           String         @id @default(cuid())
+  invoiceId    String
+  reminderType ReminderType
+  message      String?
+  sentAt       DateTime?
+  scheduledAt  DateTime?
+  status       ReminderStatus @default(PENDING)
+  metadata     Json?
+  createdAt    DateTime       @default(now())
+  createdById  String
+  createdBy    User           @relation(fields: [createdById], references: [id])
+  invoice      Invoice        @relation(fields: [invoiceId], references: [id])
+
+  @@index([invoiceId])
+  @@index([scheduledAt, status])
+  @@map("invoice_reminders")
+}
+
+model MessageRecipient {
+  id             String         @id @default(cuid())
+  messageId      String
+  userId         String
+  deliveryStatus DeliveryStatus @default(PENDING)
+  readAt         DateTime?
+  consentStatus  ConsentStatus  @default(OBTAINED)
+  legalBasis     LegalBasis     @default(LEGITIMATE_INTEREST)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  message        SocialPost     @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user           User           @relation("MessageRecipients", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([userId, deliveryStatus])
+  @@index([messageId, deliveryStatus])
+  @@index([readAt])
+  @@index([userId, readAt])
+  @@map("message_recipients")
+}
+
+model MessageAuditLog {
+  id             String      @id @default(cuid())
+  messageId      String
+  action         AuditAction
+  actorId        String
+  details        Json?
+  ipAddress      String?
+  userAgent      String?
+  legalBasis     LegalBasis  @default(LEGITIMATE_INTEREST)
+  dataCategories String[]    @default([])
+  timestamp      DateTime    @default(now())
+  actor          User        @relation("MessageAuditActor", fields: [actorId], references: [id])
+  message        SocialPost  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId, timestamp])
+  @@index([actorId, timestamp])
+  @@index([action, timestamp])
+  @@index([timestamp])
+  @@map("message_audit_logs")
+}
+
+model RetentionPolicy {
+  id              String       @id @default(cuid())
+  name            String
+  description     String?
+  retentionPeriod Int
+  dataCategories  String[]
+  legalBasis      LegalBasis
+  jurisdiction    String
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  messages        SocialPost[]
+
+  @@index([isActive, jurisdiction])
+  @@map("retention_policies")
+}
+
+model ModerationQueue {
+  id              String                @id @default(cuid())
+  messageId       String
+  reason          String
+  flaggedKeywords String[]              @default([])
+  priority        ModerationPriority    @default(MEDIUM)
+  status          ModerationQueueStatus @default(PENDING)
+  assignedTo      String?
+  reviewedAt      DateTime?
+  reviewedBy      String?
+  reviewNotes     String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  assignee        User?                 @relation("ModerationAssignee", fields: [assignedTo], references: [id])
+  message         SocialPost            @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reviewer        User?                 @relation("ModerationReviewer", fields: [reviewedBy], references: [id])
+
+  @@index([status, priority, createdAt])
+  @@index([assignedTo, status])
+  @@index([createdAt])
+  @@index([priority, createdAt])
+  @@map("moderation_queue")
+}
+
+model UserConsent {
+  id               String     @id @default(cuid())
+  userId           String
+  dataCategory     String
+  consentGiven     Boolean    @default(false)
+  legalBasis       LegalBasis @default(CONSENT)
+  purpose          String
+  jurisdiction     String     @default("GLOBAL")
+  consentDate      DateTime?
+  withdrawnAt      DateTime?
+  withdrawalReason String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  user             User       @relation("UserConsents", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dataCategory], name: "userId_dataCategory")
+  @@index([userId, dataCategory])
+  @@index([userId, consentGiven])
+  @@index([jurisdiction, consentGiven])
+  @@map("user_consents")
+}
+
+model ConsentAuditLog {
+  id             String      @id @default(cuid())
+  userId         String
+  action         String
+  dataCategories String[]
+  legalBasis     LegalBasis?
+  purpose        String?
+  jurisdiction   String?
+  reason         String?
+  ipAddress      String?
+  userAgent      String?
+  timestamp      DateTime    @default(now())
+  user           User        @relation("ConsentAuditLogs", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, timestamp])
+  @@index([action, timestamp])
+  @@index([timestamp])
+  @@map("consent_audit_logs")
+}
+
+model EncryptionKey {
+  id              String          @id @default(cuid())
+  messageId       String
+  keyHash         String
+  encryptionLevel EncryptionLevel
+  createdAt       DateTime        @default(now())
+  expiresAt       DateTime?
+  message         SocialPost      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([createdAt])
+  @@map("encryption_keys")
+}
+
+model MessageRetentionSchedule {
+  id                String     @id @default(cuid())
+  messageId         String     @unique
+  scheduledDeletion DateTime
+  retentionPeriod   Int
+  status            String     @default("SCHEDULED")
+  executedAt        DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  message           SocialPost @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledDeletion, status])
+  @@index([status, createdAt])
+  @@map("message_retention_schedule")
+}
+
+model FerpaDisclosureLog {
+  id                            String     @id @default(cuid())
+  studentId                     String
+  messageId                     String
+  disclosedTo                   String[]
+  disclosureDate                DateTime
+  disclosurePurpose             String
+  legitimateEducationalInterest String
+  recordsDisclosed              String[]
+  consentRequired               Boolean
+  consentObtained               Boolean
+  disclosureMethod              String
+  createdAt                     DateTime   @default(now())
+  message                       SocialPost @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  student                       User       @relation("FerpaDisclosures", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, disclosureDate])
+  @@index([messageId])
+  @@index([disclosureDate])
+  @@index([studentId, createdAt])
+  @@map("ferpa_disclosure_logs")
 }
 
 enum TermType {
@@ -4279,146 +4610,6 @@ enum ReportStatus {
   ESCALATED
 }
 
-// Invoice Management System Models
-model Invoice {
-  id                String    @id @default(cuid())
-  invoiceNumber     String    @unique
-  studentId         String
-  enrollmentId      String?
-  feeStructureId    String?
-
-  // Invoice Classification
-  invoiceType       InvoiceType
-  priority          InvoicePriority @default(NORMAL)
-
-  // Invoice Details
-  title             String
-  description       String?
-
-  // Financial Details
-  lineItems         Json      // Array of InvoiceLineItem
-  subtotal          Decimal   @db.Decimal(10, 2)
-  discountAmount    Decimal   @default(0) @db.Decimal(10, 2)
-  taxAmount         Decimal   @default(0) @db.Decimal(10, 2)
-  totalAmount       Decimal   @db.Decimal(10, 2)
-
-  // Dates
-  issueDate         DateTime  @default(now())
-  dueDate           DateTime
-  paidDate          DateTime?
-
-  // Payment Terms
-  paymentTerms      String?
-  lateFeePenalty    Decimal   @default(0) @db.Decimal(10, 2)
-
-  // Status and Workflow
-  status            InvoiceStatus @default(DRAFT)
-
-  // Additional Information
-  notes             String?
-  termsAndConditions String?
-
-  // Metadata and Customization
-  metadata          Json?
-  templateId        String?
-  customBranding    Json?
-
-  // Audit Fields
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  deletedAt         DateTime?
-  createdById       String
-  updatedById       String?
-  deletedById       String?
-
-  // Partitioning for scalability
-  partitionKey      String    // Format: YYYY_Q (year_quarter)
-
-  // Relations
-  student           StudentProfile   @relation(fields: [studentId], references: [id])
-  enrollment        StudentEnrollment? @relation(fields: [enrollmentId], references: [id])
-  feeStructure      FeeStructure? @relation(fields: [feeStructureId], references: [id])
-  template          InvoiceTemplate? @relation(fields: [templateId], references: [id])
-  createdBy         User      @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
-  updatedBy         User?     @relation("InvoiceUpdatedBy", fields: [updatedById], references: [id])
-  deletedBy         User?     @relation("InvoiceDeletedBy", fields: [deletedById], references: [id])
-
-  // Related records
-  payments          InvoicePayment[]
-  reminders         InvoiceReminder[]
-
-  @@index([studentId, status])
-  @@index([invoiceType, status])
-  @@index([dueDate, status])
-  @@index([partitionKey, createdAt])
-  @@index([createdAt])
-  @@map("invoices")
-}
-
-model InvoiceTemplate {
-  id            String        @id @default(cuid())
-  name          String
-  description   String?
-  templateData  Json          // Template configuration and styling
-  isDefault     Boolean       @default(false)
-  institutionId String
-  status        SystemStatus  @default(ACTIVE)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  createdById   String
-
-  // Relations
-  institution   Institution   @relation(fields: [institutionId], references: [id])
-  createdBy     User         @relation(fields: [createdById], references: [id])
-  invoices      Invoice[]
-
-  @@map("invoice_templates")
-}
-
-model InvoicePayment {
-  id                    String    @id @default(cuid())
-  invoiceId             String
-  amount                Decimal   @db.Decimal(10, 2)
-  paymentMethod         String
-  paymentDate           DateTime  @default(now())
-  transactionReference  String?
-  notes                 String?
-  metadata              Json?
-  status                PaymentStatus @default(COMPLETED)
-  createdAt             DateTime  @default(now())
-  createdById           String
-
-  // Relations
-  invoice               Invoice   @relation(fields: [invoiceId], references: [id])
-  createdBy             User      @relation(fields: [createdById], references: [id])
-
-  @@index([invoiceId])
-  @@index([paymentDate])
-  @@map("invoice_payments")
-}
-
-model InvoiceReminder {
-  id            String          @id @default(cuid())
-  invoiceId     String
-  reminderType  ReminderType
-  message       String?
-  sentAt        DateTime?
-  scheduledAt   DateTime?
-  status        ReminderStatus  @default(PENDING)
-  metadata      Json?
-  createdAt     DateTime        @default(now())
-  createdById   String
-
-  // Relations
-  invoice       Invoice         @relation(fields: [invoiceId], references: [id])
-  createdBy     User           @relation(fields: [createdById], references: [id])
-
-  @@index([invoiceId])
-  @@index([scheduledAt, status])
-  @@map("invoice_reminders")
-}
-
-// Enums for Invoice System
 enum InvoiceType {
   TUITION_FEE
   ADMISSION_FEE
@@ -4467,4 +4658,92 @@ enum ReminderStatus {
   PENDING
   SENT
   FAILED
+}
+
+enum MessageType {
+  PUBLIC
+  PRIVATE
+  GROUP
+  BROADCAST
+  SYSTEM
+}
+
+enum LegalBasis {
+  CONSENT
+  LEGITIMATE_INTEREST
+  CONTRACT
+  LEGAL_OBLIGATION
+  VITAL_INTERESTS
+  PUBLIC_TASK
+}
+
+enum EncryptionLevel {
+  STANDARD
+  ENHANCED
+  EDUCATIONAL_RECORD
+}
+
+enum ContentCategory {
+  GENERAL
+  ACADEMIC
+  ADMINISTRATIVE
+  SUPPORT
+  EMERGENCY
+  ACHIEVEMENT
+  BEHAVIORAL
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DirectoryLevel {
+  PUBLIC
+  RESTRICTED
+  CONFIDENTIAL
+}
+
+enum DeliveryStatus {
+  PENDING
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum ConsentStatus {
+  OBTAINED
+  REQUIRED
+  NOT_REQUIRED
+  WITHDRAWN
+}
+
+enum AuditAction {
+  CREATED
+  UPDATED
+  DELETED
+  VIEWED
+  SENT
+  RECEIVED
+  MODERATED
+  ESCALATED
+  ANALYZED
+}
+
+enum ModerationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ModerationQueueStatus {
+  PENDING
+  IN_REVIEW
+  APPROVED
+  BLOCKED
+  ESCALATED
+  RESOLVED
 }

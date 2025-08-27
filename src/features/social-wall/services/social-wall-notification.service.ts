@@ -323,6 +323,126 @@ export class SocialWallNotificationService {
   }
 
   /**
+   * Send batch mention notifications (optimized for multiple mentions)
+   */
+  async notifyMentionsBatch(
+    baseId: string,
+    mentionedUserIds: string[],
+    authorId: string,
+    contentType: 'post' | 'comment',
+    contentId: string
+  ): Promise<void> {
+    if (!this.config.enableMentionNotifications || !mentionedUserIds.length) return;
+
+    try {
+      // Get content details once for all mentions
+      let classInfo: { id: string; name: string } | null = null;
+      let authorName = 'Someone';
+
+      if (contentType === 'post') {
+        const post = await this.prisma.socialPost.findUnique({
+          where: { id: contentId },
+          include: {
+            author: { select: { name: true } },
+            class: { select: { id: true, name: true } },
+          },
+        });
+        if (post) {
+          classInfo = post.class;
+          authorName = post.author.name || 'Someone';
+        }
+      } else {
+        const comment = await this.prisma.socialComment.findUnique({
+          where: { id: contentId },
+          include: {
+            author: { select: { name: true } },
+            post: {
+              include: {
+                class: { select: { id: true, name: true } },
+              },
+            },
+          },
+        });
+        if (comment?.post) {
+          classInfo = comment.post.class;
+          authorName = comment.author.name || 'Someone';
+        }
+      }
+
+      if (!classInfo) return;
+
+      // Get all mentioned users in one query
+      const mentionedUsers = await this.prisma.user.findMany({
+        where: {
+          id: { in: mentionedUserIds },
+          status: 'ACTIVE' // Only notify active users
+        },
+        select: { id: true, userType: true }
+      });
+
+      if (!mentionedUsers.length) return;
+
+      const title = `@️⃣ You were mentioned in ${classInfo.name}`;
+      const content = `${authorName} mentioned you in a ${contentType}`;
+
+      // Create notifications for all users at once
+      const notifications = mentionedUsers.map(user => ({
+        title,
+        content,
+        type: 'SOCIAL_WALL_MENTION' as const,
+        deliveryType: NotificationDeliveryType.ALL,
+        status: NotificationStatus.PUBLISHED,
+        senderId: authorId,
+        recipientIds: [user.id],
+        metadata: {
+          mentionId: `mention_${baseId}_${user.id}`,
+          contentType,
+          contentId,
+          classId: classInfo!.id,
+          actionUrl: this.getActionUrlForUser(user.userType, classInfo!.id),
+        },
+      }));
+
+      // Send all notifications in parallel with error handling
+      const results = await Promise.allSettled(
+        notifications.map(notification =>
+          this.notificationService.createNotification(notification)
+        )
+      );
+
+      // Log any failures
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          logger.error('Failed to send mention notification', {
+            error: result.reason,
+            userId: mentionedUsers[index].id,
+            contentId,
+            contentType
+          });
+        }
+      });
+
+      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      logger.info('Batch mention notifications sent', {
+        total: mentionedUserIds.length,
+        successful: successCount,
+        failed: mentionedUserIds.length - successCount,
+        contentId,
+        contentType
+      });
+
+    } catch (error) {
+      logger.error('Failed to send batch mention notifications', {
+        error,
+        mentionedUserIds,
+        contentId,
+        contentType
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Send notification for moderation actions
    */
   async notifyModerationAction(actionType: string, contentId: string, moderatorId: string, authorId: string, reason?: string) {

@@ -264,10 +264,31 @@ export class MultipleFeeAssignmentService {
    * Get available fee structures for assignment to an enrollment
    */
   async getAvailableFeeStructures(enrollmentId: string) {
+    console.log('DEBUG MultipleFeeAssignmentService.getAvailableFeeStructures:', { enrollmentId });
+
     const enrollment = await this.prisma.studentEnrollment.findUnique({
       where: { id: enrollmentId },
       include: {
-        programCampus: true,
+        class: {
+          include: {
+            programCampus: {
+              include: {
+                program: true,
+                campus: true
+              }
+            },
+            courseCampus: {
+              include: {
+                programCampus: {
+                  include: {
+                    program: true,
+                    campus: true
+                  }
+                }
+              }
+            }
+          }
+        },
         fees: { select: { feeStructureId: true } }
       }
     });
@@ -276,13 +297,35 @@ export class MultipleFeeAssignmentService {
       throw new Error(`Enrollment with ID ${enrollmentId} not found`);
     }
 
+    // Get the program campus ID - try direct relationship first, then through courseCampus
+    const programCampusId = enrollment.class?.programCampusId || enrollment.class?.courseCampus?.programCampusId;
+    const programCampus = enrollment.class?.programCampus || enrollment.class?.courseCampus?.programCampus;
+
+    console.log('DEBUG enrollment structure:', {
+      enrollmentId: enrollment.id,
+      classId: enrollment.class?.id,
+      directProgramCampusId: enrollment.class?.programCampusId,
+      courseCampusId: enrollment.class?.courseCampusId,
+      courseCampusProgramCampusId: enrollment.class?.courseCampus?.programCampusId,
+      finalProgramCampusId: programCampusId,
+      programName: programCampus?.program?.name,
+      campusName: programCampus?.campus?.name,
+      existingFeesCount: enrollment.fees?.length || 0
+    });
+
+    if (!programCampusId) {
+      console.log('DEBUG: No programCampusId found, returning empty array');
+      return [];
+    }
+
     // Get already assigned fee structure IDs
     const assignedFeeStructureIds = enrollment.fees.map(fee => fee.feeStructureId);
+    console.log('DEBUG assignedFeeStructureIds:', assignedFeeStructureIds);
 
     // Get available fee structures for this program-campus combination
     const availableFeeStructures = await this.prisma.feeStructure.findMany({
       where: {
-        programCampusId: enrollment.programCampusId,
+        programCampusId,
         status: 'ACTIVE',
         id: {
           notIn: assignedFeeStructureIds
@@ -297,6 +340,16 @@ export class MultipleFeeAssignmentService {
         }
       },
       orderBy: { name: 'asc' }
+    });
+
+    console.log('DEBUG found fee structures:', {
+      count: availableFeeStructures.length,
+      structures: availableFeeStructures.map(fs => ({
+        id: fs.id,
+        name: fs.name,
+        programCampusId: fs.programCampusId,
+        status: fs.status
+      }))
     });
 
     return availableFeeStructures.map(structure => ({

@@ -609,54 +609,198 @@ async function flagForModeration(message: any, analysis: MessageAnalysis) {
 }
 ```
 
-### **Phase 6: Integration with Existing System (Week 6)**
+### **Phase 6: tRPC Router Integration & System Integration (Week 6)**
 
-#### **6.1 Extend Social Wall Container**
+#### **6.1 Create Messaging tRPC Router**
 
 ```typescript
-// src/features/social-wall/components/SocialWallContainer.tsx
-// Extend existing component without breaking changes
+// src/server/api/routers/messaging.ts
+import { z } from "zod";
+import { createTRPCRouter, protectedProcedure, roleProtectedProcedure } from "@/server/api/trpc";
+import { TRPCError } from "@trpc/server";
+import { UserType } from "@prisma/client";
+import { MessagingService } from "../services/messaging.service";
+import { ComplianceService } from "../services/compliance.service";
 
-export function SocialWallContainer({ 
-  classId, 
-  enableMessaging = true,
-  defaultView = 'feed',
-  ...existingProps 
-}: EnhancedSocialWallProps) {
-  const [activeTab, setActiveTab] = useState(defaultView);
-  
-  // Preserve existing social wall functionality
-  const existingSocialWallLogic = useSocialWallLogic(classId, existingProps);
-  
-  // Add messaging capabilities
-  const { unreadCount, messagingEnabled } = useMessagingCapabilities(classId, enableMessaging);
-  
-  return (
-    <div className="social-wall-container">
-      {/* Enhanced Header - preserves existing design */}
-      <EnhancedSocialWallHeader 
-        {...existingSocialWallLogic.headerProps}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        unreadCount={unreadCount}
-        enableMessaging={messagingEnabled}
-      />
-      
-      {/* Content Area - switches between existing and new functionality */}
-      <div className="content-container">
-        {activeTab === 'feed' && (
-          <ExistingPostFeed {...existingSocialWallLogic.feedProps} />
-        )}
-        {activeTab === 'messages' && messagingEnabled && (
-          <MessageInterface classId={classId} />
-        )}
-        {activeTab === 'focus' && (
-          <FocusModeInterface classId={classId} />
-        )}
-      </div>
-    </div>
-  );
+const createMessageSchema = z.object({
+  content: z.string().min(1).max(5000),
+  recipients: z.array(z.string()),
+  threadId: z.string().optional(),
+  parentMessageId: z.string().optional(),
+  messageType: z.enum(['PUBLIC', 'PRIVATE', 'GROUP', 'BROADCAST', 'SYSTEM']).default('PRIVATE'),
+  classId: z.string().optional(),
+});
+
+const moderationActionSchema = z.object({
+  messageId: z.string(),
+  action: z.enum(['APPROVE', 'BLOCK', 'ESCALATE', 'RESTORE']),
+  reason: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export const messagingRouter = createTRPCRouter({
+  // Message operations
+  createMessage: protectedProcedure
+    .input(createMessageSchema)
+    .mutation(async ({ ctx, input }) => {
+      const service = new MessagingService(ctx.prisma);
+      return await service.createMessage(ctx.session.user.id, input);
+    }),
+
+  getMessages: protectedProcedure
+    .input(z.object({
+      threadId: z.string().optional(),
+      classId: z.string().optional(),
+      limit: z.number().min(1).max(100).default(20),
+      cursor: z.string().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const service = new MessagingService(ctx.prisma);
+      return await service.getMessages(ctx.session.user.id, input);
+    }),
+
+  // Compliance operations
+  getComplianceStats: roleProtectedProcedure([UserType.SYSTEM_ADMIN, UserType.CAMPUS_ADMIN])
+    .input(z.object({
+      scope: z.enum(['system-wide', 'campus', 'class']),
+      campusId: z.string().optional(),
+      classId: z.string().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const service = new ComplianceService(ctx.prisma);
+      return await service.getComplianceStats(input);
+    }),
+
+  // Moderation operations
+  getFlaggedMessages: roleProtectedProcedure([UserType.SYSTEM_ADMIN, UserType.CAMPUS_ADMIN, UserType.TEACHER])
+    .input(z.object({
+      scope: z.enum(['all-campuses', 'campus', 'class']),
+      campusId: z.string().optional(),
+      classId: z.string().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const service = new MessagingService(ctx.prisma);
+      return await service.getFlaggedMessages(ctx.session.user.id, input);
+    }),
+
+  moderateMessage: roleProtectedProcedure([UserType.SYSTEM_ADMIN, UserType.CAMPUS_ADMIN, UserType.TEACHER])
+    .input(moderationActionSchema)
+    .mutation(async ({ ctx, input }) => {
+      const service = new MessagingService(ctx.prisma);
+      return await service.moderateMessage(ctx.session.user.id, input);
+    }),
+});
+```
+
+#### **6.2 Add Router to Root Router**
+
+```typescript
+// src/server/api/root.ts
+// Add to existing imports
+import { messagingRouter } from "./routers/messaging";
+
+// Add to appRouter
+export const appRouter = createTRPCRouter({
+  // ... existing routers
+  socialWall: socialWallRouter,
+  messaging: messagingRouter, // Add this line
+  // ... other routers
+});
+```
+
+#### **6.3 Messaging Service Implementation**
+
+```typescript
+// src/server/api/services/messaging.service.ts
+import { PrismaClient } from '@prisma/client';
+import { TRPCError } from '@trpc/server';
+import { RuleBasedMessageClassifier } from '@/features/messaging/core/RuleBasedClassifier';
+import { MessagePrivacyEngine } from '@/features/compliance/MessagePrivacyEngine';
+import { logger } from '../utils/logger';
+
+export class MessagingService {
+  private classifier: RuleBasedMessageClassifier;
+  private privacyEngine: MessagePrivacyEngine;
+
+  constructor(private prisma: PrismaClient) {
+    this.classifier = new RuleBasedMessageClassifier();
+    this.privacyEngine = new MessagePrivacyEngine(prisma);
+  }
+
+  async createMessage(userId: string, input: CreateMessageInput) {
+    try {
+      // Get sender and recipients
+      const sender = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (!sender) throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
+
+      const recipients = await this.prisma.user.findMany({
+        where: { id: { in: input.recipients } }
+      });
+
+      // Classify message using rule-based classifier
+      const classification = this.classifier.classifyMessage(input.content, sender, recipients);
+
+      // Create message with compliance fields
+      const message = await this.prisma.message.create({
+        data: {
+          content: input.content,
+          messageType: input.messageType,
+          threadId: input.threadId,
+          parentMessageId: input.parentMessageId,
+          authorId: userId,
+          classId: input.classId,
+
+          // Compliance fields from classification
+          contentCategory: classification.contentCategory,
+          riskLevel: classification.riskLevel,
+          isEducationalRecord: classification.isEducationalRecord,
+          flaggedKeywords: classification.flaggedKeywords,
+          moderationStatus: classification.moderationRequired ? 'PENDING' : 'APPROVED',
+          auditRequired: classification.auditRequired,
+
+          // Recipients
+          recipients: {
+            create: recipients.map(recipient => ({
+              userId: recipient.id,
+              deliveryStatus: 'PENDING',
+              consentStatus: 'OBTAINED', // Simplified for now
+            }))
+          }
+        },
+        include: {
+          author: { select: { id: true, name: true, userType: true } },
+          recipients: { include: { user: { select: { id: true, name: true, userType: true } } } }
+        }
+      });
+
+      // Process through privacy engine
+      await this.privacyEngine.processMessage(message);
+
+      logger.info('Message created', { messageId: message.id, userId, classification });
+      return { success: true, message };
+
+    } catch (error) {
+      logger.error('Error creating message', { error, userId, input });
+      throw error;
+    }
+  }
+
+  async getMessages(userId: string, input: GetMessagesInput) {
+    // Implementation for retrieving messages with proper access control
+    // ... (implementation details)
+  }
+
+  async getFlaggedMessages(userId: string, input: GetFlaggedMessagesInput) {
+    // Implementation for retrieving flagged messages for moderation
+    // ... (implementation details)
+  }
+
+  async moderateMessage(userId: string, input: ModerationActionInput) {
+    // Implementation for moderation actions
+    // ... (implementation details)
+  }
 }
+```
 ```
 
 ## **🎯 Key Changes from Original Plan**

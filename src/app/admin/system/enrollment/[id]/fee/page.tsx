@@ -38,15 +38,34 @@ export default function SystemEnrollmentFeePage() {
   // For backward compatibility, use the first fee as the primary fee
   const fee = fees && fees.length > 0 ? fees[0] : null;
 
-  // Fetch fee structures
-  const programCampusId = enrollment?.enrollment?.class?.programCampusId || enrollment?.enrollment?.class?.programCampus?.id;
-  const { data: feeStructures, isLoading: feeStructuresLoading, error: feeStructuresError } = api.feeStructure.getByProgramCampus.useQuery(
+  // Fetch available fee structures using the fixed API
+  const { data: availableFeeStructures, isLoading: feeStructuresLoading, error: feeStructuresError } = api.enrollmentFee.getAvailableFeeStructures.useQuery(
+    { enrollmentId: id },
+    {
+      enabled: !!id,
+      retry: false,
+      refetchOnWindowFocus: false
+    }
+  );
+
+  // Also fetch all fee structures for the program campus for comparison
+  const programCampusId =
+    enrollment?.enrollment?.class?.programCampusId ||
+    enrollment?.enrollment?.class?.programCampus?.id ||
+    (enrollment?.enrollment?.class as any)?.courseCampus?.programCampusId;
+
+  const { data: allFeeStructures, isLoading: allFeeStructuresLoading } = api.feeStructure.getByProgramCampus.useQuery(
     { programCampusId: programCampusId || "" },
     {
       enabled: !!programCampusId,
       retry: false,
       refetchOnWindowFocus: false
     }
+  );
+
+  // Use available fee structures for the form, fallback to all fee structures filtered by assigned ones
+  const feeStructures = availableFeeStructures || (allFeeStructures || []).filter(fs =>
+    !fees?.some(assignedFee => assignedFee.feeStructureId === fs.id)
   );
 
   // Fetch discount types
@@ -61,23 +80,37 @@ export default function SystemEnrollmentFeePage() {
     { enabled: !!institutionId }
   );
 
+
+
   // Debug logging
   useEffect(() => {
-    console.log('Fee page debug:', {
-      id,
-      enrollment,
-      enrollmentLoading,
-      enrollmentError,
-      programCampusId,
-      feeStructures,
-      feeStructuresLoading,
-      feeStructuresError,
-      discountTypesLoading,
-      discountTypesError,
-      challanTemplatesLoading,
-      challanTemplatesError
+    console.log('=== FEE PAGE DEBUG ===');
+    console.log('Enrollment ID:', id);
+    console.log('Enrollment data:', enrollment);
+    console.log('Class data:', enrollment?.enrollment?.class);
+    console.log('Program Campus ID derivation:', {
+      'class.programCampusId': enrollment?.enrollment?.class?.programCampusId,
+      'class.programCampus.id': enrollment?.enrollment?.class?.programCampus?.id,
+      'class.courseCampus.programCampusId': (enrollment?.enrollment?.class as any)?.courseCampus?.programCampusId,
+      'final programCampusId': programCampusId
     });
-  }, [id, enrollment, enrollmentLoading, enrollmentError, programCampusId, feeStructures, feeStructuresLoading, feeStructuresError, discountTypesLoading, discountTypesError, challanTemplatesLoading, challanTemplatesError]);
+    console.log('Fee structures query:', {
+      programCampusId,
+      availableFeeStructures,
+      allFeeStructures,
+      finalFeeStructures: feeStructures,
+      feeStructuresLoading,
+      allFeeStructuresLoading,
+      feeStructuresError: feeStructuresError?.message,
+      feeStructuresCount: feeStructures?.length || 0
+    });
+    console.log('Current fees:', {
+      fees,
+      feesCount: fees?.length || 0,
+      assignedFeeStructureIds: fees?.map(f => f.feeStructureId) || []
+    });
+    console.log('=== END DEBUG ===');
+  }, [id, enrollment, enrollmentLoading, enrollmentError, programCampusId, feeStructures, feeStructuresLoading, feeStructuresError, fees]);
 
   // Mutations
   const createEnrollmentFeeMutation = api.enrollmentFee.create.useMutation({
@@ -369,8 +402,8 @@ export default function SystemEnrollmentFeePage() {
     });
   };
 
-  // Loading state - don't block on fee structures if no programCampusId
-  const isLoading = enrollmentLoading || feeLoading || discountTypesLoading || challanTemplatesLoading || (feeStructuresLoading && !!programCampusId);
+  // Loading state
+  const isLoading = enrollmentLoading || feeLoading || discountTypesLoading || challanTemplatesLoading || feeStructuresLoading;
 
   if (isLoading) {
     return (
@@ -381,7 +414,8 @@ export default function SystemEnrollmentFeePage() {
             Loading enrollment fee details...
             {enrollmentLoading && <div>• Loading enrollment data</div>}
             {feeLoading && <div>• Loading fee information</div>}
-            {feeStructuresLoading && programCampusId && <div>• Loading fee structures</div>}
+            {feeStructuresLoading && <div>• Loading available fee structures</div>}
+            {allFeeStructuresLoading && <div>• Loading all fee structures</div>}
             {discountTypesLoading && <div>• Loading discount types</div>}
             {challanTemplatesLoading && <div>• Loading challan templates</div>}
           </div>
@@ -461,7 +495,7 @@ export default function SystemEnrollmentFeePage() {
       <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="details">Fee Details</TabsTrigger>
-          <TabsTrigger value="assign" disabled={!!fee}>Assign Fee</TabsTrigger>
+          <TabsTrigger value="assign">Assign Fee</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details" className="mt-6">
@@ -599,23 +633,23 @@ export default function SystemEnrollmentFeePage() {
                 <EnrollmentFeeForm
                   enrollmentId={id}
                   feeStructures={(() => {
-                    const availableStructures = (feeStructures || [])
-                      .filter(fs => !fees?.some(assignedFee => assignedFee.feeStructureId === fs.id))
-                      .map(fs => ({
-                        id: fs.id,
-                        name: fs.name,
-                        components: (fs.feeComponents as any) || [],
-                        baseAmount: (fs.feeComponents as any)?.reduce((sum: number, comp: any) => sum + comp.amount, 0) || 0
-                      }));
+                    // Map fee structures to the format expected by the form
+                    const mappedStructures = (feeStructures || []).map(fs => ({
+                      id: fs.id,
+                      name: fs.name,
+                      components: (fs.feeComponents as any) || [],
+                      baseAmount: (fs.feeComponents as any)?.reduce((sum: number, comp: any) => sum + comp.amount, 0) || 0
+                    }));
 
-                    console.log('Available fee structures for form:', {
-                      totalFeeStructures: feeStructures?.length || 0,
+                    console.log('Fee structures for form:', {
+                      rawFeeStructures: feeStructures?.length || 0,
+                      mappedStructures: mappedStructures.length,
+                      structures: mappedStructures.map(s => ({ id: s.id, name: s.name, baseAmount: s.baseAmount })),
                       assignedFees: fees?.length || 0,
-                      availableStructures: availableStructures.length,
-                      structures: availableStructures.map(s => ({ id: s.id, name: s.name, baseAmount: s.baseAmount }))
+                      assignedFeeIds: fees?.map(f => f.feeStructureId) || []
                     });
 
-                    return availableStructures;
+                    return mappedStructures;
                   })()}
                   discountTypes={discountTypes || []}
                   onSubmit={handleCreateFee}

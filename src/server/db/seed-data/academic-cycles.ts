@@ -39,8 +39,8 @@ export const termsSeedData = [
 export async function seedAcademicCycles(prisma: PrismaClient, institutions: any[]) {
   console.log('Seeding academic cycles...');
 
-  const createdCycles = [];
-  const createdTerms = [];
+  const createdCycles: any[] = [];
+  const createdTerms: any[] = [];
 
   // Find admin user to use as creator
   let adminUser = await prisma.user.findFirst({

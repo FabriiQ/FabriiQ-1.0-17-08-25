@@ -1,6 +1,6 @@
 import { PrismaClient, SystemStatus, UserType, AccessScope } from '@prisma/client';
 import { hash } from 'bcryptjs';
-import { generateEnrollmentNumber } from '../../utils/enrollment-number';
+
 
 /**
  * Seed file for generating 500 Pakistani students for each class
@@ -81,11 +81,14 @@ function generateEmail(username: string): string {
 
 // Helper function to generate an enrollment number with prefix
 function generateEnrollmentNumberWithPrefix(prefix: string = 'SIS'): string {
-  return generateEnrollmentNumber(prefix);
+  // Add timestamp to make it more unique
+  const timestamp = Date.now().toString().slice(-6);
+  const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  return `${prefix}-${timestamp}-${randomSuffix}`;
 }
 
 // Main function to seed bulk students
-export async function seedBulkStudents(prisma: PrismaClient, studentsPerClass: number = 500) {
+export async function seedBulkStudents(prisma: PrismaClient, studentsPerClass: number = 30) {
   console.log(`Starting to seed ${studentsPerClass} students per class...`);
 
   try {
@@ -173,7 +176,7 @@ export async function seedBulkStudents(prisma: PrismaClient, studentsPerClass: n
       }
 
       // Create students for this class in batches
-      const BATCH_SIZE = 50; // Process 50 students at a time
+      const BATCH_SIZE = 5; // Process 5 students at a time to avoid connection pool issues
       const batches = Math.ceil(studentsPerClass / BATCH_SIZE);
 
       console.log(`Processing ${batches} batches of ${BATCH_SIZE} students each`);
@@ -186,7 +189,7 @@ export async function seedBulkStudents(prisma: PrismaClient, studentsPerClass: n
         const batchSize = batchEnd - batchStart;
 
         // Create batch of students
-        const studentPromises = [];
+        const studentPromises: any[] = [];
 
         for (let i = 0; i < batchSize; i++) {
           // Generate student data
@@ -293,8 +296,8 @@ export async function seedBulkStudents(prisma: PrismaClient, studentsPerClass: n
               await prisma.studentPoints.create({
                 data: {
                   studentId: studentProfile.id,
-                  points: Math.floor(Math.random() * 100),
-                  reason: 'Initial enrollment bonus',
+                  amount: Math.floor(Math.random() * 100),
+                  description: 'Initial enrollment bonus',
                   source: 'SYSTEM',
                   status: SystemStatus.ACTIVE
                 }

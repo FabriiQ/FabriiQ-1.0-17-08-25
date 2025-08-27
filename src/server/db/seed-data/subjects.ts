@@ -1,93 +1,17 @@
 import { PrismaClient, SystemStatus } from '@prisma/client';
 
 export const subjectsSeedData = [
-  {
-    code: 'PYP-CL3-MATH',
-    name: 'Mathematics for Class 3',
-    credits: 1.0,
-    courseCode: 'PYP-CL3',
-    syllabus: {
-      overview: 'This subject covers fundamental mathematical concepts for third-grade students.',
-      objectives: [
-        'Develop proficiency in addition and subtraction with three-digit numbers',
-        'Learn multiplication tables (1-10) and basic division',
-        'Understand basic geometric shapes and measurement concepts',
-        'Develop problem-solving skills using mathematical operations',
-      ],
-      assessmentMethods: [
-        'Regular quizzes and worksheets',
-        'Mid-term and final assessments',
-        'Practical activities and projects',
-      ],
-    },
-    status: SystemStatus.ACTIVE,
-  },
-  {
-    code: 'PYP-CL3-ENG',
-    name: 'English for Class 3',
-    credits: 1.0,
-    courseCode: 'PYP-CL3',
-    syllabus: {
-      overview: 'This subject focuses on developing reading, writing, and communication skills for third-grade students.',
-      objectives: [
-        'Improve reading comprehension and vocabulary',
-        'Develop writing skills with proper grammar and punctuation',
-        'Enhance speaking and listening abilities',
-        'Introduce basic literary concepts and story elements',
-      ],
-      assessmentMethods: [
-        'Reading comprehension tests',
-        'Writing assignments and projects',
-        'Oral presentations',
-        'Spelling and vocabulary quizzes',
-      ],
-    },
-    status: SystemStatus.ACTIVE,
-  },
-  {
-    code: 'PYP-CL3-SCI',
-    name: 'Science for Class 3',
-    credits: 1.0,
-    courseCode: 'PYP-CL3',
-    syllabus: {
-      overview: 'This subject introduces basic scientific concepts and inquiry skills for third-grade students.',
-      objectives: [
-        'Understand plant and animal life cycles and classifications',
-        'Learn about weather patterns and the solar system',
-        'Develop observation and experimentation skills',
-        'Foster curiosity about the natural world',
-      ],
-      assessmentMethods: [
-        'Science projects and experiments',
-        'Written tests and quizzes',
-        'Observation journals',
-        'Group activities and presentations',
-      ],
-    },
-    status: SystemStatus.ACTIVE,
-  },
-  {
-    code: 'PYP-CL3-PE',
-    name: 'Physical Education for Class 3',
-    credits: 0.5,
-    courseCode: 'PYP-CL3',
-    syllabus: {
-      overview: 'This subject focuses on developing physical skills, teamwork, and healthy habits for third-grade students.',
-      objectives: [
-        'Develop fundamental movement skills and coordination',
-        'Learn basic ball skills and game strategies',
-        'Foster teamwork and cooperation',
-        'Promote physical fitness and healthy lifestyle habits',
-      ],
-      assessmentMethods: [
-        'Physical skills assessments',
-        'Participation and effort evaluation',
-        'Team game performance',
-        'Basic fitness tests',
-      ],
-    },
-    status: SystemStatus.ACTIVE,
-  },
+  // 10 life-learning, personality-building subjects for MYP Year 7 and Year 8
+  { code: 'MYP-Y7-ENG', name: 'English Language & Communication (Y7)', credits: 1.0, courseCode: 'MYP-Y7', syllabus: { overview: 'Developing language, communication and expression skills.', objectives: ['Reading for meaning', 'Writing structure and clarity', 'Speaking & listening'], assessmentMethods: ['Comprehension', 'Writing portfolio', 'Presentations'] }, status: SystemStatus.ACTIVE },
+  { code: 'MYP-Y7-MATH', name: 'Mathematics & Logical Thinking (Y7)', credits: 1.0, courseCode: 'MYP-Y7', syllabus: { overview: 'Numeracy, reasoning, and problem-solving.', objectives: ['Algebraic thinking', 'Number sense', 'Geometry intuition'], assessmentMethods: ['Quizzes', 'Projects', 'Unit tests'] }, status: SystemStatus.ACTIVE },
+  { code: 'MYP-Y7-SCI', name: 'Integrated Science & Inquiry (Y7)', credits: 1.0, courseCode: 'MYP-Y7', syllabus: { overview: 'Scientific literacy and curiosity.', objectives: ['Observation', 'Hypothesis and experiment', 'Reporting'], assessmentMethods: ['Lab work', 'Reports', 'MCQs'] }, status: SystemStatus.ACTIVE },
+  { code: 'MYP-Y7-PE', name: 'Physical Education & Wellbeing (Y7)', credits: 0.5, courseCode: 'MYP-Y7', syllabus: { overview: 'Fitness, teamwork and wellness habits.', objectives: ['Movement skills', 'Teamwork', 'Healthy routines'], assessmentMethods: ['Skill checks', 'Participation', 'Fitness logs'] }, status: SystemStatus.ACTIVE },
+  { code: 'MYP-Y7-LL', name: 'Life & Learning Skills (Y7)', credits: 0.5, courseCode: 'MYP-Y7', syllabus: { overview: 'Study skills, digital citizenship, growth mindset.', objectives: ['Organization', 'Responsible tech use', 'Resilience'], assessmentMethods: ['Reflections', 'Projects', 'Checklists'] }, status: SystemStatus.ACTIVE },
+  { code: 'MYP-Y8-ENGL', name: 'English Language & Communication (Y8)', credits: 1.0, courseCode: 'MYP-Y8', syllabus: { overview: 'Advanced literacy and expression.', objectives: ['Argumentative writing', 'Literary analysis', 'Discussion'], assessmentMethods: ['Essays', 'Oral work', 'Unit tests'] }, status: SystemStatus.ACTIVE },
+  { code: 'MYP-Y8-MATH', name: 'Mathematics & Logical Thinking (Y8)', credits: 1.0, courseCode: 'MYP-Y8', syllabus: { overview: 'Algebra foundations and geometry.', objectives: ['Linear equations', 'Ratios & proportions', 'Angles & similarity'], assessmentMethods: ['Quizzes', 'Projects', 'Unit tests'] }, status: SystemStatus.ACTIVE },
+  { code: 'MYP-Y8-SCI', name: 'Integrated Science & Inquiry (Y8)', credits: 1.0, courseCode: 'MYP-Y8', syllabus: { overview: 'Applied science and reporting.', objectives: ['Data & variables', 'Energy & forces', 'Ecology basics'], assessmentMethods: ['Labs', 'Reports', 'MCQs'] }, status: SystemStatus.ACTIVE },
+  { code: 'MYP-Y8-PE', name: 'Physical Education & Wellbeing (Y8)', credits: 0.5, courseCode: 'MYP-Y8', syllabus: { overview: 'Individual fitness & teamwork.', objectives: ['Fitness planning', 'Sportsmanship', 'Healthy lifestyle'], assessmentMethods: ['Skill checks', 'Participation', 'Fitness logs'] }, status: SystemStatus.ACTIVE },
+  { code: 'MYP-Y8-LL', name: 'Life & Learning Skills (Y8)', credits: 0.5, courseCode: 'MYP-Y8', syllabus: { overview: 'Personal development and project skills.', objectives: ['Goal-setting', 'Time management', 'Community project'], assessmentMethods: ['Portfolio', 'Project', 'Reflection'] }, status: SystemStatus.ACTIVE },
 ];
 
 export async function seedSubjects(prisma: PrismaClient, courses: any[]) {

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { StudentThemeSelector } from './StudentThemeSelector';
 import { NotificationBell } from '@/features/notifications/components/NotificationBell';
+import { MessageIcon } from '@/features/messaging/components/MessageIcon';
 
 interface StudentHeaderProps {
   title?: string;
@@ -97,10 +98,16 @@ export function StudentHeader({
           </div>
         </div>
 
-        {/* Right side - Theme, Notifications, Profile */}
+        {/* Right side - Theme, Messages, Notifications, Profile */}
         <div className="flex items-center gap-2">
           {/* Theme Selector */}
           <StudentThemeSelector />
+
+          {/* Message Icon */}
+          <MessageIcon
+            role="student"
+            size={isMobile ? 'sm' : 'md'}
+          />
 
           {/* Notification Bell */}
           <NotificationBell
@@ -116,9 +123,9 @@ export function StudentHeader({
                   className="relative h-10 w-10 rounded-full"
                 >
                   <Avatar className="h-9 w-9">
-                    <AvatarImage 
-                      src={session.user.image || ""} 
-                      alt={session.user.name || "Student"} 
+                    <AvatarImage
+                      src={""}
+                      alt={session.user.name || "Student"}
                     />
                     <AvatarFallback>
                       {session.user.name?.charAt(0)?.toUpperCase() || "S"}
