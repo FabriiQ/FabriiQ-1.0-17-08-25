@@ -15,7 +15,7 @@ const MAX_CACHE_SIZE = 1000; // Prevent memory leaks
 
 // Precompiled regex patterns for better performance
 const SKIP_PATTERNS = /^\/(api|_next|static|favicon\.ico|h5p|login|unauthorized|admin\/system|robots\.txt|sitemap\.xml)/;
-const PUBLIC_PATTERNS = /^\/(login|api\/auth|unauthorized|h5p-test|error|solutions|features|pricing|resources|company|demo)/;
+const PUBLIC_PATTERNS = /^\/(login|api\/auth|unauthorized|h5p-test|error)/;
 const TEACHER_PATTERNS = /^\/(teacher|worksheets|app\/\(teacher\))/;
 const STUDENT_PATTERNS = /^\/student|app\/\(student\)/;
 const ADMIN_PATTERNS = /^\/admin/;
@@ -71,10 +71,6 @@ function isStaticAsset(pathname: string): boolean {
  * Enhanced route classification for better performance
  */
 function classifyRoute(pathname: string): 'skip' | 'public' | 'teacher' | 'student' | 'admin' | 'protected' {
-  // Allow root path for marketing homepage
-  if (pathname === '/') {
-    return 'public';
-  }
   if (SKIP_PATTERNS.test(pathname) || isStaticAsset(pathname)) {
     return 'skip';
   }
@@ -117,16 +113,11 @@ function institutionMiddleware(req: NextRequest, routeType: string) {
     ? pathname.slice(1)
     : pathname.slice(1, firstSlashIndex);
 
-  // Allow root path to pass through for marketing homepage
-  if (pathname === '/') {
-    return null;
-  }
-
-  // If no institution ID, redirect to default institution
-  if (!potentialInstitutionId) {
+  // If no institution ID or it's a root path, redirect to default institution
+  if (!potentialInstitutionId || pathname === '/') {
     const defaultInstitution = process.env.DEFAULT_INSTITUTION || 'default';
     const url = req.nextUrl.clone();
-    url.pathname = `/${defaultInstitution}${pathname}`;
+    url.pathname = `/${defaultInstitution}${pathname === '/' ? '' : pathname}`;
     const redirectResponse = NextResponse.redirect(url);
 
     // Cache redirect decisions
@@ -243,18 +234,7 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token, req }) => {
-        const pathname = req.nextUrl.pathname;
-        const routeType = classifyRoute(pathname);
-
-        // Allow public routes without authentication
-        if (routeType === 'public' || routeType === 'skip') {
-          return true;
-        }
-
-        // Require authentication for protected routes
-        return !!token;
-      }
+      authorized: ({ token }) => !!token
     },
     pages: {
       signIn: '/login',

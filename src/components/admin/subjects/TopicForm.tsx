@@ -165,6 +165,7 @@ export const TopicForm = ({ subjectId, topicId, parentTopicId }: TopicFormProps)
         };
 
         console.log("Updating topic with data:", updateData);
+        console.log("Description content:", data.description);
 
         // @ts-ignore - Ignore type checking for this mutation call
         await updateMutation.mutateAsync(updateData);
@@ -189,6 +190,9 @@ export const TopicForm = ({ subjectId, topicId, parentTopicId }: TopicFormProps)
           status: data.status,
           subjectId,
         };
+
+        console.log("Creating topic with data:", createData);
+        console.log("Description content:", data.description);
 
         // @ts-ignore - Ignore type checking for this mutation call
         await createMutation.mutateAsync(createData);

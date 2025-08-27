@@ -56,7 +56,7 @@ export default function StudentPerformancePage() {
   }
 
   // Authorization check
-  if (session.user.userType !== 'CAMPUS_TEACHER') {
+  if (session.user.userType !== 'CAMPUS_TEACHER' && session.user.userType !== 'TEACHER') {
     return (
       <div className="container mx-auto py-8">
         <Alert>

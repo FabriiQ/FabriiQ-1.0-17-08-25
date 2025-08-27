@@ -13,7 +13,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { QuickTeacherLoading } from '@/components/teacher/loading/TeacherLoadingState';
 import {
   Download,
-  UploadCloud as Upload,
+  UploadCloud,
   RefreshCw,
   TrendingUp,
   TrendingDown,
@@ -81,25 +81,33 @@ export function EnhancedGradebook({ classId }: EnhancedGradebookProps) {
   });
 
   // Fetch assessments for the class
-  const { data: assessments, isLoading: isLoadingAssessments, refetch: refetchAssessments } = api.assessment.getByClassId.useQuery({
-    classId
+  const { data: assessmentsData, isLoading: isLoadingAssessments, refetch: refetchAssessments } = api.assessment.listByClass.useQuery({
+    classId,
+    page: 1,
+    pageSize: 100
   }, {
     refetchInterval: 30000,
     refetchIntervalInBackground: false,
     staleTime: 10000,
   });
 
+  // Extract assessments from the paginated response
+  const assessments = assessmentsData?.items || [];
+
   // Fetch gradebook data
-  const { data: gradebook, isLoading: isLoadingGradebook, refetch: refetchGradebook } = api.gradebook.getByClass.useQuery({
+  const { data: gradebookData, isLoading: isLoadingGradebook, refetch: refetchGradebook } = api.gradebook.getByClassId.useQuery({
     classId
   }, {
     refetchInterval: 30000,
     staleTime: 10000,
   });
 
+  // Extract the first gradebook from the array (assuming one gradebook per class)
+  const gradebook = gradebookData?.[0];
+
   // Calculate grade statistics
   const gradeStats: GradeStats = useMemo(() => {
-    if (!classDetails || !activities || !assessments) {
+    if (!classDetails || !activities?.items || !assessments) {
       return {
         totalStudents: 0,
         averageGrade: 0,
@@ -112,14 +120,14 @@ export function EnhancedGradebook({ classId }: EnhancedGradebookProps) {
 
     const students = classDetails.students || [];
     const totalStudents = students.length;
-    
+
     // Calculate graded activities and assessments
-    const gradedActivities = activities?.filter(activity =>
-      activity._count?.activityGrades && activity._count.activityGrades > 0
+    const gradedActivities = activities.items?.filter(activity =>
+      activity.analytics?.gradedSubmissions && activity.analytics.gradedSubmissions > 0
     ).length || 0;
 
     const gradedAssessments = assessments?.filter(assessment =>
-      assessment._count?.submissions && assessment._count.submissions > 0
+      assessment.submissions && assessment.submissions.length > 0
     ).length || 0;
 
     // Calculate average grade and passing rate from gradebook
@@ -148,7 +156,7 @@ export function EnhancedGradebook({ classId }: EnhancedGradebookProps) {
 
   // Process student grade data
   const studentGradeData: StudentGradeData[] = useMemo(() => {
-    if (!classDetails || !activities || !assessments) return [];
+    if (!classDetails || !activities?.items || !assessments) return [];
 
     return (classDetails.students || []).map(enrollment => {
       const studentId = enrollment.studentId;
@@ -178,7 +186,7 @@ export function EnhancedGradebook({ classId }: EnhancedGradebookProps) {
         trend: 'stable' as const // Simplified - would calculate based on grade history
       };
     });
-  }, [classDetails, activities, assessments, gradebook]);
+  }, [classDetails, activities?.items, assessments, gradebook]);
 
   // Handle refresh
   const handleRefresh = async () => {
@@ -232,12 +240,30 @@ export function EnhancedGradebook({ classId }: EnhancedGradebookProps) {
             <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button variant="outline" size="sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              toast({
+                title: 'Export Feature',
+                description: 'Export functionality will be available soon.',
+              });
+            }}
+          >
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button variant="outline" size="sm">
-            <Upload className="h-4 w-4 mr-2" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              toast({
+                title: 'Import Feature',
+                description: 'Import functionality will be available soon.',
+              });
+            }}
+          >
+            <UploadCloud className="h-4 w-4 mr-2" />
             Import
           </Button>
         </div>
@@ -279,7 +305,7 @@ export function EnhancedGradebook({ classId }: EnhancedGradebookProps) {
           <CardContent>
             <div className="text-2xl font-bold">{gradeStats.gradedActivities}</div>
             <p className="text-xs text-muted-foreground">
-              {activities?.length || 0} total activities
+              {activities?.items?.length || 0} total activities
             </p>
           </CardContent>
         </Card>
@@ -401,7 +427,7 @@ export function EnhancedGradebook({ classId }: EnhancedGradebookProps) {
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          {student.activitiesCompleted}/{activities?.length || 0}
+                          {student.activitiesCompleted}/{activities?.items?.length || 0}
                         </td>
                         <td className="py-3 px-4">
                           {student.assessmentsCompleted}/{assessments?.length || 0}

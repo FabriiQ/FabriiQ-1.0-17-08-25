@@ -7,46 +7,54 @@ export const metadata: Metadata = {
   description: 'Implemented gamification features including student points system, achievements, leaderboards, and social learning elements designed to boost engagement.',
 }
 
-const gamificationFeatures = [
+const implementedFeatures = [
   {
     icon: Award,
-    title: 'Points & Levels System',
-    description: 'Students earn points for completing activities, assignments, and achieving milestones, progressing through levels'
+    title: 'Student Points System',
+    description: 'Working points tracking for activity completion and academic achievements',
+    status: 'operational'
   },
   {
     icon: Trophy,
-    title: 'Achievement Badges',
-    description: 'Unlock special badges for academic excellence, perfect attendance, participation, and other accomplishments'
-  },
-  {
-    icon: Target,
-    title: 'Goal Setting & Tracking',
-    description: 'Set personal learning goals and track progress with visual indicators and milestone celebrations'
+    title: 'Achievement Framework',
+    description: 'Core achievement system with badge infrastructure and milestone tracking',
+    status: 'operational'
   },
   {
     icon: Users,
-    title: 'Class Leaderboards',
-    description: 'Friendly competition with class-based leaderboards showcasing top performers and most improved students'
+    title: 'Social Learning Features',
+    description: 'Social wall system with student interaction and collaboration tools',
+    status: 'operational'
   },
   {
     icon: BarChart3,
-    title: 'Progress Analytics',
-    description: 'Detailed analytics showing learning progress, strengths, areas for improvement, and achievement trends'
+    title: 'Progress Tracking',
+    description: 'Real-time learning progress analytics and performance visualization',
+    status: 'operational'
+  },
+  {
+    icon: Target,
+    title: 'Goal Management',
+    description: 'Personal learning goal setting with progress indicators',
+    status: 'development'
   },
   {
     icon: Gift,
-    title: 'Reward Redemption',
-    description: 'Redeem earned points for virtual rewards, privileges, or real-world incentives set by teachers'
+    title: 'Reward System',
+    description: 'Point redemption and virtual reward infrastructure',
+    status: 'development'
   },
   {
     icon: Zap,
-    title: 'Instant Feedback',
-    description: 'Immediate recognition and feedback for completed tasks, correct answers, and positive behaviors'
+    title: 'Real-time Feedback',
+    description: 'Instant recognition system for completed tasks and achievements',
+    status: 'development'
   },
   {
     icon: Play,
-    title: 'Interactive Challenges',
-    description: 'Engaging learning challenges, quests, and mini-games that make education fun and interactive'
+    title: 'Interactive Elements',
+    description: 'Gamified learning activities and engagement challenges',
+    status: 'planned'
   }
 ]
 
@@ -89,15 +97,15 @@ const rewardTypes = [
   }
 ]
 
-const benefits = [
-  'Increased student motivation and engagement in learning activities',
-  'Improved assignment completion rates and academic performance',
-  'Enhanced classroom participation and peer collaboration',
-  'Better attendance and punctuality through positive reinforcement',
-  'Development of goal-setting and self-monitoring skills',
-  'Reduced behavioral issues through positive behavior recognition',
-  'Stronger student-teacher relationships through achievement celebration',
-  'Data-driven insights into student motivation and learning patterns'
+const alphaBenefits = [
+  'Working student points system with real-time tracking',
+  'Operational achievement framework with milestone recognition',
+  'Functional social learning features through integrated social wall',
+  'Live progress analytics showing student engagement patterns',
+  'Core gamification infrastructure ready for advanced features',
+  'Alpha testing insights driving continuous improvement',
+  'Direct influence on final feature development and design',
+  'Early access to next-generation educational engagement tools'
 ]
 
 export default function RewardsGamificationPage() {
@@ -112,13 +120,14 @@ export default function RewardsGamificationPage() {
           </div>
           
           <h1 className="marketing-heading-xl mb-6">
-            Rewards & Gamification System
+            Student Engagement System
+            <span className="text-lg font-normal text-gray-600 block mt-2">Alpha Implementation - Core Features Operational</span>
           </h1>
-          
+
           <p className="marketing-body-lg max-w-3xl mx-auto mb-10">
-            Boost student engagement with our implemented gamification features including points system,
-            achievements, leaderboards, and social learning elements. Currently deployed and actively
-            enhancing student motivation across the platform.
+            Experience our working student engagement features including points tracking, achievement system,
+            and social learning elements. Core gamification infrastructure is operational and being enhanced
+            through our Alpha testing program.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
@@ -131,39 +140,49 @@ export default function RewardsGamificationPage() {
             </Link>
           </div>
 
-          {/* Key Metrics */}
+          {/* Alpha Status Metrics */}
           <div className="marketing-grid-3 max-w-2xl mx-auto">
             <div className="text-center">
-              <div className="text-3xl font-bold mb-2" style={{ color: '#1F504B' }}>8+</div>
-              <div className="marketing-body-sm">Gamification Features</div>
+              <div className="text-3xl font-bold mb-2" style={{ color: '#1F504B' }}>4</div>
+              <div className="marketing-body-sm">Features Operational</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold mb-2" style={{ color: '#5A8A84' }}>50+</div>
-              <div className="marketing-body-sm">Achievement Types</div>
+              <div className="text-3xl font-bold mb-2" style={{ color: '#5A8A84' }}>3</div>
+              <div className="marketing-body-sm">In Development</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold mb-2" style={{ color: '#1F504B' }}>Real-time</div>
-              <div className="marketing-body-sm">Progress Tracking</div>
+              <div className="text-3xl font-bold mb-2" style={{ color: '#1F504B' }}>Alpha</div>
+              <div className="marketing-body-sm">Testing Phase</div>
             </div>
           </div>
         </div>
 
-        {/* How It Works Section */}
+        {/* Implementation Status Section */}
         <div className="mb-20">
           <div className="text-center mb-12">
             <h2 className="marketing-heading-lg mb-4">
-              How our gamification system works
+              Current Implementation Status
             </h2>
             <p className="marketing-body max-w-2xl mx-auto">
-              Our comprehensive rewards system motivates students through multiple engagement mechanisms, 
-              creating a fun and competitive learning environment.
+              Track the development progress of our student engagement features. Core systems are operational
+              with advanced features in active development.
             </p>
           </div>
 
           <div className="marketing-grid-2 gap-8">
-            {gamificationFeatures.map((feature, index) => (
+            {implementedFeatures.map((feature, index) => (
               <div key={index} className="marketing-card">
-                <feature.icon className="h-8 w-8 mb-4" style={{ color: '#1F504B' }} />
+                <div className="flex items-start justify-between mb-4">
+                  <feature.icon className="h-8 w-8" style={{ color: '#1F504B' }} />
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    feature.status === 'operational' ? 'bg-green-100 text-green-700' :
+                    feature.status === 'development' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-gray-100 text-gray-700'
+                  }`}>
+                    {feature.status === 'operational' ? 'Operational' :
+                     feature.status === 'development' ? 'In Development' : 'Planned'}
+                  </span>
+                </div>
                 <h3 className="marketing-heading-md mb-3" style={{ color: '#1F504B' }}>{feature.title}</h3>
                 <p className="marketing-body">{feature.description}</p>
               </div>
@@ -200,20 +219,20 @@ export default function RewardsGamificationPage() {
           </div>
         </div>
 
-        {/* Benefits Section */}
+        {/* Alpha Benefits Section */}
         <div className="rounded-3xl p-8 lg:p-12 mb-20" style={{ backgroundColor: '#D8E3E0' }}>
           <div className="text-center mb-12">
             <h2 className="marketing-heading-lg mb-4" style={{ color: '#1F504B' }}>
-              Proven benefits of gamified learning
+              Alpha Testing Program Benefits
             </h2>
             <p className="marketing-body max-w-2xl mx-auto" style={{ color: '#1F504B' }}>
-              Research shows that well-designed gamification systems significantly improve student 
-              engagement, motivation, and academic outcomes.
+              Join our Alpha program to experience working engagement features while helping shape
+              the future of educational gamification technology.
             </p>
           </div>
 
           <div className="marketing-grid-2 gap-8">
-            {benefits.map((benefit, index) => (
+            {alphaBenefits.map((benefit, index) => (
               <div key={index} className="flex items-start">
                 <CheckCircle className="h-5 w-5 mr-3 mt-0.5 flex-shrink-0" style={{ color: '#1F504B' }} />
                 <span className="marketing-body" style={{ color: '#1F504B' }}>{benefit}</span>
@@ -225,19 +244,19 @@ export default function RewardsGamificationPage() {
         {/* CTA Section */}
         <div className="text-center">
           <h2 className="marketing-heading-lg mb-4">
-            Ready to gamify your classroom?
+            Ready to join our Alpha program?
           </h2>
           <p className="marketing-body mb-8 max-w-2xl mx-auto">
-            Transform your students' learning experience with our comprehensive rewards and 
-            gamification system that makes education engaging and fun.
+            Experience working student engagement features and help shape the future of educational
+            gamification through our collaborative Alpha testing program.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/demo" className="marketing-btn-primary">
-              Schedule demonstration
+              Schedule Alpha demo
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
-            <Link href="/solutions" className="marketing-btn-ghost">
-              ← Back to solutions
+            <Link href="/platform-status" className="marketing-btn-secondary">
+              View implementation status
             </Link>
           </div>
         </div>

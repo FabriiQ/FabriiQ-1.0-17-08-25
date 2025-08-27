@@ -332,7 +332,7 @@ export function ClassOverview({ classId }: ClassOverviewProps) {
               </CardHeader>
               <CardContent className="space-y-3">
                 {Array(3).fill(0).map((_, i) => (
-                  <div key={i} className="space-y-2 p-3 border rounded-lg">
+                  <div key={`activity-skeleton-${i}`} className="space-y-2 p-3 border rounded-lg">
                     <div className="flex justify-between items-start">
                       <div className="space-y-1">
                         <Skeleton className="h-5 w-48" />
@@ -373,8 +373,7 @@ export function ClassOverview({ classId }: ClassOverviewProps) {
                     return (
                       <div
                         key={activity.id}
-                        className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                        onClick={() => router.push(`/teacher/classes/${classId}/activities/${activity.id}`)}
+                        className="p-4 border rounded-lg"
                       >
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-start gap-3">
@@ -483,7 +482,7 @@ export function ClassOverview({ classId }: ClassOverviewProps) {
               </CardHeader>
               <CardContent className="space-y-3">
                 {Array(3).fill(0).map((_, i) => (
-                  <div key={i} className="space-y-2 p-3 border rounded-lg">
+                  <div key={`assessment-skeleton-${i}`} className="space-y-2 p-3 border rounded-lg">
                     <div className="flex justify-between items-start">
                       <div className="space-y-1">
                         <Skeleton className="h-5 w-48" />
@@ -530,8 +529,7 @@ export function ClassOverview({ classId }: ClassOverviewProps) {
                     return (
                       <div
                         key={assessment.id}
-                        className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                        onClick={() => router.push(`/teacher/classes/${classId}/assessments/${assessment.id}`)}
+                        className="p-4 border rounded-lg"
                       >
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-start gap-3">
@@ -662,7 +660,7 @@ export function ClassOverview({ classId }: ClassOverviewProps) {
                 </div>
                 <div className="space-y-3">
                   {Array(3).fill(0).map((_, i) => (
-                    <div key={i} className="space-y-2">
+                    <div key={`attendance-skeleton-${i}`} className="space-y-2">
                       <Skeleton className="h-4 w-24" />
                       <Skeleton className="h-2 w-full" />
                     </div>
@@ -708,15 +706,15 @@ export function ClassOverview({ classId }: ClassOverviewProps) {
                   </div>
 
                   {/* Recent Attendance Records */}
-                  {(Array.isArray(recentAttendanceRecords) ? false : recentAttendanceRecords?.success) &&
-                   (Array.isArray(recentAttendanceRecords) ? false : recentAttendanceRecords?.attendanceRecords) &&
-                   (Array.isArray(recentAttendanceRecords) ? false : (recentAttendanceRecords?.attendanceRecords?.length ?? 0) > 0) ? (
+                  {recentAttendanceRecords &&
+                   Array.isArray(recentAttendanceRecords) &&
+                   recentAttendanceRecords.length > 0 ? (
                     <div>
                       <div className="mb-4 text-sm font-medium">Recent Attendance Records</div>
                       <div className="space-y-3">
                         {/* Group records by date */}
                         {Object.entries(
-                          (Array.isArray(recentAttendanceRecords) ? [] : recentAttendanceRecords?.attendanceRecords || []).reduce((acc: any, record: any) => {
+                          (recentAttendanceRecords || []).reduce((acc: any, record: any) => {
                             const dateKey = record.date.toISOString().split('T')[0];
                             if (!acc[dateKey]) {
                               acc[dateKey] = {

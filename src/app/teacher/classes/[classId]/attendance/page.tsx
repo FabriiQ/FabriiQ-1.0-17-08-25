@@ -2,11 +2,11 @@ import { getSessionCache } from "@/utils/session-cache";
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { prisma } from "@/server/db";
-import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { DatePicker } from "@/components/ui/date-picker";
 import AttendanceRecorder from "@/components/teacher/attendance/AttendanceRecorder";
+import { AttendancePageHeader } from "@/components/teacher/attendance/AttendancePageHeader";
 
 export const metadata: Metadata = {
   title: "Class Attendance",
@@ -163,9 +163,10 @@ export default async function ClassAttendancePage({
 
   return (
     <div className="container mx-auto px-4 py-4 sm:py-6">
-      <PageHeader
+      <AttendancePageHeader
         title="Class Attendance"
         description={`${classDetails.name} - ${classDetails.courseCampus.course.subjects[0]?.name || "No subject"}`}
+        classId={classId}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">

@@ -169,9 +169,13 @@ const TopicNode: React.FC<TopicNodeProps> = ({ topic, level, subjectId, classId 
                     <CardTitle>Description</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="prose max-w-none dark:prose-invert">
-                      {topicDetails.description || "No description available."}
-                    </div>
+                    {topicDetails.description ? (
+                      <div className="prose max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: topicDetails.description }} />
+                    ) : (
+                      <div className="prose max-w-none dark:prose-invert">
+                        No description available.
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -180,9 +184,13 @@ const TopicNode: React.FC<TopicNodeProps> = ({ topic, level, subjectId, classId 
                     <CardTitle>Learning Outcomes</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="prose max-w-none dark:prose-invert">
-                      {topicDetails.learningOutcomes || "No learning outcomes defined."}
-                    </div>
+                    {topicDetails.learningOutcomesText ? (
+                      <div className="prose max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: topicDetails.learningOutcomesText }} />
+                    ) : (
+                      <div className="prose max-w-none dark:prose-invert">
+                        No learning outcomes defined.
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -193,9 +201,13 @@ const TopicNode: React.FC<TopicNodeProps> = ({ topic, level, subjectId, classId 
                     <CardTitle>Context</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="prose max-w-none dark:prose-invert">
-                      {topicDetails.context || "No context information available."}
-                    </div>
+                    {topicDetails.context ? (
+                      <div className="prose max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: topicDetails.context }} />
+                    ) : (
+                      <div className="prose max-w-none dark:prose-invert">
+                        No context information available.
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>

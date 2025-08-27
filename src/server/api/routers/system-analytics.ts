@@ -664,49 +664,111 @@ export const systemAnalyticsRouter = createTRPCRouter({
       }
 
       try {
-        // First, check if the user exists at all
+        let student: any = null;
+
+        // First, try to find by User ID
         const userExists = await ctx.prisma.user.findUnique({
           where: { id: input.id },
           select: { id: true, userType: true }
         });
 
-        if (!userExists) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "User not found",
-          });
-        }
-
-        // Get student with related data - only if user is a student type
-        const student = await ctx.prisma.user.findUnique({
-          where: {
-            id: input.id,
-            userType: {
-              in: ['CAMPUS_STUDENT', 'STUDENT']
-            }
-          },
-          include: {
-            studentProfile: true,
-            activeCampuses: {
-              include: {
-                campus: true,
+        if (userExists && ['CAMPUS_STUDENT', 'STUDENT'].includes(userExists.userType)) {
+          // Get student with related data - using User ID
+          student = await ctx.prisma.user.findUnique({
+            where: { id: input.id },
+            include: {
+              studentProfile: true,
+              activeCampuses: {
+                include: {
+                  campus: true,
+                },
               },
             },
-          },
-        });
+          });
+        } else {
+          // If not found by User ID, try to find by StudentProfile ID
+          const studentProfile = await ctx.prisma.studentProfile.findUnique({
+            where: { id: input.id },
+            include: {
+              user: {
+                include: {
+                  activeCampuses: {
+                    include: {
+                      campus: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+
+          if (studentProfile) {
+            // Transform to match the expected structure
+            student = {
+              ...studentProfile.user,
+              studentProfile: {
+                ...studentProfile,
+                user: undefined, // Remove circular reference
+              },
+            };
+          }
+        }
 
         if (!student) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: `Student not found. User exists but is not a student (userType: ${userExists.userType})`,
+            message: "Student not found",
           });
         }
 
         // Additional authorization for non-system users
         if (ctx.session.user.userType === 'CAMPUS_TEACHER' ||
-            ctx.session.user.userType === 'TEACHER' ||
-            ctx.session.user.userType === 'CAMPUS_ADMIN') {
-          // Get the user's primary campus
+            ctx.session.user.userType === 'TEACHER') {
+          // For teachers, check if they have access to this student through class assignments
+          const teacherProfile = await ctx.prisma.teacherProfile.findUnique({
+            where: { userId: ctx.session.user.id },
+            select: { id: true }
+          });
+
+          if (!teacherProfile) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Teacher profile not found",
+            });
+          }
+
+          // Check if teacher has access to student through class assignments
+          // We need to check both the student profile ID and user ID since the input could be either
+          const hasAccessToStudent = await ctx.prisma.teacherAssignment.findFirst({
+            where: {
+              teacherId: teacherProfile.id,
+              class: {
+                students: {
+                  some: {
+                    OR: [
+                      // Check by student profile ID
+                      { studentId: student.studentProfile?.id },
+                      // Check by user ID through the student profile relationship
+                      {
+                        student: {
+                          userId: student.id
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          });
+
+          if (!hasAccessToStudent) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Access denied: Student not in your assigned classes",
+            });
+          }
+        } else if (ctx.session.user.userType === 'CAMPUS_ADMIN') {
+          // For campus admins, check campus access
           const currentUser = await ctx.prisma.user.findUnique({
             where: { id: ctx.session.user.id },
             select: { primaryCampusId: true }

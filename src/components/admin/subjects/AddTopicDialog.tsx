@@ -25,6 +25,8 @@ import {
 import { Input } from "@/components/ui/forms/input";
 import { Textarea } from "@/components/ui/forms/textarea";
 import { Button } from "@/components/ui/core/button";
+import { RichTextEditor } from "@/features/activties/components/ui/RichTextEditor";
+import { ThemeWrapper } from "@/features/activties/components/ui/ThemeWrapper";
 import {
   Tabs,
   TabsContent,
@@ -210,14 +212,15 @@ export function AddTopicDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px]">
-        <DialogHeader>
+      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[700px] h-[90vh] max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="flex-shrink-0 p-6 pb-0">
           <DialogTitle>{getDialogTitle()}</DialogTitle>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="flex-1 overflow-y-auto px-6">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="mb-4">
                 <TabsTrigger value="basic">Basic Info</TabsTrigger>
                 <TabsTrigger value="content">Content</TabsTrigger>
@@ -262,11 +265,14 @@ export function AddTopicDialog({
                     <FormItem>
                       <FormLabel>Description</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Enter description (optional)"
-                          {...field}
-                          value={field.value || ""}
-                        />
+                        <ThemeWrapper>
+                          <RichTextEditor
+                            content={field.value || ""}
+                            onChange={field.onChange}
+                            placeholder="Enter description (optional)"
+                            minHeight="150px"
+                          />
+                        </ThemeWrapper>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -348,12 +354,14 @@ export function AddTopicDialog({
                     <FormItem>
                       <FormLabel>Context</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Educational context for this topic"
-                          {...field}
-                          value={field.value || ""}
-                          className="min-h-[100px]"
-                        />
+                        <ThemeWrapper>
+                          <RichTextEditor
+                            content={field.value || ""}
+                            onChange={field.onChange}
+                            placeholder="Educational context for this topic"
+                            minHeight="150px"
+                          />
+                        </ThemeWrapper>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -455,23 +463,28 @@ export function AddTopicDialog({
                   </div>
                 </FormItem>
               </TabsContent>
-            </Tabs>
+              </Tabs>
+            </form>
+          </Form>
+        </div>
 
-            <DialogFooter className="mt-6">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+        <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            onClick={form.handleSubmit(onSubmit)}
+          >
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Create
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

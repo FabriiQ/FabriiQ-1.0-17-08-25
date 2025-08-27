@@ -1,58 +1,19 @@
-# FabriiQ — Engagement Strategy
-## The Integrated Multi-Campus Student Information & Learning Experience Platform
+## FabrriQ AI — Engagement Strategy
 
-### Strategic Objectives
-**Primary Goals**
-- Generate qualified demonstration requests from multi-campus educational institutions
-- Establish FabriiQ as the definitive solution for comprehensive educational platform needs
-- Build institutional trust through measurable outcomes and comprehensive case studies
-- Drive adoption across Asia, Southeast Asia, and MENA regions
+### Objectives
+- Generate qualified demo requests from K-12/coaching institutes
+- Educate on unified SIS+LXP benefits and teacher-first workflows
+- Build trust via case studies and data-backed content
 
-**Success Metrics**
-- Qualified demo requests from institutions with 500+ students
-- Interactive sandbox engagement and progression rates
-- Case study downloads and sharing across target markets
-- Technical documentation engagement and implementation inquiries
+### Target Segments
+- K-12 private schools, coaching/after-school centers, departmental higher-ed
+- Roles: Owners/Principals, Heads of Academics, Operations/Finance, Teachers
 
-### Target Market Segmentation
-
-**Primary Markets (Asia, Southeast Asia, MENA)**
-- **Pakistan**: K-12 private schools and coaching centers (Primary focus)
-- **UAE/Saudi Arabia**: International schools and multi-campus networks
-- **Southeast Asia**: Private educational institutions and tutorial centers
-- **India**: Coaching institutes and private school networks
-
-**Decision Maker Personas**
-- **Educational Leadership**: Principals, Owners, Network Administrators
-- **Academic Management**: Curriculum Directors, Academic Coordinators
-- **Operational Leadership**: Finance Directors, Operations Managers, IT Directors
-- **End Users**: Teachers, Students, Parents seeking platform capabilities
-
-### Multi-Channel Engagement Framework
-
-**Top-of-Funnel (Awareness & Education)**
-- **SEO Strategy**: Multi-campus SIS, K-12 management software, Bloom's taxonomy analytics
-- **Content Marketing**: Educational technology blogs, implementation guides, best practices
-- **Social Media**: LinkedIn thought leadership, YouTube platform demonstrations
-- **Regional Partnerships**: Educational technology conferences and trade shows
-
-**Middle-of-Funnel (Consideration & Evaluation)**
-- **Case Studies**: Al-Noor Educational Network transformation story
-- **Interactive Demonstrations**: Real platform components with dummy data
-- **Comparison Guides**: FabriiQ vs. legacy systems and competitors
-- **Webinar Series**: Implementation best practices and feature deep-dives
-
-**Bottom-of-Funnel (Decision & Implementation)**
-- **Live Demonstrations**: Personalized platform walkthroughs with institutional data
-- **Interactive Sandbox**: Hands-on evaluation environment with full functionality
-- **ROI Calculators**: Customized financial impact analysis tools
-- **Implementation Planning**: Migration guides and deployment timelines
-
-**Retention & Expansion**
-- **Customer Success Programs**: Ongoing training and optimization support
-- **Community Building**: User forums and best practice sharing
-- **Product Updates**: Regular feature releases and enhancement communications
-- **Expansion Opportunities**: Additional campus locations and advanced features
+### Funnel & Channels
+- TOFU: SEO (SIS, LXP, enrollment, fees, Bloom analytics), LinkedIn, YouTube explainers
+- MOFU: Case studies (Minuttia-style), comparison guides, webinars
+- BOFU: Live demos, sandbox access, ROI calculators, migration guide
+- Retention/Expansion: Customer webinars, release notes, community
 
 ### Content Calendar (first 8 weeks)
 - Weeks 1–2: Home/solutions launch, 1 case study, blog on attendance & fees
