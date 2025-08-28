@@ -140,7 +140,7 @@ export function UniversalActivitySubmit({
   const mountedRef = useRef(true);
   
   // API mutations - using existing endpoints
-  const submitActivityMutation = api.activity.autoGrade.useMutation();
+  const submitActivityMutation = api.activity.submitActivity.useMutation();
   const triggerAchievementsMutation = api.achievement.createAchievement.useMutation();
   const updateAnalyticsMutation = api.analytics.trackEvent.useMutation();
 
@@ -286,9 +286,16 @@ export function UniversalActivitySubmit({
           submissionTimestamp: new Date().toISOString(),
         }
       };
-      
-      // Submit activity
-      const result = await submitActivityMutation.mutateAsync(submissionData);
+
+      // Submit activity - use the correct format for activity.submitActivity
+      const result = await submitActivityMutation.mutateAsync({
+        activityId: config.activityId,
+        answers: config.answers,
+        clientResult: submissionData,
+        storeDetailedResults: true,
+        priority: 1,
+        timeSpentMinutes: Math.round(config.timeSpent / 60), // Convert seconds to minutes
+      });
       
       if (!mountedRef.current) return;
       

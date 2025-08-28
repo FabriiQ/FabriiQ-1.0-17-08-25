@@ -87,7 +87,7 @@ export function PostCreator({
       if (onPostCreated && session?.user) {
         const optimisticPost: PostWithEngagement = {
           id: `temp-${Date.now()}`, // Temporary ID
-          content: variables.content,
+          content: variables.content || '',
           contentType: variables.contentType || 'HTML',
           mediaUrls: variables.mediaUrls || [],
           metadata: variables.metadata || {},
@@ -160,8 +160,9 @@ export function PostCreator({
   });
 
   const handleSubmit = async () => {
-    // Strip HTML tags for length validation but keep original content for storage
-    const textContent = content.replace(/<[^>]*>/g, '').trim();
+    // Ensure content is a string and strip HTML tags for length validation but keep original content for storage
+    const safeContent = typeof content === 'string' ? content : String(content || '');
+    const textContent = safeContent.replace(/<[^>]*>/g, '').trim();
 
     if (!textContent) {
       setError('Post content cannot be empty');
@@ -178,7 +179,7 @@ export function PostCreator({
 
     const input: CreatePostInput = {
       classId,
-      content: content, // Keep HTML content
+      content: safeContent, // Keep HTML content
       postType,
       contentType: PostContentType.HTML, // Use enum value
       taggedUserIds: taggedUserIds.length > 0 ? taggedUserIds : undefined,

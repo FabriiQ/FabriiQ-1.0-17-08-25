@@ -1,7 +1,7 @@
 import { PrismaClient, Activity, ActivityGrade } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { WithPrisma } from "../types/prisma";
-import { SystemStatus, SubmissionStatus, ActivityPurpose, LearningActivityType, AssessmentType } from "../constants";
+import { SystemStatus, ActivityPurpose, LearningActivityType, AssessmentType } from "../constants";
 import { BloomsTaxonomyLevel } from "@/features/bloom/types";
 
 type CreateActivityInput = {
@@ -78,8 +78,8 @@ export class ComponentActivityService {
       });
     }
 
-    // Validate topic if provided
-    if (input.topicId) {
+    // Validate topic if provided (and not empty string)
+    if (input.topicId && input.topicId.trim() !== '') {
       const topicExists = await this.prisma.subjectTopic.findUnique({
         where: { id: input.topicId },
       });
@@ -90,6 +90,9 @@ export class ComponentActivityService {
           message: "Topic not found",
         });
       }
+    } else if (input.topicId === '') {
+      // Convert empty string to undefined for database
+      input.topicId = undefined;
     }
 
     try {
@@ -456,7 +459,7 @@ export class ComponentActivityService {
           score,
           feedback,
           gradedAt: new Date(),
-          status: 'GRADED' as SubmissionStatus,
+          status: 'GRADED',
         },
         create: {
           activityId,
@@ -464,7 +467,7 @@ export class ComponentActivityService {
           score,
           feedback,
           gradedAt: new Date(),
-          status: 'GRADED' as SubmissionStatus,
+          status: 'GRADED',
         },
       });
     } catch (error) {

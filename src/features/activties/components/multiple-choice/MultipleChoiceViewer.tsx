@@ -78,6 +78,11 @@ export const MultipleChoiceViewer: React.FC<MultipleChoiceViewerProps> = ({
 
   // Initialize shuffled questions
   useEffect(() => {
+    if (!activity.questions || activity.questions.length === 0) {
+      setShuffledQuestions([]);
+      return;
+    }
+
     let questions = [...activity.questions];
 
     // Shuffle questions if enabled
@@ -110,6 +115,8 @@ export const MultipleChoiceViewer: React.FC<MultipleChoiceViewerProps> = ({
 
   // Track progress
   useEffect(() => {
+    if (!activity.questions || activity.questions.length === 0) return;
+
     const answeredCount = Object.keys(selectedAnswers).length;
     const totalQuestions = activity.questions.length;
     const progress = (answeredCount / totalQuestions) * 100;
@@ -117,7 +124,7 @@ export const MultipleChoiceViewer: React.FC<MultipleChoiceViewerProps> = ({
     if (onProgress) {
       onProgress(progress);
     }
-  }, [selectedAnswers, activity.questions.length, onProgress]);
+  }, [selectedAnswers, activity.questions?.length, onProgress]);
 
   // Handle option selection
   const handleOptionSelect = (questionId: string, optionId: string) => {
@@ -263,7 +270,7 @@ export const MultipleChoiceViewer: React.FC<MultipleChoiceViewerProps> = ({
 
         {/* Options */}
         <div className="space-y-3 mt-4">
-          {question.options.map(option => (
+          {(question.options || []).map(option => (
             <SelectableOption
               key={option.id}
               option={option}
@@ -513,7 +520,7 @@ export const MultipleChoiceViewer: React.FC<MultipleChoiceViewerProps> = ({
               attemptNumber: 1,
               metadata: {
                 startTime: startTime,
-                questionCount: activity.questions.length,
+                questionCount: activity.questions?.length || 0,
                 interactionCount: Object.keys(selectedAnswers).length
               }
             }}
@@ -528,11 +535,12 @@ export const MultipleChoiceViewer: React.FC<MultipleChoiceViewerProps> = ({
             }}
             validateAnswers={(answers) => {
               const answeredCount = Object.keys(answers).length;
+              const totalQuestions = activity.questions?.length || 0;
               if (answeredCount === 0) {
                 return 'Please answer at least one question.';
               }
-              if (answeredCount < activity.questions.length) {
-                return `Please answer all ${activity.questions.length} questions.`;
+              if (answeredCount < totalQuestions) {
+                return `Please answer all ${totalQuestions} questions.`;
               }
               return true;
             }}

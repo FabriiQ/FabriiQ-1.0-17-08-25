@@ -1091,18 +1091,28 @@ export default function EnrollmentDetailPage() {
                         <CardTitle>Fee Management</CardTitle>
                         <CardDescription>Manage enrollment fees, discounts, and payments</CardDescription>
                       </div>
-                      {enrollmentFee ? (
-                        <Badge className={
-                          enrollmentFee.paymentStatus === 'PAID' ? 'bg-green-100 text-green-800' :
-                          enrollmentFee.paymentStatus === 'PARTIAL' ? 'bg-yellow-100 text-yellow-800' :
-                          enrollmentFee.paymentStatus === 'PENDING' ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-800'
-                        }>
-                          {enrollmentFee.paymentStatus}
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-gray-100 text-gray-800">No Fee Assigned</Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push(`/admin/system/enrollment/${enrollmentId}/fee`)}
+                        >
+                          <FileText className="mr-2 h-4 w-4" />
+                          Manage Fees
+                        </Button>
+                        {enrollmentFee ? (
+                          <Badge className={
+                            enrollmentFee.paymentStatus === 'PAID' ? 'bg-green-100 text-green-800' :
+                            enrollmentFee.paymentStatus === 'PARTIAL' ? 'bg-yellow-100 text-yellow-800' :
+                            enrollmentFee.paymentStatus === 'PENDING' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }>
+                            {enrollmentFee.paymentStatus}
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-gray-100 text-gray-800">No Fee Assigned</Badge>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>

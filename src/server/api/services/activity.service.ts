@@ -46,7 +46,7 @@ export class ActivityService {
 
       // Check if topic exists and belongs to subject
       let topic: { id: string; title: string; code: string; subjectId: string } | null = null;
-      if (input.topicId) {
+      if (input.topicId && input.topicId.trim() !== '') {
         const foundTopic = await this.prisma.subjectTopic.findUnique({
           where: { id: input.topicId },
           select: { id: true, title: true, code: true, subjectId: true }
@@ -67,6 +67,9 @@ export class ActivityService {
         }
 
         topic = foundTopic;
+      } else if (input.topicId === '') {
+        // Convert empty string to undefined for database
+        input.topicId = undefined;
       }
 
       // Set default status if not provided

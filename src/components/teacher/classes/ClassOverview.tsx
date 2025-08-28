@@ -341,9 +341,9 @@ export function ClassOverview({ classId }: ClassOverviewProps) {
                       <Skeleton className="h-6 w-16" />
                     </div>
                     <div className="flex gap-4">
-                      <Skeleton className="h-4 w-20" />
-                      <Skeleton className="h-4 w-20" />
-                      <Skeleton className="h-4 w-20" />
+                      <Skeleton key="skeleton-1" className="h-4 w-20" />
+                      <Skeleton key="skeleton-2" className="h-4 w-20" />
+                      <Skeleton key="skeleton-3" className="h-4 w-20" />
                     </div>
                   </div>
                 ))}

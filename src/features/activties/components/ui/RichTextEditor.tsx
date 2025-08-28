@@ -66,6 +66,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const [isMounted, setIsMounted] = useState(false);
   const { resolvedTheme } = useTheme();
 
+  // Ensure content is always a string to prevent trim errors
+  const safeContent = typeof content === 'string' ? content : String(content || '');
+
   // Inject CSS to ensure TipTap respects theme
   useEffect(() => {
     const style = document.createElement('style');
@@ -271,7 +274,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         })
       ] : []),
     ],
-    content,
+    content: safeContent,
     editable: !disabled,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
@@ -280,10 +283,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   // Handle content changes from outside
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content);
+    if (editor && safeContent !== editor.getHTML()) {
+      editor.commands.setContent(safeContent);
     }
-  }, [content, editor]);
+  }, [safeContent, editor]);
 
   // Handle client-side rendering
   useEffect(() => {

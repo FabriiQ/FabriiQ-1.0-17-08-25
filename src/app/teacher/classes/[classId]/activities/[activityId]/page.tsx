@@ -36,7 +36,22 @@ export default function ActivityDetailPage() {
     id: activityId
   }, {
     // Only enable the query if we have a valid ID
-    enabled: isValidId
+    enabled: isValidId,
+    retry: false, // Don't retry on 404 errors
+    onError: (error) => {
+      console.error('Activity fetch error:', error);
+      if (error.message.includes('Activity not found')) {
+        toast({
+          title: "Activity Not Found",
+          description: "The requested activity could not be found. Redirecting to activities list...",
+          variant: "destructive",
+        });
+        // Redirect to activities list after a short delay
+        setTimeout(() => {
+          router.push(`/teacher/classes/${classId}/activities`);
+        }, 2000);
+      }
+    }
   });
 
   // Check if activity has attempts (submissions)
@@ -158,11 +173,30 @@ export default function ActivityDetailPage() {
     );
   }
 
-  if (error || !activity) {
+  if (error || (!activity && !isLoading)) {
     return (
       <div className="container mx-auto py-6">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          <p>Failed to load activity: {error?.message || 'Activity not found'}</p>
+        <div className="bg-red-100 dark:bg-red-900/20 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-400 px-4 py-3 rounded">
+          <h3 className="font-semibold mb-2">Activity Not Found</h3>
+          <p className="mb-4">
+            {error?.message || 'The requested activity could not be found or may have been deleted.'}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => router.push(`/teacher/classes/${classId}/activities`)}
+              variant="outline"
+              size="sm"
+            >
+              Back to Activities
+            </Button>
+            <Button
+              onClick={() => window.location.reload()}
+              variant="outline"
+              size="sm"
+            >
+              Retry
+            </Button>
+          </div>
         </div>
       </div>
     );

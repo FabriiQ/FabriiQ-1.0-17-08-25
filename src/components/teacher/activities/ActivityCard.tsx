@@ -13,7 +13,7 @@ import {
   Eye,
   BookOpen,
   FileText,
-  PenTool
+  Edit3
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
@@ -73,16 +73,16 @@ export function ActivityCard({
 
   // Get activity type icon
   const getTypeIcon = (type: string | undefined) => {
-    switch (type?.toLowerCase()) {
-      case 'quiz':
-      case 'assessment':
-        return <FileText className="h-4 w-4" />;
-      case 'assignment':
-        return <PenTool className="h-4 w-4" />;
-      case 'reading':
-        return <BookOpen className="h-4 w-4" />;
-      default:
-        return <BookOpen className="h-4 w-4" />;
+    const lowerType = type?.toLowerCase() || '';
+
+    if (lowerType.includes('quiz') || lowerType.includes('assessment') || lowerType.includes('multiple')) {
+      return <FileText className="h-4 w-4" />;
+    } else if (lowerType.includes('assignment') || lowerType.includes('homework') || lowerType.includes('writing')) {
+      return <Edit3 className="h-4 w-4" />;
+    } else if (lowerType.includes('reading') || lowerType.includes('lesson') || lowerType.includes('flash')) {
+      return <BookOpen className="h-4 w-4" />;
+    } else {
+      return <FileText className="h-4 w-4" />;
     }
   };
 
@@ -90,7 +90,9 @@ export function ActivityCard({
     <Card className="h-full flex flex-col transition-colors hover:border-primary/50 dark:hover:border-primary/30 dark:bg-card">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
-          <CardTitle className="text-lg line-clamp-2 text-foreground">{activity.title}</CardTitle>
+          <CardTitle className="text-lg line-clamp-2 text-foreground">
+            {activity.title || 'Untitled Activity'}
+          </CardTitle>
           <Badge variant="outline" className="flex items-center gap-1 dark:bg-background/50 text-foreground">
             {getTypeIcon(activity.type)}
             <span>{activity.type || 'Activity'}</span>

@@ -18,6 +18,10 @@ const createMessageSchema = z.object({
   parentMessageId: z.string().optional(),
   messageType: z.enum(['PUBLIC', 'PRIVATE', 'GROUP', 'BROADCAST', 'SYSTEM']).default('PRIVATE'),
   classId: z.string().optional(),
+  subject: z.string().optional(),
+  groupName: z.string().optional(), // For group messages
+  taggedUserIds: z.array(z.string()).optional(), // For mentions
+  metadata: z.record(z.any()).optional(), // Additional metadata
 });
 
 const getMessagesSchema = z.object({
@@ -156,6 +160,27 @@ export const messagingRouter = createTRPCRouter({
     }),
 
   /**
+   * Mark all messages in a thread as read
+   */
+  markThreadAsRead: protectedProcedure
+    .input(z.object({
+      threadId: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const service = new MessagingService(ctx.prisma);
+        await service.markThreadAsRead(ctx.session.user.id, input.threadId);
+        return { success: true };
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to mark thread as read',
+          cause: error
+        });
+      }
+    }),
+
+  /**
    * Get unread message count
    */
   getUnreadCount: protectedProcedure
@@ -170,6 +195,53 @@ export const messagingRouter = createTRPCRouter({
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to get unread count',
+          cause: error
+        });
+      }
+    }),
+
+  /**
+   * Create a group message with multiple recipients
+   */
+  createGroupMessage: protectedProcedure
+    .input(createMessageSchema.extend({
+      messageType: z.literal('GROUP'),
+      groupName: z.string().min(1).max(100),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const service = new MessagingService(ctx.prisma);
+
+        // Create the group message with enhanced metadata
+        const result = await service.createMessage(ctx.session.user.id, {
+          ...input,
+          metadata: {
+            ...input.metadata,
+            isGroupMessage: true,
+            groupName: input.groupName,
+            recipientCount: input.recipients.length,
+            createdBy: ctx.session.user.id,
+            createdAt: new Date().toISOString()
+          }
+        });
+
+        return {
+          success: true,
+          message: result.message,
+          complianceProfile: result.complianceProfile,
+          warnings: result.warnings || [],
+          groupInfo: {
+            name: input.groupName,
+            recipientCount: input.recipients.length
+          }
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to create group message',
           cause: error
         });
       }
@@ -361,8 +433,8 @@ export const messagingRouter = createTRPCRouter({
 
         console.log('🔍 Initial where clause:', where);
 
-        // Add campus filter if provided
-        if (campusId) {
+        // Add campus filter if provided (skip for parents to avoid excluding them)
+        if (campusId && userType !== 'PARENT') {
           where.activeCampuses = {
             some: {
               campusId,
@@ -371,16 +443,16 @@ export const messagingRouter = createTRPCRouter({
           };
         }
 
-        // Add userType filter if provided (handle both old and new formats)
+        // Add userType filter if provided (handle legacy vs campus-prefixed values)
         if (userType) {
           if (userType === 'CAMPUS_TEACHER') {
             where.userType = { in: ['CAMPUS_TEACHER', 'TEACHER'] };
           } else if (userType === 'CAMPUS_STUDENT') {
             where.userType = { in: ['CAMPUS_STUDENT', 'STUDENT'] };
           } else if (userType === 'PARENT') {
-            where.userType = { in: ['PARENT'] };
+            where.userType = { in: ['CAMPUS_PARENT', 'PARENT'] };
           } else if (userType === 'COORDINATOR') {
-            where.userType = { in: ['COORDINATOR'] };
+            where.userType = { in: ['CAMPUS_COORDINATOR', 'COORDINATOR'] };
           } else {
             where.userType = userType;
           }

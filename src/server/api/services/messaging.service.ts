@@ -18,6 +18,10 @@ export interface CreateMessageInput {
   messageType?: 'PUBLIC' | 'PRIVATE' | 'GROUP' | 'BROADCAST' | 'SYSTEM';
   threadId?: string;
   parentMessageId?: string;
+  subject?: string;
+  groupName?: string;
+  taggedUserIds?: string[];
+  metadata?: Record<string, any>;
 }
 
 export interface GetMessagesInput {
@@ -118,6 +122,15 @@ export class MessagingService {
           threadId: input.threadId,
           parentMessageId: input.parentMessageId,
 
+          // Group messaging fields stored in metadata
+          metadata: {
+            ...input.metadata,
+            subject: input.subject,
+            groupName: input.groupName,
+            isGroupMessage: input.messageType === 'GROUP',
+            taggedUserIds: input.taggedUserIds || []
+          },
+
           // Compliance fields from classification
           contentCategory: (classification.contentCategory as any) || 'GENERAL',
           riskLevel: (classification.riskLevel as any) || 'LOW',
@@ -133,7 +146,21 @@ export class MessagingService {
         }
       });
 
-      // 5. Log compliance processing
+      // 5. Create user tags for mentions if any
+      if (input.taggedUserIds && input.taggedUserIds.length > 0) {
+        await this.prisma.socialUserTag.createMany({
+          data: input.taggedUserIds.map(taggedUserId => ({
+            userId: taggedUserId,
+            taggerId: userId,
+            postId: message.id,
+            tagType: 'MENTION',
+            context: 'MESSAGE'
+          })),
+          skipDuplicates: true
+        });
+      }
+
+      // 6. Log compliance processing
       logger.info('Message created with compliance processing', {
         messageId: message.id,
         complianceLevel: classification.complianceLevel,
@@ -142,10 +169,10 @@ export class MessagingService {
         duration: Date.now() - startTime
       });
 
-      // 6. Broadcast real-time message to recipients
+      // 7. Broadcast real-time message to recipients
       this.broadcastNewMessage(message, input.recipients);
 
-      // 7. Invalidate relevant caches
+      // 8. Invalidate relevant caches
       this.invalidateMessageCaches(input.classId, input.threadId);
 
       return {
@@ -511,6 +538,73 @@ export class MessagingService {
       });
     } catch (error) {
       logger.error('Error marking message as read:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mark all messages in a thread as read for a user
+   */
+  async markThreadAsRead(userId: string, threadId: string): Promise<void> {
+    try {
+      // Get all message IDs in the thread
+      const threadMessages = await this.prisma.socialPost.findMany({
+        where: {
+          threadId,
+          status: 'ACTIVE'
+        },
+        select: {
+          id: true
+        }
+      });
+
+      const messageIds = threadMessages.map(msg => msg.id);
+
+      if (messageIds.length === 0) {
+        return; // No messages in thread
+      }
+
+      // Batch update all message recipients for this user and thread
+      await this.prisma.messageRecipient.updateMany({
+        where: {
+          messageId: { in: messageIds },
+          userId,
+          readAt: null // Only update unread messages
+        },
+        data: {
+          readAt: new Date(),
+          deliveryStatus: 'READ'
+        }
+      });
+
+      // Create recipient records for messages that don't have them yet
+      const existingRecipients = await this.prisma.messageRecipient.findMany({
+        where: {
+          messageId: { in: messageIds },
+          userId
+        },
+        select: {
+          messageId: true
+        }
+      });
+
+      const existingMessageIds = new Set(existingRecipients.map(r => r.messageId));
+      const missingMessageIds = messageIds.filter(id => !existingMessageIds.has(id));
+
+      if (missingMessageIds.length > 0) {
+        await this.prisma.messageRecipient.createMany({
+          data: missingMessageIds.map(messageId => ({
+            messageId,
+            userId,
+            readAt: new Date(),
+            deliveryStatus: 'READ' as const,
+            consentStatus: 'OBTAINED' as const
+          })),
+          skipDuplicates: true
+        });
+      }
+    } catch (error) {
+      logger.error('Error marking thread as read:', error);
       throw error;
     }
   }

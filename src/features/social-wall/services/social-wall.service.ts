@@ -431,6 +431,7 @@ export class SocialWallService {
       // Format response with proper null checks
       const postWithEngagement: PostWithEngagement = {
         ...result,
+        content: result.content || '', // Ensure content is never null/undefined
         author: {
           id: author?.id || userId,
           name: author?.name || 'Unknown User',
@@ -650,6 +651,7 @@ export class SocialWallService {
 
           return {
             ...post,
+            content: post.content || '', // Ensure content is never null/undefined
             mediaUrls, // Use the properly formatted mediaUrls
             author: {
               id: post.author?.id || '',

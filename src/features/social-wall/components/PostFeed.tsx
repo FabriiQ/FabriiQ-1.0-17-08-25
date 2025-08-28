@@ -103,7 +103,15 @@ export function PostFeed({
   // Update posts when data changes
   useEffect(() => {
     if (postsData?.pages) {
-      const allPosts = postsData.pages.flatMap(page => page.items);
+      const allPosts = postsData.pages
+        .flatMap(page => page.items)
+        .filter((post): post is PostWithEngagement =>
+          post != null &&
+          typeof post === 'object' &&
+          'id' in post &&
+          typeof post.id === 'string' &&
+          post.id.length > 0
+        );
       onPostsChange(allPosts);
       setHasMore(!!hasNextPage);
     }
@@ -131,9 +139,17 @@ export function PostFeed({
 
   // Handle post updates
   const handlePostUpdate = (updatedPost: PostWithEngagement) => {
-    onPostsChange(posts.map(post => 
-      post.id === updatedPost.id ? updatedPost : post
-    ));
+    onPostsChange(posts
+      .filter((post): post is PostWithEngagement =>
+        post != null &&
+        typeof post === 'object' &&
+        'id' in post &&
+        typeof post.id === 'string'
+      )
+      .map(post =>
+        post.id === updatedPost.id ? updatedPost : post
+      )
+    );
   };
 
   const handlePostDelete = (postId: string) => {
@@ -283,15 +299,23 @@ export function PostFeed({
 
       {/* Posts List */}
       <div className="space-y-4">
-        {posts.map((post) => (
-          <PostCard
-            key={post.id}
-            post={post}
-            classId={classId}
-            onUpdate={handlePostUpdate}
-            onDelete={handlePostDelete}
-          />
-        ))}
+        {posts
+          .filter((post): post is PostWithEngagement =>
+            post != null &&
+            typeof post === 'object' &&
+            'id' in post &&
+            typeof post.id === 'string' &&
+            post.id.length > 0
+          )
+          .map((post) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              classId={classId}
+              onUpdate={handlePostUpdate}
+              onDelete={handlePostDelete}
+            />
+          ))}
       </div>
 
       {/* Load More */}

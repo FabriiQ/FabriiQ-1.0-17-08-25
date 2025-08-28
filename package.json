@@ -128,7 +128,7 @@
     "jspdf": "^3.0.1",
     "langchain": "^0.3.21",
     "lottie-react": "^2.4.1",
-    "lucide-react": "^0.501.0",
+    "lucide-react": "^0.542.0",
     "next": "^15.3.4",
     "next-auth": "^4.24.11",
     "next-themes": "^0.2.1",

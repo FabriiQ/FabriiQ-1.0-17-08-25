@@ -77,6 +77,8 @@ export const TrueFalseViewer: React.FC<TrueFalseViewerProps> = ({
 
   // Track progress
   useEffect(() => {
+    if (!activity.questions || activity.questions.length === 0) return;
+
     const answeredCount = Object.keys(selectedAnswers).length;
     const totalQuestions = activity.questions.length;
     const progress = (answeredCount / totalQuestions) * 100;
@@ -84,7 +86,7 @@ export const TrueFalseViewer: React.FC<TrueFalseViewerProps> = ({
     if (onProgress) {
       onProgress(progress);
     }
-  }, [selectedAnswers, activity.questions.length, onProgress]);
+  }, [selectedAnswers, activity.questions?.length, onProgress]);
 
   // Handle answer selection
   const handleAnswerSelect = (questionId: string, answer: boolean) => {
@@ -393,7 +395,7 @@ export const TrueFalseViewer: React.FC<TrueFalseViewerProps> = ({
             attemptNumber: 1,
             metadata: {
               startTime: startTime,
-              questionCount: activity.questions.length,
+              questionCount: activity.questions?.length || 0,
               interactionCount: Object.keys(selectedAnswers).length
             }
           }}
@@ -409,11 +411,12 @@ export const TrueFalseViewer: React.FC<TrueFalseViewerProps> = ({
           }}
           validateAnswers={(answers) => {
             const answeredCount = Object.keys(answers).length;
+            const totalQuestions = activity.questions?.length || 0;
             if (answeredCount === 0) {
               return 'Please answer at least one question.';
             }
-            if (answeredCount < activity.questions.length) {
-              return `Please answer all ${activity.questions.length} questions.`;
+            if (answeredCount < totalQuestions) {
+              return `Please answer all ${totalQuestions} questions.`;
             }
             return true;
           }}

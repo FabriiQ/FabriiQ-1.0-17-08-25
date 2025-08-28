@@ -252,10 +252,11 @@ async function seedShowcaseClassData() {
         try {
           const post = await prisma.socialPost.create({
             data: {
-              ...postData,
+              content: postData.content,
+              authorId: postData.authorId,
+              postType: postData.postType,
               classId: targetClassId,
               contentType: 'TEXT',
-              visibility: 'CLASS',
               
               // Compliance fields
               consentRequired: false,

@@ -68,11 +68,29 @@ export default function ClassActivitiesPage() {
 
     return activitiesData.items.map((activity: any) => {
       console.log('Processing activity:', activity);
+
+      // Ensure title is always present
+      const title = activity.title || 'Untitled Activity';
+
+      // Determine activity type with better fallback logic
+      let activityType = 'Activity';
+      if (activity.learningType) {
+        // Convert enum values to readable format
+        activityType = activity.learningType.replace(/_/g, ' ').toLowerCase()
+          .split(' ').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+      } else if (activity.purpose) {
+        activityType = activity.purpose.toLowerCase()
+          .split(' ').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+      } else if (activity.assessmentType) {
+        activityType = activity.assessmentType.toLowerCase()
+          .split(' ').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+      }
+
       return {
         id: activity.id,
-        title: activity.title,
+        title: title,
         description: activity.description || '',
-        type: activity.learningType || activity.purpose || 'OTHER',
+        type: activityType,
         status: (activity.status?.toLowerCase() === 'active' ? 'published' : 'draft') as 'published' | 'draft' | 'archived',
         createdAt: new Date(activity.createdAt),
         updatedAt: new Date(activity.updatedAt),

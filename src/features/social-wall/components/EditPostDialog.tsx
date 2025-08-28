@@ -30,18 +30,18 @@ interface EditPostDialogProps {
   onSuccess?: (updatedPost: PostWithEngagement) => void;
 }
 
-export function EditPostDialog({ 
-  open, 
-  onOpenChange, 
+export function EditPostDialog({
+  open,
+  onOpenChange,
   post,
   onSuccess
 }: EditPostDialogProps) {
-  const [content, setContent] = useState(post.content);
+  const [content, setContent] = useState(String(post.content || ''));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Reset content when post changes
   useEffect(() => {
-    setContent(post.content);
+    setContent(String(post.content || ''));
   }, [post.content]);
 
   // Update post mutation
@@ -53,6 +53,7 @@ export function EditPostDialog({
       const updatedPost: PostWithEngagement = {
         ...post,
         ...data.post,
+        content: data.post.content || post.content || '', // Ensure content is never null/undefined
         userTagged: post.userTagged || false,
         taggedUsers: post.taggedUsers || [],
         // Ensure reactions are in the correct format
@@ -69,7 +70,8 @@ export function EditPostDialog({
   });
 
   const handleSubmit = () => {
-    if (!content.trim()) {
+    const trimmedContent = String(content || '').trim();
+    if (!trimmedContent) {
       toast.error('Post content cannot be empty');
       return;
     }
@@ -78,7 +80,7 @@ export function EditPostDialog({
     updatePostMutation.mutate({
       postId: post.id,
       data: {
-        content: content.trim(),
+        content: trimmedContent,
         contentType: PostContentType.HTML,
       },
     });
@@ -86,12 +88,12 @@ export function EditPostDialog({
 
   const handleClose = () => {
     if (!isSubmitting) {
-      setContent(post.content); // Reset to original content
+      setContent(String(post.content || '')); // Reset to original content
       onOpenChange(false);
     }
   };
 
-  const hasChanges = content.trim() !== post.content.trim();
+  const hasChanges = String(content || '').trim() !== String(post.content || '').trim();
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -132,7 +134,7 @@ export function EditPostDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!hasChanges || isSubmitting || !content.trim()}
+            disabled={!hasChanges || isSubmitting || !String(content || '').trim()}
             className="w-full sm:w-auto"
           >
             {isSubmitting ? (

@@ -154,9 +154,9 @@ function getDatabaseUrlWithPooling(): string {
   // Correct Prisma connection pooling parameters for PostgreSQL
   // These are the actual parameters that Prisma recognizes for connection pooling
   const poolingParams = {
-    // Connection pool size
-    'connection_limit': process.env.DATABASE_CONNECTION_LIMIT || '50',
-    'pool_timeout': process.env.DATABASE_POOL_TIMEOUT || '60',
+    // Connection pool size - increased for better concurrency
+    'connection_limit': process.env.DATABASE_CONNECTION_LIMIT || '100',
+    'pool_timeout': process.env.DATABASE_POOL_TIMEOUT || '30',
 
     // PostgreSQL-specific connection parameters
     'connect_timeout': process.env.DATABASE_CONNECT_TIMEOUT || '60',

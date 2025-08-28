@@ -76,20 +76,43 @@ export function PostCard({ post, classId, onUpdate, onDelete, className }: PostC
 
   // Content truncation - handle both TEXT and HTML content
   const maxLength = 300;
+
+  // Ensure content is always a string
+  let safeContent = '';
+  if (typeof post.content === 'string') {
+    safeContent = post.content;
+  } else if (typeof post.content === 'object' && post.content !== null) {
+    // If content is an object, try to extract meaningful text
+    const contentObj = post.content as any;
+    if ('text' in contentObj) {
+      safeContent = String(contentObj.text || '');
+    } else if ('html' in contentObj) {
+      safeContent = String(contentObj.html || '');
+    } else if ('content' in contentObj) {
+      safeContent = String(contentObj.content || '');
+    } else {
+      // If it's an object with other keys, convert to JSON string for debugging
+      console.warn('Post content is an object, converting to string:', post.content);
+      safeContent = JSON.stringify(post.content);
+    }
+  } else {
+    safeContent = String(post.content || '');
+  }
+
   const textContent = post.contentType === PostContentType.HTML
-    ? post.content.replace(/<[^>]*>/g, '') // Strip HTML tags for length calculation
-    : post.content;
+    ? safeContent.replace(/<[^>]*>/g, '') // Strip HTML tags for length calculation
+    : safeContent;
   const shouldTruncate = textContent.length > maxLength;
 
   const displayContent = shouldTruncate && !isExpanded
     ? (post.contentType === PostContentType.HTML
-        ? post.content // For HTML, we'll truncate in the display component
-        : post.content.substring(0, maxLength) + '...')
-    : post.content;
+        ? safeContent // For HTML, we'll truncate in the display component
+        : safeContent.substring(0, maxLength) + '...')
+    : safeContent;
 
   // Post type styling
   const getPostTypeIcon = () => {
-    switch (post.postType) {
+    switch (post.postType || 'REGULAR') {
       case 'ANNOUNCEMENT':
         return <Megaphone className="w-4 h-4" />;
       case 'ACHIEVEMENT':
@@ -100,7 +123,7 @@ export function PostCard({ post, classId, onUpdate, onDelete, className }: PostC
   };
 
   const getPostTypeColor = () => {
-    switch (post.postType) {
+    switch (post.postType || 'REGULAR') {
       case 'ANNOUNCEMENT':
         return 'bg-orange-100 text-orange-800 border-orange-200';
       case 'ACHIEVEMENT':
@@ -251,16 +274,16 @@ export function PostCard({ post, classId, onUpdate, onDelete, className }: PostC
                   {post.author?.name || 'Unknown User'}
                 </p>
                 <Badge variant="outline" className="text-xs">
-                  {post.author?.userType?.replace('_', ' ').toLowerCase() || 'user'}
+                  {(post.author?.userType || '').replace('_', ' ').toLowerCase() || 'user'}
                 </Badge>
-                {post.postType !== 'REGULAR' && (
+                {(post.postType || 'REGULAR') !== 'REGULAR' && (
                   <Badge 
                     variant="outline" 
                     className={cn("text-xs", getPostTypeColor())}
                   >
                     {getPostTypeIcon()}
                     <span className="ml-1 capitalize">
-                      {post.postType.toLowerCase()}
+                      {(post.postType || '').toLowerCase() || 'post'}
                     </span>
                   </Badge>
                 )}

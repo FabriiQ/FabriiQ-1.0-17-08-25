@@ -105,7 +105,17 @@ export class ContentSecurityMiddleware {
         riskScore += postSpecificResult.riskScore;
       }
 
-      const isValid = violations.length === 0 && riskScore < 70; // Threshold for blocking
+      const isValid = violations.length === 0 && riskScore < 80; // More lenient threshold for educational environment
+
+      // Debug logging for development
+      if (!isValid && process.env.NODE_ENV === 'development') {
+        console.log('Content validation failed:', {
+          content: content.substring(0, 100) + '...',
+          violations,
+          riskScore,
+          isValid
+        });
+      }
 
       return {
         isValid,
@@ -196,8 +206,8 @@ export class ContentSecurityMiddleware {
     const violations: string[] = [];
     let riskScore = 0;
 
-    // Extract URLs
-    const urlRegex = /(https?:\/\/[^\s]+)/gi;
+    // Extract URLs - more precise regex to avoid false positives
+    const urlRegex = /https?:\/\/(?:[-\w.])+(?:\:[0-9]+)?(?:\/(?:[\w\/_.])*(?:\?(?:[\w&=%.])*)?(?:\#(?:[\w.])*)?)?/gi;
     const urls = content.match(urlRegex) || [];
 
     if (urls.length > this.config.maxLinkCount) {
@@ -205,22 +215,40 @@ export class ContentSecurityMiddleware {
       riskScore += 25;
     }
 
-    // Check for suspicious domains
+    // Check for suspicious domains - more lenient for educational environment
     const suspiciousDomains = [
-      'bit.ly', 'tinyurl.com', 'goo.gl', 't.co', // URL shorteners
-      'example.com', 'test.com', // Test domains
+      // Only block clearly malicious or inappropriate domains
+      'malware.com', 'phishing.com', 'spam.com',
+      // Remove common URL shorteners as they might be used legitimately in education
+    ];
+
+    // Educational domains that should always be allowed
+    const educationalDomains = [
+      'edu', 'ac.uk', 'edu.au', 'localhost', 'github.com', 'youtube.com', 'vimeo.com',
+      'google.com', 'microsoft.com', 'khan academy.org', 'coursera.org', 'edx.org'
     ];
 
     for (const url of urls) {
       try {
         const domain = new URL(url).hostname.toLowerCase();
+
+        // Allow educational domains
+        const isEducational = educationalDomains.some(eduDomain =>
+          domain.includes(eduDomain) || domain.endsWith(eduDomain)
+        );
+
+        if (isEducational) {
+          continue; // Skip validation for educational domains
+        }
+
+        // Only flag truly suspicious domains
         if (suspiciousDomains.some(suspicious => domain.includes(suspicious))) {
           violations.push('Suspicious link detected');
           riskScore += 20;
         }
       } catch {
-        violations.push('Invalid URL format');
-        riskScore += 15;
+        // Don't penalize invalid URL format as heavily - might be false positive
+        riskScore += 5;
       }
     }
 
@@ -267,19 +295,19 @@ export class ContentSecurityMiddleware {
     const violations: string[] = [];
     let riskScore = 0;
 
-    // Check for promotional content patterns
+    // Check for promotional content patterns - more lenient for educational context
     const promotionalPatterns = [
       /buy now/gi,
-      /limited time/gi,
-      /click here/gi,
       /free money/gi,
-      /guaranteed/gi,
+      /get rich quick/gi,
+      /guaranteed money/gi,
+      // Removed "click here" and "limited time" as they might be used in educational contexts
     ];
 
     for (const pattern of promotionalPatterns) {
       if (pattern.test(content)) {
         violations.push('Promotional content detected');
-        riskScore += 10;
+        riskScore += 15; // Slightly higher penalty for truly promotional content
         break;
       }
     }

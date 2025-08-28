@@ -42,7 +42,14 @@ export const TrueFalseEditor: React.FC<TrueFalseEditorProps> = ({
   const { isMobile } = useResponsive();
 
   // Local state for the activity and UI state
-  const [localActivity, setLocalActivity] = useState<TrueFalseActivity>(activity);
+  const [localActivity, setLocalActivity] = useState<TrueFalseActivity>(activity || {
+    id: '',
+    title: '',
+    description: '',
+    instructions: '',
+    activityType: 'true-false',
+    questions: []
+  });
   const [lastAddedQuestionId, setLastAddedQuestionId] = useState<string | null>(null);
 
   // Update the local activity and call onChange with debounce
@@ -86,20 +93,20 @@ export const TrueFalseEditor: React.FC<TrueFalseEditorProps> = ({
     setTimeout(() => setLastAddedQuestionId(null), 500);
 
     updateActivity({
-      questions: [...localActivity.questions, newQuestion]
+      questions: [...(localActivity.questions || []), newQuestion]
     });
   };
 
   // Remove a question with animation
   const handleRemoveQuestion = (index: number) => {
-    const newQuestions = [...localActivity.questions];
+    const newQuestions = [...(localActivity.questions || [])];
     newQuestions.splice(index, 1);
     updateActivity({ questions: newQuestions });
   };
 
   // Update a question
   const handleQuestionChange = (index: number, updatedQuestion: TrueFalseQuestion) => {
-    const newQuestions = [...localActivity.questions];
+    const newQuestions = [...(localActivity.questions || [])];
     newQuestions[index] = updatedQuestion;
     updateActivity({ questions: newQuestions });
   };
@@ -118,7 +125,7 @@ export const TrueFalseEditor: React.FC<TrueFalseEditorProps> = ({
 
       // Add the new questions to the activity
       updateActivity({
-        questions: [...localActivity.questions, ...newQuestions]
+        questions: [...(localActivity.questions || []), ...newQuestions]
       });
     }
   };
@@ -134,7 +141,7 @@ export const TrueFalseEditor: React.FC<TrueFalseEditorProps> = ({
           <label className="block mb-1 font-medium text-gray-700 dark:text-gray-300">Title</label>
           <input
             type="text"
-            value={localActivity.title}
+            value={localActivity.title || ''}
             onChange={handleTitleChange}
             className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           />
@@ -258,7 +265,7 @@ export const TrueFalseEditor: React.FC<TrueFalseEditorProps> = ({
         </div>
 
         <AnimatePresence>
-          {localActivity.questions.map((question, index) => (
+          {(localActivity.questions || []).map((question, index) => (
             <motion.div
               key={question.id}
               initial={lastAddedQuestionId === question.id ? { opacity: 0, y: 20 } : false}

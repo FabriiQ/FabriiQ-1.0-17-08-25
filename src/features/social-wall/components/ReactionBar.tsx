@@ -54,16 +54,18 @@ const REACTION_COLORS: Record<ReactionType, string> = {
   SAD: 'text-gray-500',
 };
 
-export function ReactionBar({ 
-  reactions, 
-  userReaction, 
-  onReactionClick, 
+export function ReactionBar({
+  reactions,
+  userReaction,
+  onReactionClick,
   size = 'md',
-  className 
+  className
 }: ReactionBarProps) {
   const [showPicker, setShowPicker] = useState(false);
-  
-  const totalReactions = reactions.reduce((sum, r) => sum + r.count, 0);
+
+  // Ensure reactions is always an array to prevent undefined errors
+  const safeReactions = reactions || [];
+  const totalReactions = safeReactions.reduce((sum, r) => sum + r.count, 0);
   
   const getIconSize = () => {
     switch (size) {
@@ -110,7 +112,7 @@ export function ReactionBar({
   const allReactionTypes: ReactionType[] = ['LIKE', 'LOVE', 'CELEBRATE', 'LAUGH', 'SURPRISED', 'ANGRY'];
 
   // Create a map of existing reactions for quick lookup
-  const reactionMap = new Map(reactions.map(r => [r.type, r]));
+  const reactionMap = new Map(safeReactions.map(r => [r.type, r]));
 
   // Show all reaction types, with counts for existing ones
   const displayReactions = allReactionTypes.map(type => ({

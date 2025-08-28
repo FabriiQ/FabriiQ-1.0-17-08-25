@@ -355,7 +355,7 @@ function UnifiedActivityCreatorCore({
       ...sanitizedData,
       classId,
       subjectId: selectedSubjectId,
-      topicId: selectedTopicId || '',
+      topicId: selectedTopicId || undefined,
       activityType: activityTypeId,
       content: config,
       settings: {

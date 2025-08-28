@@ -30,25 +30,27 @@ export function UserFilters({ onFiltersChange }: UserFiltersProps) {
   }, [searchTerm]);
 
   // Handle status change with debounce
-  const handleStatusChange = (value: SystemStatus) => {
+  const handleStatusChange = (value: string) => {
+    const newStatus = value === "all" ? "" : (value as SystemStatus);
     // Only update if value has changed
-    if (value !== status) {
-      setStatus(value);
+    if (newStatus !== status) {
+      setStatus(newStatus);
       // Use a small timeout to prevent rapid consecutive calls
       setTimeout(() => {
-        onFiltersChange({ status: value });
+        onFiltersChange({ status: newStatus || undefined });
       }, 10);
     }
   };
 
   // Handle role change with debounce
   const handleRoleChange = (value: string) => {
+    const newRole = value === "all" ? "" : value;
     // Only update if value has changed
-    if (value !== role) {
-      setRole(value);
+    if (newRole !== role) {
+      setRole(newRole);
       // Use a small timeout to prevent rapid consecutive calls
       setTimeout(() => {
-        onFiltersChange({ role: value });
+        onFiltersChange({ role: newRole || undefined });
       }, 10);
     }
   };
@@ -66,7 +68,7 @@ export function UserFilters({ onFiltersChange }: UserFiltersProps) {
       onFiltersChange({
         search: "",
         status: undefined,
-        role: ""
+        role: undefined
       });
     }, 10);
   };
@@ -105,7 +107,7 @@ export function UserFilters({ onFiltersChange }: UserFiltersProps) {
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Statuses</SelectItem>
+            <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value={SystemStatus.ACTIVE}>Active</SelectItem>
             <SelectItem value={SystemStatus.INACTIVE}>Inactive</SelectItem>
           </SelectContent>
@@ -116,7 +118,7 @@ export function UserFilters({ onFiltersChange }: UserFiltersProps) {
             <SelectValue placeholder="Role" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Roles</SelectItem>
+            <SelectItem value="all">All Roles</SelectItem>
             <SelectItem value="STUDENT">Student</SelectItem>
             <SelectItem value="TEACHER">Teacher</SelectItem>
             <SelectItem value="COORDINATOR">Coordinator</SelectItem>

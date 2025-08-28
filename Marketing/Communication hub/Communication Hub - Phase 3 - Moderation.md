@@ -19,12 +19,12 @@ Tasks
 - New tRPC endpoints: api.messaging.getFlaggedMessages, api.messaging.moderateMessage
 - Leverage existing moderation patterns from src/server/api/routers/social-wall.ts (moderateReport procedure)
 
-2) Message Moderation Panel UI
+2) Message Moderation Panel UI insystem admin 
 - Implement MessageModerationPanel with filter/search
 - MessageModerationCard shows risk badges, content, flagged keywords, FERPA badge
 - Actions: Approve, Block, Escalate, View Thread
 
-3) Audit & Notifications
+3) Audit & Notifications in system admin panel
 - On moderation action, create MessageAuditLog entries
 - If CRITICAL risk, notify moderators and campus admins
 

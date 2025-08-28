@@ -148,6 +148,7 @@ export async function savePost(classId: string, post: PostWithEngagement, synced
     // Ensure post has required properties with defaults
     const normalizedPost = {
       ...post,
+      content: post.content || '', // Ensure content is never null/undefined
       reactionCount: post.reactionCount || 0,
       commentCount: post.commentCount || 0,
       reactions: post.reactions || [],

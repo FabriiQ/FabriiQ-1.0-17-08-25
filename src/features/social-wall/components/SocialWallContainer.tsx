@@ -69,58 +69,110 @@ export function SocialWallContainer({ classId, className }: SocialWallContainerP
     const unsubscribers = [
       // Post events with optimistic UI updates
       subscribe('post:created', (event: any) => {
+        // Validate the post object before adding it
+        if (!event?.post || !event.post.id || typeof event.post.id !== 'string') {
+          console.warn('Invalid post received via socket:', event);
+          return;
+        }
+
         setPosts(prev => {
+          // Filter out any invalid posts first
+          const validPosts = prev.filter((p): p is PostWithEngagement =>
+            p != null && typeof p === 'object' && 'id' in p && typeof p.id === 'string'
+          );
+
           // Check if post already exists (optimistic update)
-          const exists = prev.some(p => p.id === event.post.id);
+          const exists = validPosts.some(p => p.id === event.post.id);
           if (exists) {
             // Update existing optimistic post with server data
-            return prev.map(p => p.id === event.post.id ? event.post : p);
+            return validPosts.map(p => p.id === event.post.id ? event.post : p);
           } else {
             // Add new post
-            return [event.post, ...prev];
+            return [event.post, ...validPosts];
           }
         });
         console.log('New post created via socket:', event.post);
       }),
 
       subscribe('post:updated', (event: any) => {
-        setPosts(prev => prev.map(post =>
-          post.id === event.postId
-            ? { ...post, ...event.changes }
-            : post
-        ));
+        if (!event?.postId || typeof event.postId !== 'string') {
+          console.warn('Invalid post update received via socket:', event);
+          return;
+        }
+
+        setPosts(prev => prev
+          .filter((post): post is PostWithEngagement =>
+            post != null && typeof post === 'object' && 'id' in post && typeof post.id === 'string'
+          )
+          .map(post =>
+            post.id === event.postId
+              ? { ...post, ...event.changes }
+              : post
+          )
+        );
         console.log('Post updated via socket:', event.postId);
       }),
 
       subscribe('post:deleted', (event: any) => {
-        setPosts(prev => prev.filter(post => post.id !== event.postId));
+        if (!event?.postId || typeof event.postId !== 'string') {
+          console.warn('Invalid post deletion received via socket:', event);
+          return;
+        }
+
+        setPosts(prev => prev.filter((post): post is PostWithEngagement =>
+          post != null &&
+          typeof post === 'object' &&
+          'id' in post &&
+          typeof post.id === 'string' &&
+          post.id !== event.postId
+        ));
         console.log('Post deleted via socket:', event.postId);
       }),
 
       // Comment events with real-time count updates
       subscribe('comment:created', (event: any) => {
-        setPosts(prev => prev.map(post =>
-          post.id === event.comment.postId
-            ? {
-                ...post,
-                commentCount: post.commentCount + 1,
-                // Update last activity for sorting
-                updatedAt: new Date()
-              }
-            : post
-        ));
+        if (!event?.comment?.postId || typeof event.comment.postId !== 'string') {
+          console.warn('Invalid comment creation received via socket:', event);
+          return;
+        }
+
+        setPosts(prev => prev
+          .filter((post): post is PostWithEngagement =>
+            post != null && typeof post === 'object' && 'id' in post && typeof post.id === 'string'
+          )
+          .map(post =>
+            post.id === event.comment.postId
+              ? {
+                  ...post,
+                  commentCount: (post.commentCount || 0) + 1,
+                  // Update last activity for sorting
+                  updatedAt: new Date()
+                }
+              : post
+          )
+        );
         console.log('Comment created via socket:', event.comment);
       }),
 
       subscribe('comment:deleted', (event: any) => {
-        setPosts(prev => prev.map(post =>
-          post.id === event.comment.postId
-            ? {
-                ...post,
-                commentCount: Math.max(0, post.commentCount - 1)
-              }
-            : post
-        ));
+        if (!event?.comment?.postId || typeof event.comment.postId !== 'string') {
+          console.warn('Invalid comment deletion received via socket:', event);
+          return;
+        }
+
+        setPosts(prev => prev
+          .filter((post): post is PostWithEngagement =>
+            post != null && typeof post === 'object' && 'id' in post && typeof post.id === 'string'
+          )
+          .map(post =>
+            post.id === event.comment.postId
+              ? {
+                  ...post,
+                  commentCount: Math.max(0, (post.commentCount || 0) - 1)
+                }
+              : post
+          )
+        );
         console.log('Comment deleted via socket:', event.comment);
       }),
 

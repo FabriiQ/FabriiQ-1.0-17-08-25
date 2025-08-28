@@ -278,6 +278,7 @@ export default function StudentCommunicationsPage() {
               <MessageComposer
                 role="student"
                 availableClasses={[]}
+                inline={true}
                 onSent={() => {
                   // Refresh inbox when message is sent
                   window.location.reload();

@@ -27,10 +27,10 @@ export default function ActivityFormPage() {
   const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activityType = searchParams.get('type') || ActivityPurpose.SELF_STUDY;
-  const activityPurpose = searchParams.get('purpose');
+  const activityType = searchParams?.get('type') || ActivityPurpose.SELF_STUDY;
+  const activityPurpose = searchParams?.get('purpose');
   // Get the creation method from the URL or default to AI_ASSISTED
-  const methodParam = searchParams.get('method');
+  const methodParam = searchParams?.get('method');
   const creationMethod = CreationMethod.AI_ASSISTED; // This page is only for AI-assisted creation
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -73,7 +73,7 @@ export default function ActivityFormPage() {
 
   // Redirect if no activity type is selected
   useEffect(() => {
-    if (!searchParams.get('type')) {
+    if (!searchParams?.get('type')) {
       router.push('/teacher/content-studio/create/activity/type');
     }
   }, [searchParams, router]);
@@ -659,7 +659,7 @@ export default function ActivityFormPage() {
                       <SelectValue placeholder="Select a class" />
                     </SelectTrigger>
                     <SelectContent>
-                      {classes?.map((cls) => (
+                      {classes?.classes?.map((cls) => (
                         <SelectItem key={cls.id} value={cls.id}>
                           {cls.name}
                         </SelectItem>
