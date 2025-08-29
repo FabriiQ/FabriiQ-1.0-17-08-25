@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/components/ui/use-toast';
 import { api } from '@/trpc/react';
-import { Award, BookOpen, Check, User } from 'lucide-react';
+import { Award, BookOpen, Check, User, Search, ChevronLeft, ChevronRight, Users } from 'lucide-react';
 
 // Define point categories with preset values
 const POINT_CATEGORIES = [
@@ -55,6 +55,9 @@ export function AwardPointsDialog({
   const [points, setPoints] = useState(POINT_CATEGORIES[0].defaultPoints);
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const studentsPerPage = 25; // Increased for better UX
 
   const { toast } = useToast();
 
@@ -90,6 +93,25 @@ export function AwardPointsDialog({
   // Get the current category
   const currentCategory = POINT_CATEGORIES.find(cat => cat.id === selectedCategory) || POINT_CATEGORIES[0];
 
+  // Filter and paginate students
+  const filteredStudents = useMemo(() => {
+    if (!searchTerm.trim()) return students;
+
+    const searchLower = searchTerm.toLowerCase().trim();
+    return students.filter(student => {
+      const nameLower = student.name.toLowerCase();
+      // Support partial matching and multiple words
+      return nameLower.includes(searchLower) ||
+             searchLower.split(' ').every(term => nameLower.includes(term));
+    });
+  }, [students, searchTerm]);
+
+  const totalPages = Math.ceil(filteredStudents.length / studentsPerPage);
+  const paginatedStudents = useMemo(() => {
+    const startIndex = (currentPage - 1) * studentsPerPage;
+    return filteredStudents.slice(startIndex, startIndex + studentsPerPage);
+  }, [filteredStudents, currentPage, studentsPerPage]);
+
   // Reset the form
   const resetForm = () => {
     setSelectedStudents([]);
@@ -97,6 +119,8 @@ export function AwardPointsDialog({
     setPoints(POINT_CATEGORIES[0].defaultPoints);
     setReason('');
     setIsSubmitting(false);
+    setSearchTerm('');
+    setCurrentPage(1);
   };
 
   // Handle category change
@@ -168,14 +192,27 @@ export function AwardPointsDialog({
     );
   };
 
-  // Select all students
+  // Select all students (filtered)
   const selectAllStudents = () => {
-    setSelectedStudents(students.map(student => student.id));
+    setSelectedStudents(filteredStudents.map(student => student.id));
+  };
+
+  // Select all students on current page
+  const selectAllOnPage = () => {
+    const pageStudentIds = paginatedStudents.map(student => student.id);
+    setSelectedStudents(prev => [...new Set([...prev, ...pageStudentIds])]);
   };
 
   // Deselect all students
   const deselectAllStudents = () => {
     setSelectedStudents([]);
+  };
+
+  // Handle page navigation
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
   };
 
   return (
@@ -189,17 +226,17 @@ export function AwardPointsDialog({
         )}
       </DialogTrigger>
 
-      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Award Points to Students</DialogTitle>
           <DialogDescription>
-            Recognize student achievements by awarding points.
+            Recognize student achievements by awarding points. ({students.length} students total)
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4 overflow-y-auto pr-1 flex-grow">
           {/* Student Selection */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
               <Label htmlFor="students">Select Students</Label>
               <div className="flex gap-2">
@@ -209,7 +246,15 @@ export function AwardPointsDialog({
                   onClick={selectAllStudents}
                   className="h-7 text-xs flex-1 sm:flex-none"
                 >
-                  Select All
+                  Select All ({filteredStudents.length})
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={selectAllOnPage}
+                  className="h-7 text-xs flex-1 sm:flex-none"
+                >
+                  Select Page
                 </Button>
                 <Button
                   variant="outline"
@@ -217,45 +262,121 @@ export function AwardPointsDialog({
                   onClick={deselectAllStudents}
                   className="h-7 text-xs flex-1 sm:flex-none"
                 >
-                  Deselect All
+                  Clear
                 </Button>
               </div>
             </div>
 
-            <div className="max-h-[150px] overflow-y-auto border rounded-md p-2 touch-auto">
-              {students.length > 0 ? (
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={`Search ${students.length} students...`}
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1); // Reset to first page when searching
+                }}
+                className="pl-10"
+              />
+              {searchTerm && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-muted-foreground">
+                  {filteredStudents.length} found
+                </div>
+              )}
+            </div>
+
+            {/* Student List */}
+            <div className="max-h-[250px] overflow-y-auto border rounded-md p-3 touch-auto">
+              {paginatedStudents.length > 0 ? (
                 <div className="space-y-2">
-                  {students.map(student => (
+                  {paginatedStudents.map(student => (
                     <div
                       key={student.id}
-                      className="flex items-center space-x-2"
+                      className="flex items-center space-x-3 hover:bg-gray-50 p-2 rounded-md transition-colors"
                     >
                       <input
                         type="checkbox"
                         id={`student-${student.id}`}
                         checked={selectedStudents.includes(student.id)}
                         onChange={() => toggleStudentSelection(student.id)}
-                        className="h-4 w-4 rounded border-gray-300"
+                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                       />
                       <label
                         htmlFor={`student-${student.id}`}
-                        className="text-sm flex-grow cursor-pointer py-1"
+                        className="text-sm flex-grow cursor-pointer py-1 font-medium"
                       >
                         {student.name}
                       </label>
+                      {selectedStudents.includes(student.id) && (
+                        <Check className="h-4 w-4 text-primary" />
+                      )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground py-2 text-center">
-                  No students available
-                </p>
+                <div className="text-center py-8">
+                  <Users className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    {searchTerm ? `No students found matching "${searchTerm}"` : 'No students available'}
+                  </p>
+                  {searchTerm && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Try a different search term
+                    </p>
+                  )}
+                </div>
               )}
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              {selectedStudents.length} student(s) selected
-            </p>
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between text-sm bg-gray-50 p-2 rounded-md">
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-muted-foreground font-medium">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+                <span className="text-muted-foreground text-xs">
+                  Showing {paginatedStudents.length} of {filteredStudents.length}
+                  {searchTerm && ` (filtered from ${students.length})`}
+                </span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between text-sm">
+              <p className="text-muted-foreground font-medium">
+                {selectedStudents.length} student{selectedStudents.length !== 1 ? 's' : ''} selected
+              </p>
+              {selectedStudents.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={deselectAllStudents}
+                  className="h-6 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Clear selection
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Point Category */}

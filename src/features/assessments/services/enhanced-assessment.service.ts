@@ -59,6 +59,9 @@ export class EnhancedAssessmentService {
         dueDate: input.dueDate,
         createdById: userId,
 
+        // Associations
+        rubricId: input.rubricId || null,
+
         // Enhanced fields (all optional for backward compatibility)
         content: input.content ? input.content : null,
         questionSelectionMode: input.questionSelectionMode ?? QuestionSelectionMode.MANUAL,

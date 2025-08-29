@@ -6,7 +6,11 @@ import { SystemStatus, SubmissionStatus, GradingType, GradingScale, AssessmentCa
 import { ActivityRewardIntegration } from "@/features/rewards/activity-integration";
 import { logger } from "@/server/api/utils/logger";
 import { gradeAssessment } from "@/features/assessments/utils/auto-grading";
+import { EventDrivenAnalyticsService } from "./event-driven-analytics";
+import { updateGradebookWithActivityGrade } from "./gradebook.service";
+// import { RewardService } from "./reward.service"; // Commented out until service exists
 import type { InputJsonValue, QueryMode } from "../types/service";
+import { submissionStorageService, type SubmissionUploadResult } from "@/lib/supabase/submission-storage.service";
 // Removed unused import: import { z } from 'zod';
 
 interface AssessmentServiceConfig {
@@ -51,6 +55,7 @@ interface UpdateAssessmentInput {
   gradingType?: GradingType;
   gradingScale?: GradingScale;
   rubric?: Record<string, unknown>;
+  rubricId?: string | null;
   dueDate?: Date;
   instructions?: string;
   resources?: Record<string, unknown>[];
@@ -68,6 +73,14 @@ export interface CreateSubmissionInput {
     questionId: string;
     value?: string;
     choiceId?: string;
+  }>;
+  attachments?: Array<{
+    id: string;
+    name: string;
+    url: string;
+    path: string;
+    contentType: string;
+    size: number;
   }>;
 }
 
@@ -116,6 +129,16 @@ interface BulkGradeSubmissionsInput {
   assessmentId: string;
   submissions: Array<{
     submissionId: string;
+    score: number;
+    feedback?: string;
+  }>;
+}
+
+interface BulkGradeStudentsInput {
+  assessmentId: string;
+  grades: Array<{
+    studentId: string;
+    submissionId?: string;
     score: number;
     feedback?: string;
   }>;
@@ -336,6 +359,9 @@ export class AssessmentService {
               submittedAt: true,
               createdAt: true,
               score: true,
+              feedback: true,
+              content: true,
+              attachments: true,
               timeSpentMinutes: true,
               bloomsLevelScores: true,
               topicMasteryChanges: true,
@@ -375,8 +401,8 @@ export class AssessmentService {
       rubricId: assessment.rubricId,
       hasBloomsRubric: !!assessment.bloomsRubric,
       bloomsRubricId: assessment.bloomsRubric?.id,
-      criteriaCount: assessment.bloomsRubric?.criteria?.length || 0,
-      performanceLevelsCount: assessment.bloomsRubric?.performanceLevels?.length || 0,
+      criteriaCount: (assessment.bloomsRubric as any)?.criteria?.length || 0,
+      performanceLevelsCount: (assessment.bloomsRubric as any)?.performanceLevels?.length || 0,
       rubricTitle: assessment.bloomsRubric?.title
     });
 
@@ -388,7 +414,52 @@ export class AssessmentService {
       });
     }
 
-    return assessment;
+    // Determine grading method based on rubric presence and configuration
+    const gradingMethod = this.determineGradingMethod(assessment);
+
+    // Add computed grading method to the response
+    const assessmentWithGradingMethod = {
+      ...assessment,
+      gradingMethod,
+      // Ensure rubric data is properly structured for frontend
+      rubricConfiguration: assessment.bloomsRubric ? {
+        hasValidRubric: true,
+        criteriaCount: (assessment.bloomsRubric as any).criteria?.length || 0,
+        performanceLevelsCount: (assessment.bloomsRubric as any).performanceLevels?.length || 0,
+        isComplete: ((assessment.bloomsRubric as any).criteria?.length || 0) > 0 &&
+                   ((assessment.bloomsRubric as any).performanceLevels?.length || 0) > 0
+      } : {
+        hasValidRubric: false,
+        criteriaCount: 0,
+        performanceLevelsCount: 0,
+        isComplete: false
+      }
+    };
+
+    return assessmentWithGradingMethod;
+  }
+
+  /**
+   * Determine grading method based on assessment configuration
+   */
+  private determineGradingMethod(assessment: any): 'SCORE_BASED' | 'RUBRIC_BASED' {
+    // Priority 1: Explicit gradingType setting
+    if (assessment.gradingType === 'RUBRIC') return 'RUBRIC_BASED';
+    if (assessment.gradingType === 'SCORE') return 'SCORE_BASED';
+
+    // Priority 2: Rubric association with valid criteria
+    if (assessment.rubricId && assessment.bloomsRubric) {
+      const rubric = assessment.bloomsRubric as any;
+      const hasCriteria = rubric.criteria && rubric.criteria.length > 0;
+      const hasPerformanceLevels = rubric.performanceLevels && rubric.performanceLevels.length > 0;
+
+      if (hasCriteria && hasPerformanceLevels) {
+        return 'RUBRIC_BASED';
+      }
+    }
+
+    // Default: Score-based grading
+    return 'SCORE_BASED';
   }
 
   /**
@@ -408,7 +479,7 @@ export class AssessmentService {
     const where = {
       status: status as SystemStatus,
       subjectId,
-      category,
+      ...(category && { category: category as any }),
       ...(lessonPlanId && { lessonPlanId }), // Add lessonPlanId to where clause
       ...(search && {
         OR: [
@@ -512,6 +583,7 @@ export class AssessmentService {
         ...(input.gradingType && { gradingType: input.gradingType }),
         ...(input.dueDate !== undefined && { dueDate: input.dueDate }),
         ...(input.status && { status: input.status }),
+        ...(input.rubricId !== undefined && { rubricId: input.rubricId }),
         updatedAt: new Date(),
       },
     });
@@ -794,6 +866,9 @@ export class AssessmentService {
         content: JSON.stringify({
           answers: formattedAnswers
         }) as unknown as InputJsonValue,
+        attachments: input.attachments ?
+          JSON.stringify(input.attachments) as unknown as InputJsonValue :
+          undefined,
         gradingDetails: gradingResults ?
           JSON.stringify(gradingResults) as unknown as InputJsonValue :
           undefined,
@@ -877,6 +952,25 @@ export class AssessmentService {
       });
     }
 
+    // Refresh attachment URLs if they exist
+    if (submission.attachments) {
+      try {
+        const attachments = typeof submission.attachments === 'string'
+          ? JSON.parse(submission.attachments)
+          : submission.attachments;
+
+        if (Array.isArray(attachments)) {
+          const refreshedAttachments = await this.refreshAttachmentUrls(attachments);
+          submission.attachments = refreshedAttachments as any;
+        }
+      } catch (error) {
+        logger.warn('Failed to refresh attachment URLs for submission', {
+          error,
+          submissionId: submission.id,
+        });
+      }
+    }
+
     return submission;
   }
 
@@ -889,11 +983,22 @@ export class AssessmentService {
       this.prisma.assessmentSubmission.findMany({
         where: {
           assessmentId: filters.assessmentId,
-          status: filters.status,
+          ...(filters.status && { status: filters.status as any }),
         },
-        include: {
+        select: {
+          id: true,
+          status: true,
+          score: true,
+          feedback: true,
+          content: true,
+          attachments: true, // Include attachments
+          submittedAt: true,
+          gradedAt: true,
+          updatedAt: true,
+          studentId: true, // Needed for client-side mapping of submissions to students
           student: {
-            include: {
+            select: {
+              id: true,
               user: {
                 select: {
                   id: true,
@@ -911,12 +1016,39 @@ export class AssessmentService {
       this.prisma.assessmentSubmission.count({
         where: {
           assessmentId: filters.assessmentId,
-          status: filters.status,
+          ...(filters.status && { status: filters.status as any }),
         },
       }),
     ]);
 
-    return { items, total };
+    // Refresh attachment URLs for all submissions
+    const itemsWithRefreshedUrls = await Promise.all(
+      items.map(async (submission) => {
+        if (submission.attachments) {
+          try {
+            const attachments = typeof submission.attachments === 'string'
+              ? JSON.parse(submission.attachments)
+              : submission.attachments;
+
+            if (Array.isArray(attachments)) {
+              const refreshedAttachments = await this.refreshAttachmentUrls(attachments);
+              return {
+                ...submission,
+                attachments: refreshedAttachments as any,
+              };
+            }
+          } catch (error) {
+            logger.warn('Failed to refresh attachment URLs for submission in list', {
+              error,
+              submissionId: submission.id,
+            });
+          }
+        }
+        return submission;
+      })
+    );
+
+    return { items: itemsWithRefreshedUrls, total };
   }
 
   async gradeSubmission(input: GradeSubmissionInput) {
@@ -1056,9 +1188,104 @@ export class AssessmentService {
       await this.updateTopicMastery(submission.studentId, topicMasteryChanges);
     }
 
+    // Update gradebook with assessment grade
+    try {
+      // Find the class gradebook
+      const gradebook = await this.prisma.gradeBook.findFirst({
+        where: {
+          classId: submission.assessment.classId
+        }
+      });
+
+      if (gradebook) {
+        // Create an activity grade-like object for gradebook integration
+        const assessmentGrade = {
+          id: updatedSubmission.id,
+          activityId: updatedSubmission.assessmentId,
+          studentId: updatedSubmission.studentId,
+          score: updatedSubmission.score || 0,
+          maxScore: submission.assessment.maxScore || 100,
+          submittedAt: updatedSubmission.submittedAt,
+          gradedAt: updatedSubmission.gradedAt,
+          status: updatedSubmission.status,
+          // Add required fields for ActivityGrade compatibility
+          content: updatedSubmission.content || {},
+          feedback: updatedSubmission.feedback || '',
+          createdAt: updatedSubmission.createdAt,
+          updatedAt: updatedSubmission.updatedAt,
+          attachments: updatedSubmission.attachments || {},
+          points: null,
+          gradedById: null,
+          isArchived: false,
+          timeSpentMinutes: null,
+          learningStartedAt: null,
+          learningCompletedAt: null,
+          isCommitted: false,
+          commitmentId: null,
+          commitmentDeadline: null,
+          commitmentMet: false,
+          bloomsLevelScores: null,
+          topicMasteryChanges: null,
+          learningOutcomeAchievements: null,
+          wordCount: null
+        } as any;
+
+        await updateGradebookWithActivityGrade(
+          gradebook.id,
+          updatedSubmission.studentId,
+          assessmentGrade
+        );
+
+        logger.debug('Updated gradebook with assessment grade', {
+          gradebookId: gradebook.id,
+          assessmentId: updatedSubmission.assessmentId,
+          studentId: updatedSubmission.studentId,
+          score: updatedSubmission.score
+        });
+      }
+    } catch (gradebookError) {
+      logger.error('Error updating gradebook with assessment grade', {
+        error: gradebookError,
+        assessmentId: updatedSubmission.assessmentId,
+        studentId: updatedSubmission.studentId
+      });
+      // Continue even if gradebook update fails
+    }
+
+    // Update analytics
+    try {
+      const eventAnalyticsService = new EventDrivenAnalyticsService(this.prisma);
+      await eventAnalyticsService.processGradeEvent({
+        submissionId: updatedSubmission.id,
+        studentId: updatedSubmission.studentId,
+        activityId: updatedSubmission.assessmentId,
+        classId: submission.assessment.classId,
+        subjectId: submission.assessment.subjectId || '',
+        score: updatedSubmission.score || 0,
+        maxScore: submission.assessment.maxScore || 100,
+        percentage: ((updatedSubmission.score || 0) / (submission.assessment.maxScore || 100)) * 100,
+        gradingType: gradingType as any,
+        gradedBy: this.config.currentUserId || '',
+        gradedAt: new Date(),
+        bloomsLevelScores: bloomsLevelScores,
+      });
+
+      logger.debug('Updated analytics with assessment grade', {
+        assessmentId: updatedSubmission.assessmentId,
+        studentId: updatedSubmission.studentId,
+        score: updatedSubmission.score
+      });
+    } catch (analyticsError) {
+      logger.error('Error updating analytics with assessment grade', {
+        error: analyticsError,
+        assessmentId: updatedSubmission.assessmentId,
+        studentId: updatedSubmission.studentId
+      });
+      // Continue even if analytics update fails
+    }
+
     // Process rewards for assessment grade
     try {
-
       // Create an activity grade-like object for the reward system
       const activityGrade = {
         id: updatedSubmission.id,
@@ -1165,9 +1392,91 @@ export class AssessmentService {
         },
       });
 
+      // Update gradebook with assessment grade
+      try {
+        // Find the class gradebook
+        const gradebook = await this.prisma.gradeBook.findFirst({
+          where: {
+            classId: assessment.classId
+          }
+        });
+
+        if (gradebook) {
+          // Create an activity grade-like object for gradebook integration
+          const assessmentGrade = {
+            id: updated.id,
+            activityId: updated.assessmentId,
+            studentId: updated.studentId,
+            score: updated.score || 0,
+            maxScore: assessment.maxScore || 100,
+            submittedAt: updated.submittedAt,
+            gradedAt: updated.gradedAt,
+            status: updated.status,
+            // Add required fields for ActivityGrade compatibility
+            content: updated.content || {},
+            feedback: updated.feedback || '',
+            createdAt: updated.createdAt,
+            updatedAt: updated.updatedAt,
+            attachments: updated.attachments || {},
+            points: null,
+            gradedById: null,
+            isArchived: false,
+            timeSpentMinutes: null,
+            learningStartedAt: null,
+            learningCompletedAt: null,
+            isCommitted: false,
+            commitmentId: null,
+            commitmentDeadline: null,
+            commitmentMet: false,
+            bloomsLevelScores: null,
+            topicMasteryChanges: null,
+            learningOutcomeAchievements: null,
+            wordCount: null
+          } as any;
+
+          await updateGradebookWithActivityGrade(
+            gradebook.id,
+            updated.studentId,
+            assessmentGrade
+          );
+        }
+      } catch (gradebookError) {
+        logger.error('Error updating gradebook with bulk assessment grade', {
+          error: gradebookError,
+          assessmentId: updated.assessmentId,
+          studentId: updated.studentId
+        });
+        // Continue even if gradebook update fails
+      }
+
+      // Update analytics
+      try {
+        const eventAnalyticsService = new EventDrivenAnalyticsService(this.prisma);
+        await eventAnalyticsService.processGradeEvent({
+          submissionId: updated.id,
+          studentId: updated.studentId,
+          activityId: updated.assessmentId,
+          classId: assessment.classId,
+          subjectId: assessment.subjectId || '',
+          score: updated.score || 0,
+          maxScore: assessment.maxScore || 100,
+          percentage: ((updated.score || 0) / (assessment.maxScore || 100)) * 100,
+          gradingType: 'MANUAL',
+          gradedBy: this.config.currentUserId || '',
+          gradedAt: new Date(),
+          bloomsLevelScores: undefined,
+        });
+      } catch (analyticsError) {
+        logger.error('Error updating analytics with bulk assessment grade', {
+          error: analyticsError,
+          assessmentId: updated.assessmentId,
+          studentId: updated.studentId
+        });
+        // Continue even if analytics update fails
+      }
+
       // Process rewards for assessment grade
       try {
-
         // Create an activity grade-like object for the reward system
         const activityGrade = {
           id: updated.id,
@@ -1202,6 +1511,116 @@ export class AssessmentService {
     return {
       count: results.length,
       message: `Successfully graded ${results.length} submissions`,
+    };
+  }
+
+  async bulkGradeStudents(input: BulkGradeStudentsInput) {
+    const { assessmentId, grades } = input;
+
+    // Check if assessment exists
+    const assessment = await this.prisma.assessment.findUnique({
+      where: {
+        id: assessmentId,
+        NOT: {
+          status: SystemStatus.DELETED
+        }
+      },
+    });
+
+    if (!assessment) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Assessment not found',
+      });
+    }
+
+    const results: any[] = [];
+    const errors: Array<{studentId: string; error: string}> = [];
+
+    for (const grade of grades) {
+      try {
+        let submissionId = grade.submissionId;
+
+        // Create submission if it doesn't exist
+        if (!submissionId) {
+          const newSubmission = await this.prisma.assessmentSubmission.create({
+            data: {
+              assessmentId,
+              studentId: grade.studentId,
+              status: SubmissionStatus.SUBMITTED,
+              submittedAt: new Date(),
+              content: {}, // Empty content for manual grading
+              attachments: [], // Empty attachments
+            },
+          });
+          submissionId = newSubmission.id;
+        }
+
+        // Grade the submission
+        const updatedSubmission = await this.prisma.assessmentSubmission.update({
+          where: { id: submissionId },
+          data: {
+            score: grade.score,
+            feedback: grade.feedback || '',
+            status: SubmissionStatus.GRADED,
+            gradedAt: new Date(),
+          },
+          include: {
+            student: {
+              select: {
+                id: true,
+                userId: true
+              }
+            },
+            assessment: {
+              include: {
+                topic: true
+              }
+            }
+          }
+        });
+
+        // Process rewards (similar to individual grading)
+        // TODO: Implement reward processing when RewardService is available
+        /*
+        try {
+          const rewardService = new RewardService({ prisma: this.prisma });
+          await rewardService.processAssessmentGradeRewards({
+            studentId: updatedSubmission.studentId,
+            assessmentId: updatedSubmission.assessmentId,
+            score: updatedSubmission.score || 0,
+            maxScore: assessment.maxScore || 100,
+            topicId: updatedSubmission.assessment.topic?.id
+          });
+        } catch (rewardError) {
+          logger.error('Error processing bulk assessment grade rewards', {
+            error: rewardError,
+            assessmentId: updatedSubmission.assessmentId,
+            studentId: updatedSubmission.studentId
+          });
+          // Continue even if reward processing fails
+        }
+        */
+
+        results.push(updatedSubmission);
+      } catch (error) {
+        logger.error('Error grading student submission', {
+          error,
+          studentId: grade.studentId,
+          assessmentId
+        });
+        errors.push({
+          studentId: grade.studentId,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
+
+    return {
+      count: results.length,
+      errors: errors.length,
+      message: `Successfully graded ${results.length} submissions${errors.length > 0 ? ` with ${errors.length} errors` : ''}`,
+      errorDetails: errors.length > 0 ? errors : undefined
     };
   }
 
@@ -1265,7 +1684,7 @@ export class AssessmentService {
 
     const where = {
       classId: filters.classId,
-      ...(filters.category && { category: filters.category }),
+      ...(filters.category && { category: filters.category as any }),
       ...(filters.lessonPlanId && { lessonPlanId: filters.lessonPlanId }), // Add lessonPlanId to where clause
       status: filters.status || SystemStatus.ACTIVE,
     };
@@ -1411,5 +1830,261 @@ export class AssessmentService {
         });
       }
     }
+  }
+
+  /**
+   * Upload file for submission
+   */
+  async uploadSubmissionFile(
+    file: File | Buffer,
+    fileName: string,
+    submissionId: string,
+    uploaderId: string
+  ): Promise<SubmissionUploadResult> {
+    try {
+      // First, find the submission to get the actual student ID
+      const submission = await this.prisma.assessmentSubmission.findFirst({
+        where: {
+          id: submissionId,
+          status: {
+            in: [SubmissionStatus.DRAFT, SubmissionStatus.SUBMITTED]
+          }
+        },
+        include: {
+          student: {
+            include: {
+              user: true
+            }
+          },
+          assessment: {
+            include: {
+              class: {
+                include: {
+                  teachers: {
+                    include: {
+                      teacher: {
+                        include: {
+                          user: true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (!submission) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Submission not found or cannot be modified',
+        });
+      }
+
+      // Check if the uploader is either the student or a teacher of the class
+      const isStudent = submission.studentId === uploaderId;
+      const isTeacher = submission.assessment.class.teachers.some(
+        (teacherEnrollment: any) => teacherEnrollment.teacher.user.id === uploaderId
+      );
+
+      if (!isStudent && !isTeacher) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You are not authorized to upload files for this submission',
+        });
+      }
+
+      // Upload file using storage service
+      const uploadResult = await submissionStorageService.uploadSubmissionFile(
+        file,
+        fileName,
+        submissionId,
+        submission.studentId // Use the actual student ID from the submission
+      );
+
+      // Update submission with new attachment
+      const currentAttachments = submission.attachments as any[] || [];
+      const updatedAttachments = [
+        ...currentAttachments,
+        {
+          id: uploadResult.id,
+          name: uploadResult.name,
+          url: uploadResult.url,
+          path: uploadResult.path,
+          contentType: uploadResult.mimeType,
+          size: uploadResult.size,
+          uploadedAt: uploadResult.uploadedAt.toISOString(),
+        }
+      ];
+
+      await this.prisma.assessmentSubmission.update({
+        where: { id: submissionId },
+        data: {
+          attachments: JSON.stringify(updatedAttachments) as unknown as InputJsonValue,
+          updatedAt: new Date(),
+        }
+      });
+
+      return uploadResult;
+    } catch (error) {
+      logger.error('Failed to upload submission file', {
+        error,
+        submissionId,
+        uploaderId,
+        fileName
+      });
+
+      if (error instanceof TRPCError) {
+        throw error;
+      }
+
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to upload submission file',
+      });
+    }
+  }
+
+  /**
+   * Delete submission file
+   */
+  async deleteSubmissionFile(
+    submissionId: string,
+    fileId: string,
+    deleterId: string
+  ): Promise<void> {
+    try {
+      // Find the submission with authorization check
+      const submission = await this.prisma.assessmentSubmission.findFirst({
+        where: {
+          id: submissionId,
+          status: {
+            in: [SubmissionStatus.DRAFT, SubmissionStatus.SUBMITTED]
+          }
+        },
+        include: {
+          student: {
+            include: {
+              user: true
+            }
+          },
+          assessment: {
+            include: {
+              class: {
+                include: {
+                  teachers: {
+                    include: {
+                      teacher: {
+                        include: {
+                          user: true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (!submission) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Submission not found or cannot be modified',
+        });
+      }
+
+      // Check if the deleter is either the student or a teacher of the class
+      const isStudent = submission.studentId === deleterId;
+      const isTeacher = submission.assessment.class.teachers.some(
+        (teacherEnrollment: any) => teacherEnrollment.teacher.user.id === deleterId
+      );
+
+      if (!isStudent && !isTeacher) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You are not authorized to delete files from this submission',
+        });
+      }
+
+      const currentAttachments = submission.attachments as any[] || [];
+      const fileToDelete = currentAttachments.find(att => att.id === fileId);
+
+      if (!fileToDelete) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'File not found in submission',
+        });
+      }
+
+      // Delete from storage
+      await submissionStorageService.deleteSubmissionFile(fileToDelete.path, submissionId);
+
+      // Update submission attachments
+      const updatedAttachments = currentAttachments.filter(att => att.id !== fileId);
+
+      await this.prisma.assessmentSubmission.update({
+        where: { id: submissionId },
+        data: {
+          attachments: JSON.stringify(updatedAttachments) as unknown as InputJsonValue,
+          updatedAt: new Date(),
+        }
+      });
+
+    } catch (error) {
+      logger.error('Failed to delete submission file', {
+        error,
+        submissionId,
+        fileId,
+        deleterId
+      });
+
+      if (error instanceof TRPCError) {
+        throw error;
+      }
+
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to delete submission file',
+      });
+    }
+  }
+
+  /**
+   * Refresh attachment URLs with fresh signed URLs
+   */
+  async refreshAttachmentUrls(attachments: any[]): Promise<any[]> {
+    if (!attachments || !Array.isArray(attachments)) {
+      return [];
+    }
+
+    const refreshedAttachments = await Promise.all(
+      attachments.map(async (attachment) => {
+        try {
+          if (attachment.path) {
+            // Generate fresh signed URL
+            const freshUrl = await submissionStorageService.getSubmissionFileUrl(attachment.path);
+            return {
+              ...attachment,
+              url: freshUrl,
+            };
+          }
+          return attachment;
+        } catch (error) {
+          logger.warn('Failed to refresh attachment URL', {
+            error,
+            attachmentId: attachment.id,
+            path: attachment.path,
+          });
+          // Return original attachment if URL refresh fails
+          return attachment;
+        }
+      })
+    );
+
+    return refreshedAttachments;
   }
 }

@@ -103,7 +103,7 @@ export function BatchGrading({
     }
     
     // Filter by search query
-    if (searchQuery && !entry.studentName.toLowerCase().includes(searchQuery.toLowerCase())) {
+    if (searchQuery && !(entry.studentName || '').toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
     

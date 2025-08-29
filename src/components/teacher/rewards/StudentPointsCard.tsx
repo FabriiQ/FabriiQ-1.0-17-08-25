@@ -57,104 +57,106 @@ export function StudentPointsCard({
   className
 }: StudentPointsCardProps) {
   return (
-    <Card className={cn("overflow-hidden", className)}>
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10 border">
+    <Card className={cn("overflow-hidden flex flex-col h-full min-h-[360px] w-full shadow-sm border", className)}>
+      <CardHeader className="pb-3 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <Avatar className="h-12 w-12 border flex-shrink-0">
               <AvatarImage src={student.profileImage} alt={student.name} />
-              <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
+              <AvatarFallback className="text-sm font-medium">{student.name.charAt(0)}</AvatarFallback>
             </Avatar>
-            <div>
-              <CardTitle className="text-base">{student.name}</CardTitle>
+            <div className="min-w-0 flex-1">
+              <CardTitle className="text-base sm:text-lg truncate">{student.name}</CardTitle>
               {student.level && (
-                <CardDescription className="flex items-center gap-1">
-                  <Award className="h-3 w-3" />
+                <CardDescription className="flex items-center gap-1 mt-1">
+                  <Award className="h-4 w-4 flex-shrink-0 text-amber-500" />
                   Level {student.level}
                 </CardDescription>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2 flex-shrink-0 self-start">
             <Award className="h-5 w-5 text-amber-500" />
-            <span className="font-bold text-lg text-amber-600">{student.totalPoints || 0}</span>
+            <span className="font-bold text-lg sm:text-xl text-amber-600">{student.totalPoints || 0}</span>
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="pb-2">
-        <div className="grid grid-cols-2 gap-2 mt-2">
-          <div className="flex flex-col items-center justify-center p-2 bg-gray-50 rounded-md">
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
-              <Calendar className="h-3 w-3" />
-              <span>This Week</span>
+      <CardContent className="pb-3 flex-1 flex flex-col">
+        <div className="grid grid-cols-2 gap-3 mt-3">
+          <div className="flex flex-col items-center justify-center p-3 bg-gray-50 rounded-lg min-h-[70px]">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
+              <Calendar className="h-4 w-4 flex-shrink-0" />
+              <span className="text-center">This Week</span>
             </div>
-            <div className="font-semibold text-sm">{student.weeklyPoints} points</div>
+            <div className="font-semibold text-base text-center">{student.weeklyPoints || 0} points</div>
           </div>
 
-          <div className="flex flex-col items-center justify-center p-2 bg-gray-50 rounded-md">
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
-              <TrendingUp className="h-3 w-3" />
-              <span>This Month</span>
+          <div className="flex flex-col items-center justify-center p-3 bg-gray-50 rounded-lg min-h-[70px]">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
+              <TrendingUp className="h-4 w-4 flex-shrink-0" />
+              <span className="text-center">This Month</span>
             </div>
-            <div className="font-semibold text-sm">{student.monthlyPoints} points</div>
+            <div className="font-semibold text-base text-center">{student.monthlyPoints || 0} points</div>
           </div>
         </div>
 
-        {student.lastPointsAwarded ? (
-          <div className="mt-3 text-xs">
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              <span>Last awarded:</span>
+        <div className="flex-1 flex flex-col justify-end">
+          {student.lastPointsAwarded ? (
+            <div className="mt-4 text-sm">
+              <div className="flex items-center gap-1 text-muted-foreground mb-2">
+                <Clock className="h-4 w-4 flex-shrink-0" />
+                <span>Last awarded:</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <Badge variant="outline" className="px-2 py-1 text-xs flex-shrink-0">
+                    +{student.lastPointsAwarded.amount}
+                  </Badge>
+                  <span className="truncate text-sm">
+                    {student.lastPointsAwarded.description}
+                  </span>
+                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0">
+                      <HelpCircle className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                      <p className="text-sm">
+                        {formatDistanceToNow(student.lastPointsAwarded.timestamp, { addSuffix: true })}
+                      </p>
+                      <p className="text-sm">Source: {student.lastPointsAwarded.source}</p>
+                    </TooltipContent>
+                  </Tooltip>
+              </div>
             </div>
-            <div className="flex items-center justify-between mt-1">
-              <div className="flex items-center gap-1">
-                <Badge variant="outline" className="px-1 py-0 h-5 text-xs">
-                  +{student.lastPointsAwarded.amount}
-                </Badge>
-                <span className="truncate max-w-[150px]">
-                  {student.lastPointsAwarded.description}
+          ) : (
+            <div className="mt-4 text-sm">
+              <div className="flex items-center gap-1 text-muted-foreground mb-2">
+                <Clock className="h-4 w-4 flex-shrink-0" />
+                <span>No points awarded yet</span>
+              </div>
+              <div className="flex items-center">
+                <span className="text-muted-foreground text-sm">
+                  Award points to this student to see their history
                 </span>
               </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-5 w-5">
-                    <HelpCircle className="h-3 w-3" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                    <p className="text-xs">
-                      {formatDistanceToNow(student.lastPointsAwarded.timestamp, { addSuffix: true })}
-                    </p>
-                    <p className="text-xs">Source: {student.lastPointsAwarded.source}</p>
-                  </TooltipContent>
-                </Tooltip>
             </div>
-          </div>
-        ) : (
-          <div className="mt-3 text-xs">
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              <span>No points awarded yet</span>
-            </div>
-            <div className="flex items-center mt-1">
-              <span className="text-muted-foreground text-xs">
-                Award points to this student to see their history
-              </span>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </CardContent>
 
-      <CardFooter className="flex justify-center pt-2">
+      <CardFooter className="flex justify-center pt-4 pb-4 flex-shrink-0 mt-auto px-4">
         <Button
           variant="outline"
           size="sm"
-          className="text-xs h-8 w-full sm:w-auto"
+          className="text-sm h-9 w-full flex items-center justify-center gap-2 font-medium border-2"
           onClick={() => onViewHistory?.(student.id)}
         >
-          View History
-          <ChevronRight className="h-3 w-3 ml-1" />
+          <span>View History</span>
+          <ChevronRight className="h-4 w-4 flex-shrink-0" />
         </Button>
       </CardFooter>
     </Card>
@@ -174,12 +176,20 @@ export function StudentPointsGrid({
   className
 }: StudentPointsGridProps) {
   return (
-    <div className={cn("grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4", className)}>
+    <div className={cn(
+      "grid gap-6 md:gap-8",
+      "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4", // Better responsive breakpoints
+      "auto-rows-fr", // Ensures all cards have equal height
+      "place-items-center", // Center cards in their grid cells
+      "py-2", // Add vertical padding
+      className
+    )}>
       {students.map(student => (
         <StudentPointsCard
           key={student.id}
           student={student}
           onViewHistory={onViewHistory}
+          className="w-full"
         />
       ))}
     </div>

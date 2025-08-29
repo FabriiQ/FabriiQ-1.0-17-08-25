@@ -64,7 +64,7 @@ export default function AssessmentGrading({
 
   // Fetch assessment data using the API
   const { data: assessment, isLoading: isLoadingAssessment } = api.assessment.getById.useQuery(
-    { assessmentId, includeSubmissions: true },
+    { assessmentId, includeSubmissions: true, includeRubric: true },
     {
       enabled: !!assessmentId,
       onError: (error) => {
@@ -279,8 +279,8 @@ export default function AssessmentGrading({
     };
   }, [selectedStudentId, studentsWithSubmissions]);
 
-  // Create submission mutation
-  const createSubmissionMutation = api.submission.create.useMutation({
+  // Create submission mutation - Use assessment.createSubmission instead
+  const createSubmissionMutation = api.assessment.createSubmission.useMutation({
     onSuccess: (data) => {
       console.log('Submission created successfully:', data);
       toast({
@@ -296,7 +296,6 @@ export default function AssessmentGrading({
           submissionId: data.id,
           score: selectedStudentGradeData?.score || 0,
           feedback: selectedStudentGradeData?.feedback || "",
-          status: SubmissionStatus.GRADED,
         });
       } else {
         // Refetch submissions to update the UI
@@ -357,8 +356,7 @@ export default function AssessmentGrading({
       createSubmissionMutation.mutate({
         studentId: student.id,
         assessmentId,
-        content: {}, // Empty content since the student didn't submit anything
-        status: SubmissionStatus.SUBMITTED, // Mark as submitted so we can grade it
+        answers: [], // Empty answers since the student didn't submit anything
       });
     }
   }, [selectedStudentId, studentsWithSubmissions, gradeMutation, createSubmissionMutation, assessmentId, setSelectedStudentGradeData]);
@@ -408,8 +406,7 @@ export default function AssessmentGrading({
           createSubmissionMutation.mutate({
             studentId: grade.studentId,
             assessmentId,
-            content: {}, // Empty content since the student didn't submit anything
-            status: SubmissionStatus.SUBMITTED, // Mark as submitted so we can grade it
+            answers: [], // Empty answers since the student didn't submit anything
           }, {
             onSuccess: (data) => {
               console.log('Submission created successfully:', data);
@@ -598,6 +595,11 @@ export default function AssessmentGrading({
                 onCancel={() => setSelectedStudentId(null)}
                 isSubmitting={gradeMutation.isLoading}
                 defaultValues={gradingFormDefaultValues}
+                assessmentId={assessmentId}
+                onSubmissionCreated={() => {
+                  // Refresh submissions data when a new submission is created
+                  refetchSubmissions();
+                }}
               />
             </div>
           </div>

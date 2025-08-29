@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   BarChart3,
-  Brain,
   Target,
   TrendingUp,
   CheckCircle,
@@ -20,6 +19,7 @@ import {
   Calculator
 } from 'lucide-react';
 import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
+import { RubricType } from '@/features/bloom/types/rubric';
 import { BLOOMS_LEVEL_METADATA } from '@/features/bloom/constants/bloom-levels';
 import { RubricGrading } from '@/features/bloom/components/grading/RubricGrading';
 import { CognitiveGrading } from '@/features/bloom/components/grading/CognitiveGrading';
@@ -100,6 +100,19 @@ export function EnhancedGradingInterface({
   topicMasteryData = [],
   className = '',
 }: EnhancedGradingInterfaceProps) {
+  // Debug logging for grading interface
+  console.log('EnhancedGradingInterface Debug:', {
+    assessmentId,
+    submissionId,
+    gradingMethod,
+    hasRubric: !!rubric,
+    rubricId: rubric?.id,
+    rubricCriteria: rubric?.criteria?.length || 0,
+    rubricPerformanceLevels: rubric?.performanceLevels?.length || 0,
+    maxScore,
+    initialValues
+  });
+
   const [activeTab, setActiveTab] = useState<'grading' | 'analysis' | 'mastery'>('grading');
   const [score, setScore] = useState<number>(initialValues?.score || 0);
   const [feedback, setFeedback] = useState<string>(initialValues?.feedback || '');
@@ -197,7 +210,7 @@ export function EnhancedGradingInterface({
             Grading
           </TabsTrigger>
           <TabsTrigger value="analysis">
-            <Brain className="h-4 w-4 mr-2" />
+            <BarChart3 className="h-4 w-4 mr-2" />
             Analysis
           </TabsTrigger>
           {showTopicMasteryImpact && (
@@ -311,53 +324,108 @@ export function EnhancedGradingInterface({
                 )}
               </CardContent>
             </Card>
-          ) : rubric && rubric.criteria && rubric.criteria.length > 0 ? (
+          ) : gradingMethod === 'RUBRIC_BASED' ? (
             // Rubric-based grading interface
-            <div className="space-y-4">
-              <RubricGrading
-                rubricId={rubric.id}
-                rubricType="ASSESSMENT" as any
-                criteria={rubric.criteria as any}
-                performanceLevels={rubric.performanceLevels as any}
-                maxScore={maxScore}
-                initialValues={{
-                  criteriaGrades,
-                  score,
-                }}
-                onGradeChange={handleRubricGrading}
-                readOnly={readOnly}
-                showBloomsLevels={true}
-              />
-              {!readOnly && (
-                <div className="flex justify-end">
-                  <Button
-                    onClick={() => {
-                      console.log('Save Rubric Grade clicked!');
-                      console.log('Current state:', {
-                        score,
-                        feedback,
-                        criteriaGrades,
-                        bloomsLevelScores,
-                      });
+            rubric && rubric.criteria && rubric.criteria.length > 0 &&
+            rubric.performanceLevels && rubric.performanceLevels.length > 0 ? (
+              <div className="space-y-4">
+                <RubricGrading
+                  rubricId={rubric.id}
+                  rubricType={RubricType.ANALYTIC}
+                  criteria={rubric.criteria as any}
+                  performanceLevels={rubric.performanceLevels as any}
+                  maxScore={maxScore}
+                  initialValues={{
+                    criteriaGrades,
+                    score,
+                  }}
+                  onGradeChange={handleRubricGrading}
+                  readOnly={readOnly}
+                  showBloomsLevels={true}
+                />
+                {!readOnly && (
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={() => {
+                        console.log('Save Rubric Grade clicked!');
+                        console.log('Current state:', {
+                          score,
+                          feedback,
+                          criteriaGrades,
+                          bloomsLevelScores,
+                        });
 
-                      const gradeData = {
-                        score,
-                        feedback,
-                        criteriaGrades,
-                        bloomsLevelScores,
-                      };
+                        const gradeData = {
+                          score,
+                          feedback,
+                          criteriaGrades,
+                          bloomsLevelScores,
+                        };
 
-                      console.log('Calling onGradeSubmit with:', gradeData);
-                      onGradeSubmit(gradeData);
-                    }}
-                    disabled={criteriaGrades.length === 0}
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Rubric Grade
-                  </Button>
-                </div>
-              )}
-            </div>
+                        console.log('Calling onGradeSubmit with:', gradeData);
+                        onGradeSubmit(gradeData);
+                      }}
+                      disabled={criteriaGrades.length === 0}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Rubric Grade
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Rubric not available - show fallback score-based grading
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <AlertCircle className="h-5 w-5 mr-2 text-yellow-500" />
+                    Rubric Not Available
+                  </CardTitle>
+                  <CardDescription>
+                    This assessment is configured for rubric-based grading, but the rubric is not available. Using score-based grading instead.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Score</label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={score}
+                          onChange={(e) => setScore(parseFloat(e.target.value) || 0)}
+                          min={0}
+                          max={maxScore}
+                          disabled={readOnly}
+                          className="flex-1"
+                        />
+                        <span className="text-sm text-muted-foreground">/ {maxScore}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Feedback</label>
+                    <Textarea
+                      value={feedback}
+                      onChange={(e) => setFeedback(e.target.value)}
+                      placeholder="Provide feedback for the student..."
+                      disabled={readOnly}
+                      className="min-h-[100px]"
+                    />
+                  </div>
+
+                  {!readOnly && (
+                    <div className="flex justify-end">
+                      <Button onClick={handleScoreBasedGrading}>
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Grade
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )
           ) : rubric ? (
             // Rubric exists but has no criteria - show fallback message
             <Card>
@@ -448,7 +516,7 @@ export function EnhancedGradingInterface({
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Brain className="h-5 w-5 mr-2" />
+                <BarChart3 className="h-5 w-5 mr-2" />
                 Cognitive Level Analysis
               </CardTitle>
               <CardDescription>

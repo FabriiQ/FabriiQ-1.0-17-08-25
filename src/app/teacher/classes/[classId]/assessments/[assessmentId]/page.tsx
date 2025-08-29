@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SubmissionStatus, SystemStatus } from "@/server/api/constants";
 import { AssessmentAnalyticsDashboard, AssessmentResultsDashboard } from "@/features/assessments/components";
 import { BloomsTaxonomyLevel } from "@/features/bloom/types/bloom-taxonomy";
+import { SubmissionViewDialog } from "@/components/assessments/submission/SubmissionViewDialog";
 
 // Define the assessment interface to fix TypeScript errors
 interface AssessmentWithDetails {
@@ -106,7 +107,8 @@ export default function AssessmentDetailPage() {
   // Fetch assessment details
   const { data: assessmentData, isLoading: isLoadingAssessment } = api.assessment.getById.useQuery({
     assessmentId,
-    includeSubmissions: true
+    includeSubmissions: true,
+    includeRubric: true
   }, {
     enabled: !!assessmentId,
     onError: (error) => {
@@ -348,6 +350,12 @@ export default function AssessmentDetailPage() {
               Grade Submissions
             </Button>
           </Link>
+          <Link href={`/teacher/classes/${classId}/assessments/${assessmentId}/bulk-grade`}>
+            <Button variant="outline">
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Bulk Grade
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -474,14 +482,22 @@ export default function AssessmentDetailPage() {
                               : "Not graded"}
                           </td>
                           <td className="py-2 px-4 text-right">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => router.push(`/teacher/classes/${classId}/assessments/${assessmentId}/grade`)}
-                            >
-                              <Edit className="h-4 w-4 mr-2" />
-                              Grade
-                            </Button>
+                            <div className="flex items-center justify-end gap-2">
+                              <SubmissionViewDialog
+                                submission={submission}
+                                assessment={assessment}
+                              />
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                asChild
+                              >
+                                <Link href={`/teacher/classes/${classId}/assessments/${assessmentId}/submissions/${submission.id}/grade`}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Grade
+                                </Link>
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}

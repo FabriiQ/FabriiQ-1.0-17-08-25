@@ -20,6 +20,9 @@ import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 import { EnhancedGradingInterface } from './EnhancedGradingInterface';
 import { api } from '@/trpc/react';
 import { useToast } from '@/components/ui/feedback/toast';
+import { SubmissionFileUpload } from '@/components/assessments/submission/SubmissionFileUpload';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { UploadCloud, Eye } from 'lucide-react';
 
 interface AssessmentGradingProps {
   assessmentId: string;
@@ -54,14 +57,18 @@ export function AssessmentGrading({
     id: submissionId,
   });
 
-  // Fetch rubric separately if assessment has a rubricId
-  const { data: rubric, isLoading: rubricLoading } = api.rubric.getById.useQuery(
+  // Use rubric from assessment data (bloomsRubric) if available, otherwise fetch separately
+  const rubricFromAssessment = assessment?.bloomsRubric;
+  const { data: rubricFromApi, isLoading: rubricLoading } = api.rubric.getById.useQuery(
     { id: assessment?.rubricId || '' },
     {
-      enabled: !!assessment?.rubricId,
+      enabled: !!assessment?.rubricId && !rubricFromAssessment,
       staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     }
   );
+
+  // Use rubric from assessment data first, then fallback to API fetch
+  const rubric = rubricFromAssessment || rubricFromApi;
 
   // Fetch student data
   const { data: student, isLoading: studentLoading } = api.user.getById.useQuery(
@@ -232,7 +239,44 @@ export function AssessmentGrading({
         <Separator />
 
         <div className="space-y-4">
-          <h3 className="text-lg font-medium">Submission Content</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">Submission Content</h3>
+            <div className="flex items-center gap-2">
+              {/* Upload Files Button */}
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Upload className="h-4 w-4 mr-1" />
+                    Upload Files
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>
+                      Upload Submission Files - {student?.name}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="py-4">
+                    <SubmissionFileUpload
+                      submissionId={submission.id}
+                      maxFiles={10}
+                      maxFileSize={50}
+                      onFilesChange={(files) => {
+                        console.log('Files changed:', files);
+                        // Optionally refresh submission data
+                      }}
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* View Attachments Button */}
+              <Button variant="outline" size="sm">
+                <Eye className="h-4 w-4 mr-1" />
+                View Files
+              </Button>
+            </div>
+          </div>
 
           {/* Display the submission content */}
           {/* This would need to be adapted based on your actual submission structure */}
@@ -297,31 +341,48 @@ export function AssessmentGrading({
 
   // Render the enhanced grading interface
   const renderGradingInterface = () => {
-    // Determine grading method based on assessment configuration
-    // Check if assessment has a rubric ID and the rubric is available
+    // Use grading method from assessment service if available, otherwise determine locally
+    let gradingMethod: 'SCORE_BASED' | 'RUBRIC_BASED' = (assessment as any).gradingMethod || 'SCORE_BASED';
+
+    // Fallback logic if gradingMethod is not provided by service
+    if (!(assessment as any).gradingMethod) {
+      // Priority: 1. Assessment gradingType, 2. Presence of rubric
+      if (assessment.gradingType === 'MANUAL' && assessment.rubricId) {
+        gradingMethod = 'RUBRIC_BASED';
+      } else if (assessment.rubricId && rubric) {
+        // Fallback: if rubric exists and is loaded, use rubric-based
+        gradingMethod = 'RUBRIC_BASED';
+      }
+    }
+
     const hasRubric = assessment.rubricId && rubric;
-    const gradingMethod = hasRubric ? 'RUBRIC_BASED' : 'SCORE_BASED';
+    const rubricConfiguration = (assessment as any).rubricConfiguration;
 
     // Debug logging to help identify the issue
     console.log('Assessment Grading Debug:', {
       assessmentId: assessment.id,
       assessmentTitle: assessment.title,
       rubricId: assessment.rubricId,
+      hasBloomsRubric: !!assessment.bloomsRubric,
+      hasRubricFromApi: !!rubricFromApi,
       hasRubricData: !!rubric,
-      rubricCriteria: rubric?.criteria?.length || 0,
-      rubricPerformanceLevels: rubric?.performanceLevels?.length || 0,
+      rubricCriteria: (rubric as any)?.criteria?.length || 0,
+      rubricPerformanceLevels: (rubric as any)?.performanceLevels?.length || 0,
       hasRubric,
       gradingMethod,
       gradingType: assessment.gradingType,
+      rubricConfiguration,
+      computedGradingMethod: (assessment as any).gradingMethod,
       // Ensure we're using the assessment's specific rubric, not a fallback
-      usingSpecificRubric: !!assessment.rubricId
+      usingSpecificRubric: !!assessment.rubricId,
+      rubricSource: rubricFromAssessment ? 'assessment.bloomsRubric' : 'api.rubric.getById'
     });
 
     // Prepare rubric data if available
     const rubricData = hasRubric ? {
       id: rubric.id,
-      criteria: rubric.criteria as any,
-      performanceLevels: rubric.performanceLevels as any,
+      criteria: (rubric as any).criteria as any,
+      performanceLevels: (rubric as any).performanceLevels as any,
     } : undefined;
 
     // Prepare Bloom's distribution

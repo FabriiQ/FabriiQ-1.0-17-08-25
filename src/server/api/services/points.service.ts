@@ -374,6 +374,27 @@ export class PointsService {
             // Calculate totals
             const totalPoints = points.reduce((sum, point) => sum + (point.amount || 0), 0);
 
+            // Calculate weekly points (last 7 days)
+            const oneWeekAgo = new Date();
+            oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+            const weeklyPoints = points
+              .filter(point => new Date(point.createdAt) >= oneWeekAgo)
+              .reduce((sum, point) => sum + (point.amount || 0), 0);
+
+            // Calculate monthly points (last 30 days)
+            const oneMonthAgo = new Date();
+            oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
+            const monthlyPoints = points
+              .filter(point => new Date(point.createdAt) >= oneMonthAgo)
+              .reduce((sum, point) => sum + (point.amount || 0), 0);
+
+            // Calculate daily points (today)
+            const today = new Date();
+            const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            const dailyPoints = points
+              .filter(point => new Date(point.createdAt) >= startOfToday)
+              .reduce((sum, point) => sum + (point.amount || 0), 0);
+
             // Get the most recent points award
             const lastAward = points.length > 0
               ? points.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
@@ -382,9 +403,9 @@ export class PointsService {
             return {
               studentId,
               totalPoints,
-              dailyPoints: 0, // We'll simplify for now
-              weeklyPoints: 0, // We'll simplify for now
-              monthlyPoints: 0, // We'll simplify for now
+              dailyPoints,
+              weeklyPoints,
+              monthlyPoints,
               level: student.level || 1,
               lastAward: lastAward ? {
                 amount: lastAward.amount,

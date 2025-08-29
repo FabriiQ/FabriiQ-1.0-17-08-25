@@ -26,7 +26,9 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  RotateCcw
+  RotateCcw,
+  Upload,
+  Eye
 } from 'lucide-react';
 import { SubmissionStatus } from "@/server/api/constants";
 
@@ -242,6 +244,16 @@ export default function AssessmentSubmissionsPage() {
         </div>
 
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              // Handle bulk upload workflow
+              console.log('Bulk upload submissions');
+            }}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Submissions
+          </Button>
           <Link href={`/admin/campus/classes/${classId}/assessments/${assessmentId}/grade-all`}>
             <Button>
               <CheckCircle2 className="h-4 w-4 mr-2" />
@@ -337,10 +349,21 @@ export default function AssessmentSubmissionsPage() {
                         <div className="flex justify-end gap-2">
                           <Link href={`/admin/campus/classes/${classId}/assessments/${assessmentId}/submissions/${submission.id}`}>
                             <Button size="sm" variant="outline">
-                              <FileText className="h-4 w-4 mr-2" />
+                              <Eye className="h-4 w-4 mr-2" />
                               View
                             </Button>
                           </Link>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              // Handle upload submission files
+                              console.log('Upload files for submission:', submission.id);
+                            }}
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Upload
+                          </Button>
                           <Link href={`/admin/campus/classes/${classId}/assessments/${assessmentId}/submissions/${submission.id}/grade`}>
                             <Button size="sm">
                               <CheckCircle2 className="h-4 w-4 mr-2" />

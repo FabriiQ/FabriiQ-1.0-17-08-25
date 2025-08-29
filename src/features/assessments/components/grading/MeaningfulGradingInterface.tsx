@@ -230,12 +230,12 @@ export function MeaningfulGradingInterface({
 
         {/* Rubric Grading Tab */}
         <TabsContent value="grading" className="space-y-4">
-          {assessment.rubric ? (
+          {assessment.bloomsRubric ? (
             <RubricGrading
-              rubricId={assessment.rubric.id}
-              rubricType={assessment.rubric.type}
-              criteria={assessment.rubric.criteria}
-              performanceLevels={assessment.rubric.performanceLevels}
+              rubricId={assessment.bloomsRubric.id}
+              rubricType={assessment.bloomsRubric.type}
+              criteria={assessment.bloomsRubric.criteria}
+              performanceLevels={assessment.bloomsRubric.performanceLevels}
               maxScore={assessment.maxScore || 100}
               learningOutcomes={learningOutcomes}
               showLearningOutcomes={true}

@@ -253,7 +253,11 @@ export interface EnhancedAssessmentInput {
   passingScore?: number;
   weightage?: number;
   dueDate?: Date;
-  
+
+  // Associations
+  rubricId?: string;            // Optional rubric association
+  learningOutcomeIds?: string[];
+
   // Enhanced fields (new)
   content?: AssessmentContent;
   questionSelectionMode?: QuestionSelectionMode;
@@ -261,7 +265,7 @@ export interface EnhancedAssessmentInput {
   questionPoolConfig?: QuestionPoolConfig;
   enhancedSettings?: AssessmentSettings;
   questionBankRefs?: string[];
-  
+
   // Legacy support
   questions?: any[];            // For backward compatibility
   rubric?: any;                 // For backward compatibility

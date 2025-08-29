@@ -19,7 +19,8 @@ export default function GradeAssessmentPage() {
   // Fetch assessment details with rubric information
   const { data: assessment, isLoading: isLoadingAssessment } = api.assessment.getById.useQuery({
     id: assessmentId,
-    includeSubmissions: true
+    includeSubmissions: true,
+    includeRubric: true
   }, {
     enabled: !!assessmentId,
     onError: (error) => {
@@ -118,11 +119,14 @@ export default function GradeAssessmentPage() {
         </div>
       </div>
 
-      <EnhancedAssessmentGradingInterface
-        assessment={assessment}
-        classId={classId}
-        isClassTeacher={!!isTeacher}
-      />
+      <div className="space-y-6">
+        {/* Enhanced Assessment Grading Interface */}
+        <EnhancedAssessmentGradingInterface
+          assessment={assessment}
+          classId={classId}
+          isClassTeacher={!!isTeacher}
+        />
+      </div>
     </div>
   );
 }

@@ -16,8 +16,8 @@ import {
   TrendingUp,
   Users,
   SlidersHorizontal,
-  Wifi,
-  WifiOff
+  Globe,
+  AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { api } from '@/trpc/react';
@@ -97,6 +97,26 @@ export function ClassRewardsPanelOptimized({ classId, className }: ClassRewardsP
           saveClassRewards(classId, data).catch(console.error);
         }
       }
+    }
+  );
+
+  // Fetch ALL students for the award dialog (not paginated)
+  const {
+    data: allStudentsData,
+    isLoading: isLoadingAllStudents
+  } = api.rewards.getClassRewardsData.useQuery(
+    {
+      classId,
+      includeStudents: true,
+      includeLeaderboard: false,
+      page: 1,
+      pageSize: 100, // Maximum allowed by API
+      searchTerm: '' // No search filter for all students
+    },
+    {
+      enabled: isOnline(),
+      staleTime: 10 * 60 * 1000, // 10 minutes cache for all students
+      refetchOnWindowFocus: false,
     }
   );
 
@@ -227,7 +247,16 @@ export function ClassRewardsPanelOptimized({ classId, className }: ClassRewardsP
     }
   }
 
-  // Prepare students data
+  // Prepare students data for the award dialog (all students)
+  const allStudents: Student[] = allStudentsData?.students?.items
+    ? allStudentsData.students.items.map((student: any) => ({
+        id: student.id,
+        name: student.name,
+        profileImage: student.profileImage
+      }))
+    : [];
+
+  // Prepare students data for display (paginated)
   const students: Student[] = effectiveRewardsData?.students?.items
     ? effectiveRewardsData.students.items.map((student: any) => ({
         id: student.id,
@@ -329,7 +358,7 @@ export function ClassRewardsPanelOptimized({ classId, className }: ClassRewardsP
       {/* Offline indicator */}
       {isOffline && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 flex items-center">
-          <WifiOff className="h-5 w-5 text-yellow-500 mr-2" />
+          <AlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
           <div>
             <p className="text-sm font-medium text-yellow-800">You're offline</p>
             <p className="text-xs text-yellow-600">Viewing cached rewards data</p>
@@ -348,13 +377,13 @@ export function ClassRewardsPanelOptimized({ classId, className }: ClassRewardsP
 
         <div className="flex items-center gap-2">
           <AwardPointsDialog
-            students={students}
+            students={allStudents} // Use all students instead of paginated students
             classId={classId}
             onPointsAwarded={handlePointsAwarded}
             trigger={
-              <Button className="gap-2" disabled={isOffline}>
+              <Button className="gap-2" disabled={isOffline || isLoadingAllStudents}>
                 <Award className="h-4 w-4" />
-                Award Points
+                Award Points {isLoadingAllStudents ? '...' : `(${allStudents.length})`}
               </Button>
             }
           />
@@ -366,7 +395,7 @@ export function ClassRewardsPanelOptimized({ classId, className }: ClassRewardsP
               onClick={() => sync()}
               title="Sync when back online"
             >
-              <Wifi className="h-4 w-4" />
+              <Globe className="h-4 w-4" />
             </Button>
           )}
         </div>

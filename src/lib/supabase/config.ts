@@ -33,6 +33,7 @@ export const storageConfig = {
     avatars: process.env.SUPABASE_STORAGE_BUCKET_AVATARS || 'avatars',
     documents: process.env.SUPABASE_STORAGE_BUCKET_DOCUMENTS || 'documents',
     assessments: process.env.SUPABASE_STORAGE_BUCKET_ASSESSMENTS || 'assessments',
+    assessmentSubmissions: process.env.SUPABASE_STORAGE_BUCKET_ASSESSMENT_SUBMISSIONS || 'assessment-submissions',
   },
   maxFileSize: parseInt(process.env.SUPABASE_STORAGE_MAX_FILE_SIZE || '10485760'), // 10MB default
   cdnUrl: process.env.SUPABASE_STORAGE_CDN_URL || `${supabaseConfig.url}/storage/v1/object/public`,
@@ -71,6 +72,19 @@ export const storageConfig = {
       public: false,
       allowedMimeTypes: ['application/*', 'text/*', 'image/*'],
       fileSizeLimit: '25MB',
+    },
+    'assessment-submissions': {
+      public: false,
+      allowedMimeTypes: [
+        'application/pdf',
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+        'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4',
+        'video/mp4', 'video/webm',
+        'text/plain',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ],
+      fileSizeLimit: '50MB',
     },
   },
 } as const;

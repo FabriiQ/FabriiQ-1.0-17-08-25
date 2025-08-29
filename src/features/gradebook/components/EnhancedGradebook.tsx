@@ -458,25 +458,151 @@ export function EnhancedGradebook({ classId }: EnhancedGradebookProps) {
           </Card>
         </TabsContent>
 
-        {/* Activities and Assessments tabs would be similar */}
-        <TabsContent value="activities">
+        <TabsContent value="activities" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Activities Overview</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Manage and grade class activities
+              </p>
             </CardHeader>
             <CardContent>
-              <p>Activities grading interface will be implemented here.</p>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-3 px-4 font-medium">Activity</th>
+                      <th className="text-left py-3 px-4 font-medium">Type</th>
+                      <th className="text-left py-3 px-4 font-medium">Due Date</th>
+                      <th className="text-left py-3 px-4 font-medium">Submissions</th>
+                      <th className="text-left py-3 px-4 font-medium">Graded</th>
+                      <th className="text-left py-3 px-4 font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activities?.items?.map((activity) => (
+                      <tr key={activity.id} className="border-b hover:bg-gray-50">
+                        <td className="py-3 px-4">
+                          <div>
+                            <div className="font-medium">{activity.title}</div>
+                            <div className="text-sm text-muted-foreground truncate max-w-xs">
+                              {activity.description}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge variant="outline">{activity.type}</Badge>
+                        </td>
+                        <td className="py-3 px-4">
+                          {activity.dueDate ? new Date(activity.dueDate).toLocaleDateString() : 'No due date'}
+                        </td>
+                        <td className="py-3 px-4">
+                          {activity.analytics?.totalSubmissions || 0}
+                        </td>
+                        <td className="py-3 px-4">
+                          {activity.analytics?.gradedSubmissions || 0}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex space-x-2">
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/teacher/classes/${classId}/activities/${activity.id}`}>
+                                <Eye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/teacher/classes/${classId}/activities/${activity.id}/grade`}>
+                                <Edit className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {(!activities?.items || activities.items.length === 0) && (
+                  <div className="text-center py-8">
+                    <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground">No activities found for this class</p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="assessments">
+        <TabsContent value="assessments" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Assessments Overview</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Manage and grade class assessments
+              </p>
             </CardHeader>
             <CardContent>
-              <p>Assessments grading interface will be implemented here.</p>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-3 px-4 font-medium">Assessment</th>
+                      <th className="text-left py-3 px-4 font-medium">Type</th>
+                      <th className="text-left py-3 px-4 font-medium">Due Date</th>
+                      <th className="text-left py-3 px-4 font-medium">Submissions</th>
+                      <th className="text-left py-3 px-4 font-medium">Avg Score</th>
+                      <th className="text-left py-3 px-4 font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {assessments?.map((assessment) => (
+                      <tr key={assessment.id} className="border-b hover:bg-gray-50">
+                        <td className="py-3 px-4">
+                          <div>
+                            <div className="font-medium">{assessment.title}</div>
+                            <div className="text-sm text-muted-foreground truncate max-w-xs">
+                              {assessment.description}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge variant="outline">{assessment.category || 'Assessment'}</Badge>
+                        </td>
+                        <td className="py-3 px-4">
+                          {assessment.dueDate ? new Date(assessment.dueDate).toLocaleDateString() : 'No due date'}
+                        </td>
+                        <td className="py-3 px-4">
+                          {assessment.submissions?.length || 0}
+                        </td>
+                        <td className="py-3 px-4">
+                          {assessment.submissions?.length ?
+                            (assessment.submissions.reduce((sum, sub) => sum + (sub.score || 0), 0) / assessment.submissions.length).toFixed(1) + '%'
+                            : 'N/A'
+                          }
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex space-x-2">
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/teacher/classes/${classId}/assessments/${assessment.id}`}>
+                                <Eye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/teacher/classes/${classId}/assessments/${assessment.id}/grade`}>
+                                <Edit className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {(!assessments || assessments.length === 0) && (
+                  <div className="text-center py-8">
+                    <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground">No assessments found for this class</p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

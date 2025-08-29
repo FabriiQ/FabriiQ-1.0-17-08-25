@@ -32,7 +32,7 @@ export function VirtualizedStudentPointsGrid({
   const parentRef = useRef<HTMLDivElement>(null);
 
   // Determine column count based on viewport width
-  const [columnCount, setColumnCount] = useState(3);
+  const [columnCount, setColumnCount] = useState(4);
 
   // Update column count on resize
   useEffect(() => {
@@ -42,7 +42,7 @@ export function VirtualizedStudentPointsGrid({
       } else if (window.innerWidth < 1024) {
         setColumnCount(2);
       } else {
-        setColumnCount(3);
+        setColumnCount(3); // Fixed to 3 columns max to prevent squeezing
       }
     };
 
@@ -63,8 +63,8 @@ export function VirtualizedStudentPointsGrid({
   const rowVirtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 220, // Estimated row height
-    overscan: 5, // Number of items to render before/after the visible area
+    estimateSize: () => 380, // Increased for larger, more spacious cards with proper spacing
+    overscan: 2, // Number of items to render before/after the visible area
   });
 
   // Handle scroll to load more
@@ -93,7 +93,7 @@ export function VirtualizedStudentPointsGrid({
 
     return (
       <div
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 w-full"
+        className="grid gap-4 md:gap-6 w-full auto-rows-fr place-items-stretch px-4"
         style={{
           position: 'absolute',
           top: 0,
@@ -101,6 +101,9 @@ export function VirtualizedStudentPointsGrid({
           width: '100%',
           height: `${virtualRow.size}px`,
           transform: `translateY(${virtualRow.start}px)`,
+          gridTemplateColumns: `repeat(${columnCount}, minmax(280px, 1fr))`,
+          paddingTop: '16px',
+          paddingBottom: '16px',
         }}
       >
         {Array.from({ length: columnCount }).map((_, colIndex) => {
@@ -115,6 +118,7 @@ export function VirtualizedStudentPointsGrid({
                 key={student.id}
                 student={student}
                 onViewHistory={onViewHistory}
+                className="w-full max-w-sm mx-auto"
               />
             );
           }

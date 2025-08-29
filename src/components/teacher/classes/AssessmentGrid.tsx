@@ -376,33 +376,27 @@ function AssessmentGridComponent({ classId, className }: AssessmentGridProps) {
 
       {/* Assessments grid */}
       {isLoading ? (
-        <div className={cn(
-          "grid gap-4",
-          `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`
-        )}>
+        <div className="assessment-grid">
           {Array(6).fill(0).map((_, i) => (
-            <Card key={i}>
-              <CardHeader>
+            <Card key={i} className="h-full flex flex-col">
+              <CardHeader className="flex-shrink-0">
                 <Skeleton className="h-4 w-20 mb-2" />
                 <Skeleton className="h-5 w-full mb-1" />
                 <Skeleton className="h-4 w-2/3" />
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="flex-1 space-y-2">
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-2/3" />
               </CardContent>
-              <CardFooter>
+              <CardFooter className="flex-shrink-0">
                 <Skeleton className="h-9 w-full" />
               </CardFooter>
             </Card>
           ))}
         </div>
       ) : filteredAssessments.length > 0 ? (
-        <div className={cn(
-          "grid gap-4",
-          `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`
-        )}>
+        <div className="assessment-grid">
           {filteredAssessments.map(assessment => {
             // Transform assessment to match AssessmentCard props
             const transformedAssessment = {
@@ -418,7 +412,9 @@ function AssessmentGridComponent({ classId, className }: AssessmentGridProps) {
               completionRate: assessment.completionRate || 0,
               averageScore: assessment.averageScore || 0,
               maxScore: assessment.maxScore || 0,
-              passingScore: assessment.passingScore || 0
+              passingScore: assessment.passingScore || 0,
+              gradingType: assessment.gradingType || 'MANUAL',
+              rubricId: assessment.rubricId || undefined
             };
 
             return (

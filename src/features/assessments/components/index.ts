@@ -11,7 +11,7 @@ export * from './preview/QuestionPreview';
 
 // Export grading components
 export * from './grading/GradingInterface';
-export * from './grading/RubricGrading';
+// Note: RubricGrading is now exported from @/features/bloom/components/grading
 export * from './grading/FeedbackGenerator';
 export * from './grading/BatchGrading';
 export * from './grading/AssessmentGrading';

@@ -50,6 +50,8 @@ interface AssessmentCardProps {
     averageScore?: number;
     maxScore?: number;
     passingScore?: number;
+    gradingType?: string;
+    rubricId?: string;
     term?: {
       id: string;
       name: string;
@@ -84,6 +86,33 @@ export function AssessmentCard({
 }: AssessmentCardProps) {
   const router = useRouter();
 
+  // Determine card size and title class based on content
+  const getTitleClass = () => {
+    const titleLength = assessment.title.length;
+    if (titleLength <= 30) return 'assessment-title short-title';
+    if (titleLength <= 60) return 'assessment-title medium-title';
+    return 'assessment-title long-title';
+  };
+
+  const getCardSizeClass = () => {
+    const titleLength = assessment.title.length;
+    const hasDescription = assessment.description && assessment.description.length > 0;
+    const hasMetrics = assessment.completionRate !== undefined || assessment.averageScore !== undefined;
+
+    // Compact: Short title, no description, minimal metrics
+    if (titleLength <= 30 && !hasDescription && !hasMetrics) {
+      return 'assessment-card-compact';
+    }
+
+    // Expanded: Long title, description, or multiple metrics
+    if (titleLength > 60 || (hasDescription && hasMetrics)) {
+      return 'assessment-card-expanded';
+    }
+
+    // Standard: Everything else
+    return 'assessment-card-standard';
+  };
+
   // Format date for display
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'No due date';
@@ -110,6 +139,22 @@ export function AssessmentCard({
       default:
         return <ClipboardList className="h-4 w-4" />;
     }
+  };
+
+  // Get grading method display
+  const getGradingMethod = () => {
+    if (assessment.rubricId) {
+      return {
+        label: 'Rubric',
+        variant: 'secondary' as const,
+        icon: <ClipboardList className="h-3 w-3" />
+      };
+    }
+    return {
+      label: 'Score',
+      variant: 'outline' as const,
+      icon: <BarChart className="h-3 w-3" />
+    };
   };
 
   // Get status color
@@ -161,11 +206,11 @@ export function AssessmentCard({
   };
 
   return (
-    <Card className={cn("overflow-hidden", className)}>
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
+    <Card className={cn("overflow-hidden h-full flex flex-col transition-all duration-200 hover:shadow-lg", getCardSizeClass(), className)}>
+      <CardHeader className="pb-3 flex-shrink-0">
+        <div className="flex justify-between items-start gap-2">
+          <div className="space-y-2 flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
               <Badge variant={getStatusColor()}>
                 {assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1)}
               </Badge>
@@ -174,11 +219,19 @@ export function AssessmentCard({
                   Past Due
                 </Badge>
               )}
+              <Badge variant={getGradingMethod().variant} className="text-xs">
+                {getGradingMethod().icon}
+                <span className="ml-1">{getGradingMethod().label}</span>
+              </Badge>
             </div>
-            <CardTitle className="line-clamp-1">{assessment.title}</CardTitle>
-            <CardDescription className="line-clamp-2">
-              {assessment.description || `${assessment.assessmentType} assessment`}
-            </CardDescription>
+            <CardTitle className={getTitleClass()} title={assessment.title}>
+              {assessment.title}
+            </CardTitle>
+            {assessment.description && (
+              <CardDescription className="line-clamp-2 text-sm">
+                {assessment.description}
+              </CardDescription>
+            )}
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -225,25 +278,25 @@ export function AssessmentCard({
           </DropdownMenu>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 flex flex-col justify-between">
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2 text-sm">
             <div className="flex items-center gap-1 text-muted-foreground">
               {getAssessmentTypeIcon()}
-              <span>{assessment.assessmentType}</span>
+              <span className="truncate">{assessment.assessmentType}</span>
             </div>
 
             {assessment.subject && (
               <div className="flex items-center gap-1 text-muted-foreground">
-                <BookOpen className="h-4 w-4" />
-                <span>{assessment.subject}</span>
+                <BookOpen className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">{assessment.subject}</span>
               </div>
             )}
 
             {assessment.dueDate && (
               <div className="flex items-center gap-1 text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>{formatDate(assessment.dueDate)}</span>
+                <Calendar className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">{formatDate(assessment.dueDate)}</span>
               </div>
             )}
           </div>
@@ -290,7 +343,7 @@ export function AssessmentCard({
           )}
         </div>
       </CardContent>
-      <CardFooter className="flex gap-2">
+      <CardFooter className="flex gap-2 flex-shrink-0 mt-auto">
         {onView && (
           <Button
             variant="outline"

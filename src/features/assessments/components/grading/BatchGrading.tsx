@@ -7,7 +7,8 @@
  * at once using batch operations with Bloom's Taxonomy integration.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -92,6 +93,7 @@ export function BatchGrading({
   const [activeTab, setActiveTab] = useState<'grading' | 'analytics'>('grading');
   const [bulkScore, setBulkScore] = useState<string>('');
   const [bulkFeedback, setBulkFeedback] = useState<string>('');
+  const parentRef = useRef<HTMLDivElement>(null);
 
   // Initialize grades from existing data
   useEffect(() => {
@@ -110,8 +112,11 @@ export function BatchGrading({
 
   // Filter students based on search and status
   const filteredStudents = students.filter(student => {
-    const matchesSearch = student.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         student.studentEmail.toLowerCase().includes(searchQuery.toLowerCase());
+    const studentName = student.studentName || student.name || '';
+    const studentEmail = student.studentEmail || student.email || '';
+
+    const matchesSearch = studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         studentEmail.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStatus = filterStatus === 'all' ||
                          (filterStatus === 'graded' && student.status === 'graded') ||
@@ -154,6 +159,9 @@ export function BatchGrading({
     setGrades(prev => ({
       ...prev,
       [studentId]: {
+        studentId,
+        score: 0,
+        feedback: '',
         ...prev[studentId],
         [field]: value,
       },
@@ -216,10 +224,23 @@ export function BatchGrading({
     const gradesToSave = Object.values(grades).filter(grade =>
       selectedStudents.has(grade.studentId)
     );
+
+    if (gradesToSave.length === 0) {
+      return;
+    }
+
     await onSave(gradesToSave);
   };
 
   const analytics = getAnalytics();
+
+  // Set up virtualization for large student lists
+  const rowVirtualizer = useVirtualizer({
+    count: filteredStudents.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 80, // Estimated row height
+    overscan: 10, // Render extra items for smooth scrolling
+  });
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -356,34 +377,66 @@ export function BatchGrading({
                       {showBloomsAnalysis && bloomsDistribution && <TableHead>Bloom's Levels</TableHead>}
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
-                    {filteredStudents.map((student) => {
+                </Table>
+
+                {/* Virtualized Table Body */}
+                <div
+                  ref={parentRef}
+                  className="overflow-auto"
+                  style={{ height: '600px' }}
+                >
+                  <div
+                    style={{
+                      height: `${rowVirtualizer.getTotalSize()}px`,
+                      width: '100%',
+                      position: 'relative',
+                    }}
+                  >
+                    {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                      const student = filteredStudents[virtualRow.index];
                       const grade = grades[student.studentId];
+
                       return (
-                        <TableRow key={student.studentId}>
-                          <TableCell>
+                        <div
+                          key={`${student.studentId}-${virtualRow.index}`}
+                          className="absolute w-full border-b hover:bg-gray-50"
+                          style={{
+                            height: `${virtualRow.size}px`,
+                            transform: `translateY(${virtualRow.start}px)`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '0 16px',
+                          }}
+                        >
+                          {/* Checkbox */}
+                          <div className="w-[40px] flex justify-center">
                             <Checkbox
                               checked={selectedStudents.has(student.studentId)}
                               onCheckedChange={() => toggleStudentSelection(student.studentId)}
                             />
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{student.studentName}</div>
-                              <div className="text-xs text-muted-foreground">{student.studentEmail}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
+                          </div>
+
+                          {/* Student Info */}
+                          <div className="flex-1 min-w-0 px-4">
+                            <div className="font-medium truncate">{student.studentName || student.name || 'Unknown Student'}</div>
+                            <div className="text-xs text-muted-foreground truncate">{student.studentEmail || student.email || ''}</div>
+                          </div>
+
+                          {/* Status */}
+                          <div className="w-24 px-2">
                             <Badge
                               variant={
                                 student.status === 'graded' ? 'default' :
                                 student.status === 'submitted' ? 'secondary' : 'outline'
                               }
+                              className="text-xs"
                             >
                               {student.status}
                             </Badge>
-                          </TableCell>
-                          <TableCell>
+                          </div>
+
+                          {/* Score Input */}
+                          <div className="w-20 px-2">
                             <Input
                               type="number"
                               value={grade?.score || 0}
@@ -396,10 +449,12 @@ export function BatchGrading({
                               }}
                               min={0}
                               max={maxScore}
-                              className="w-20"
+                              className="w-full text-sm"
                             />
-                          </TableCell>
-                          <TableCell>
+                          </div>
+
+                          {/* Feedback */}
+                          <div className="w-48 px-2">
                             <Textarea
                               value={grade?.feedback || ''}
                               onChange={(e) => handleGradeChange(
@@ -408,37 +463,29 @@ export function BatchGrading({
                                 e.target.value
                               )}
                               placeholder="Feedback..."
-                              className="min-h-[60px] max-w-[200px]"
+                              className="min-h-[40px] text-sm resize-none"
+                              rows={2}
                             />
-                          </TableCell>
+                          </div>
+
+                          {/* Bloom's Levels */}
                           {showBloomsAnalysis && bloomsDistribution && (
-                            <TableCell>
-                              <div className="flex flex-wrap gap-1">
-                                {Object.entries(grade?.bloomsLevelScores || {}).map(([level, score]) => {
-                                  const metadata = BLOOMS_LEVEL_METADATA[level as BloomsTaxonomyLevel];
-                                  const maxLevelScore = (maxScore * (bloomsDistribution[level as BloomsTaxonomyLevel] || 0)) / 100;
-                                  return (
-                                    <Badge
-                                      key={level}
-                                      variant="outline"
-                                      className="text-xs"
-                                      style={{
-                                        backgroundColor: `${metadata.color}20`,
-                                        borderColor: metadata.color,
-                                      }}
-                                    >
-                                      {metadata.name}: {score}/{maxLevelScore.toFixed(0)}
-                                    </Badge>
-                                  );
-                                })}
+                            <div className="w-32 px-2">
+                              <div className="text-xs space-y-1">
+                                {Object.entries(grade?.bloomsLevelScores || {}).map(([level, score]) => (
+                                  <div key={level} className="flex justify-between">
+                                    <span className="capitalize">{level}:</span>
+                                    <span>{score}</span>
+                                  </div>
+                                ))}
                               </div>
-                            </TableCell>
+                            </div>
                           )}
-                        </TableRow>
+                        </div>
                       );
                     })}
-                  </TableBody>
-                </Table>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

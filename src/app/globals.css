@@ -46,6 +46,84 @@
   }
 }
 
+/* Assessment Card Responsive Text */
+.assessment-title {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Dynamic title sizing based on content length */
+.assessment-title.short-title {
+  -webkit-line-clamp: 2;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.assessment-title.medium-title {
+  -webkit-line-clamp: 3;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.assessment-title.long-title {
+  -webkit-line-clamp: 4;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+/* Masonry-style grid for variable card heights */
+.assessment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* Card size variations based on content */
+.assessment-card-compact {
+  min-height: 280px;
+}
+
+.assessment-card-standard {
+  min-height: 320px;
+}
+
+.assessment-card-expanded {
+  min-height: 380px;
+}
+
+@media (max-width: 640px) {
+  .assessment-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .assessment-card-compact,
+  .assessment-card-standard,
+  .assessment-card-expanded {
+    min-height: auto;
+  }
+}
+
+@media (min-width: 1024px) {
+  .assessment-grid {
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  }
+}
+
+@media (min-width: 1536px) {
+  .assessment-grid {
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  }
+}
+
 /* Ensure minimum viable layout on very small screens */
 @media (max-width: 480px) {
   .social-wall-container {

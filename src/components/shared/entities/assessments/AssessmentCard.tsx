@@ -152,6 +152,9 @@ export function AssessmentCard({
             <Badge variant={getTypeBadgeVariant(assessment.type) as any}>
               {assessment.type}
             </Badge>
+            <Badge variant={getGradingTypeBadgeVariant(assessment.gradingType) as any} className="text-xs">
+              {assessment.gradingType === AssessmentGradingType.MANUAL ? 'Rubric' : 'Score'}
+            </Badge>
           </div>
         </div>
       </CardHeader>

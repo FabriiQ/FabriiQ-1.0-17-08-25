@@ -189,12 +189,14 @@ export const rewardsRouter = createTRPCRouter({
           // This is a simplified calculation - in a real app, you'd query the database
           // to get the actual teacher bonus points
           if (result.stats) {
-            // Get points that were awarded by teachers (source: 'teacher')
+            // Get points that were awarded by teachers (multiple possible sources)
             try {
               const teacherBonusPoints = await ctx.prisma.studentPoints.aggregate({
                 where: {
                   classId,
-                  source: 'teacher',
+                  source: {
+                    in: ['teacher-bonus', 'teacher', 'bonus', 'participation', 'behavior', 'improvement', 'other']
+                  },
                   status: 'ACTIVE',
                 },
                 _sum: {
